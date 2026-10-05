@@ -365,6 +365,7 @@ public final class DecloggerGameTests {
         TestNetwork net = TestNetwork.build(helper, true);
         GridTracker nativeTracker = new GridTracker(10);
         GridTracker addonTracker = new GridTracker(10);
+        AtomicReference<FakeAddonCpu> addon = new AtomicReference<>();
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
                 .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
@@ -374,13 +375,26 @@ public final class DecloggerGameTests {
                 .thenExecute(net::submit)
                 .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
                         "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
+                .thenExecute(() -> addon.set(new FakeAddonCpu((CraftingCPUCluster) net.cpu())))
+                // Both trackers take a first look, then the add-on CPU's job must be seen to stall on its own.
+                .thenExecute(() -> {
+                    long now = System.currentTimeMillis();
+                    GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, net.cpu(), now, FAST, LIMITS);
+                    GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(), now, FAST, LIMITS);
+                })
+                .thenWaitUntil(() -> {
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(),
+                            System.currentTimeMillis(), FAST, LIMITS);
+                    helper.assertTrue(read.state() == JobState.STALLED, "waiting for the add-on CPU job to stall, have "
+                            + read.state());
+                })
                 .thenExecute(() -> {
                     CraftingCPUCluster cluster = (CraftingCPUCluster) net.cpu();
-                    FakeAddonCpu addon = new FakeAddonCpu(cluster);
+                    FakeAddonCpu addon2 = addon.get();
                     long now = System.currentTimeMillis();
                     JobView real = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, cluster, now,
                             FAST, LIMITS);
-                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon, now,
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon2, now,
                             FAST, LIMITS);
                     StepView realStone = step(helper, real, TestNetwork.STONE);
                     StepView readStone = step(helper, read, TestNetwork.STONE);
@@ -390,9 +404,12 @@ public final class DecloggerGameTests {
                     helper.assertTrue(readStone.machines().stream()
                             .anyMatch(m -> m.pos().equals(net.abs(TestNetwork.CHEST))),
                             "add-on CPU step does not point at the chest: " + readStone.machines());
+                    helper.assertTrue(read.state() == real.state() && readStone.reason() == realStone.reason(),
+                            "add-on CPU " + read.state() + "/" + readStone.reason() + " vs AE2 CPU " + real.state()
+                                    + "/" + realStone.reason());
                     helper.assertTrue(read.progress() == real.progress(),
                             "progress " + read.progress() + " vs " + real.progress());
-                    helper.assertTrue(addonTracker.cpuNumber(addon) == addonTracker.cpuNumber(cluster),
+                    helper.assertTrue(addonTracker.cpuNumber(addon2) == addonTracker.cpuNumber(cluster),
                             "add-on CPU should share its multiblock's number");
                 })
                 .thenExecute(() -> {
