@@ -41,7 +41,7 @@ import appeng.api.stacks.AEKey;
  */
 public final class DeclogNetwork {
 
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(Ae2Declogger.id("main"),
             () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -58,8 +58,6 @@ public final class DeclogNetwork {
         }, b -> new CloseMonitor(), (msg, player) -> DecloggerServer.closeMonitor(player));
         c2s(RequestMachine.class, RequestMachine::write, RequestMachine::read,
                 (msg, player) -> DecloggerServer.requestMachine(player, msg.dimension(), msg.pos(), msg.open()));
-        c2s(Teleport.class, Teleport::write, Teleport::read,
-                (msg, player) -> DecloggerServer.teleport(player, msg.dimension(), msg.pos()));
         c2s(ToggleAlerts.class, (m, b) -> {
         }, b -> new ToggleAlerts(), (msg, player) -> DecloggerServer.toggleAlerts(player));
         c2s(ClearHistory.class, (m, b) -> {
@@ -138,17 +136,6 @@ public final class DeclogNetwork {
         public static RequestMachine read(FriendlyByteBuf buf) {
             return new RequestMachine(buf.readResourceKey(Registries.DIMENSION), buf.readBlockPos(),
                     buf.readBoolean());
-        }
-    }
-
-    public record Teleport(ResourceKey<Level> dimension, BlockPos pos) {
-        public void write(FriendlyByteBuf buf) {
-            buf.writeResourceKey(dimension);
-            buf.writeBlockPos(pos);
-        }
-
-        public static Teleport read(FriendlyByteBuf buf) {
-            return new Teleport(buf.readResourceKey(Registries.DIMENSION), buf.readBlockPos());
         }
     }
 

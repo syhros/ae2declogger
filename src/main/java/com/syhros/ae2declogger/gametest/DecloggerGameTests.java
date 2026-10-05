@@ -37,6 +37,9 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
+import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
+
 /**
  * Runs inside a real (headless) server with AE2 loaded: builds small ME networks, starts crafting jobs and checks what
  * the analyser reports. Run with {@code ./gradlew runGameTestServer}.
@@ -339,6 +342,75 @@ public final class DecloggerGameTests {
                     List<HistoryEntry> history = tracker.historySince(-1);
                     helper.assertTrue(history.size() == 1 && !history.get(0).completed(),
                             "cancelled job should be recorded as cancelled: " + history);
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * An add-on CPU shaped like Advanced AE's quantum computer threads is read through reflection exactly like AE2's
+     * own CPU, gets its multiblock's number, and when it disappears after its job its crafting link decides whether
+     * the job counts as done or cancelled.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void addonCpuFinishedJobIsDone(GameTestHelper helper) {
+        addonCpuTest(helper, false);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void addonCpuCancelledJobIsCancelled(GameTestHelper helper) {
+        addonCpuTest(helper, true);
+    }
+
+    private static void addonCpuTest(GameTestHelper helper, boolean cancel) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        GridTracker nativeTracker = new GridTracker(10);
+        GridTracker addonTracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(4))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
+                        "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
+                .thenExecute(() -> {
+                    CraftingCPUCluster cluster = (CraftingCPUCluster) net.cpu();
+                    FakeAddonCpu addon = new FakeAddonCpu(cluster);
+                    long now = System.currentTimeMillis();
+                    JobView real = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, cluster, now,
+                            FAST, LIMITS);
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon, now,
+                            FAST, LIMITS);
+                    StepView realStone = step(helper, real, TestNetwork.STONE);
+                    StepView readStone = step(helper, read, TestNetwork.STONE);
+                    helper.assertTrue(readStone.active() == realStone.active() && readStone.active() == 4
+                            && readStone.stored() == realStone.stored() && readStone.pending() == realStone.pending(),
+                            "add-on CPU amounts differ: " + readStone + " vs " + realStone);
+                    helper.assertTrue(readStone.machines().stream()
+                            .anyMatch(m -> m.pos().equals(net.abs(TestNetwork.CHEST))),
+                            "add-on CPU step does not point at the chest: " + readStone.machines());
+                    helper.assertTrue(read.progress() == real.progress(),
+                            "progress " + read.progress() + " vs " + real.progress());
+                    helper.assertTrue(addonTracker.cpuNumber(addon) == addonTracker.cpuNumber(cluster),
+                            "add-on CPU should share its multiblock's number");
+                })
+                .thenExecute(() -> {
+                    if (cancel) {
+                        net.cpu().cancelJob();
+                    } else {
+                        net.insert(TestNetwork.STONE, 4);
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenExecute(() -> {
+                    // The add-on CPU object is gone after its job, as Advanced AE removes its thread CPUs.
+                    addonTracker.retainCpus(Set.<ICraftingCPU>of(), System.currentTimeMillis());
+                    List<HistoryEntry> history = addonTracker.historySince(-1);
+                    helper.assertTrue(history.size() == 1, "expected one history entry: " + history);
+                    helper.assertTrue(history.get(0).completed() == !cancel, (cancel
+                            ? "cancelled job on a vanished add-on CPU must count as cancelled: "
+                            : "finished job on a vanished add-on CPU must count as done: ") + history);
                 })
                 .thenSucceed();
     }

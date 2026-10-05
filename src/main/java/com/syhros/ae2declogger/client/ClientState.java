@@ -98,8 +98,4 @@ public final class ClientState {
     public static long serverNow() {
         return System.currentTimeMillis() + serverOffsetMs;
     }
-
-    public static boolean canTeleport() {
-        return summary != null && summary.canTeleport();
-    }
 }

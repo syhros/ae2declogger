@@ -6,6 +6,15 @@ Download **`ae2declogger-forge-@MC_VERSION@-@VERSION@.jar`** below and put it in
 - Applied Energistics 2 15.x
 - GregTech CEu Modern is optional. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
 
+## What's new in 1.2
+
+- **Advanced AE Quantum Computer support.** Jobs on a quantum computer now show their steps, the machine and why they are stuck, so Go To, View Machine and Pin work for them. The crafting status popup finds them too (no more "Waiting for the Declogger...").
+- **Finished jobs no longer show as Cancelled.** A job's result now comes from its crafting link. Before, a quantum computer job counted as cancelled because its CPU disappears when it finishes. History and Stats are correct again.
+- A quantum computer keeps one CPU number instead of a new one per job.
+- **Go To** outlines the machine in red with the way to it on the HUD, without adding a pin. **Pin** marks it in red and keeps it.
+- **Teleport is removed**, along with its `teleport` config section.
+- When the Declogger has no step details for an entry, the popup shows the job's state instead of waiting forever.
+
 ## What's new in 1.1
 
 - **No item any more.** The Declogger is built into AE2's own screens; there is nothing to craft or carry.
@@ -20,7 +29,7 @@ Download **`ae2declogger-forge-@MC_VERSION@-@VERSION@.jar`** below and put it in
 2. Click a framed entry and press **Inspect**.
 3. Press **K** to open the monitor again later.
 
-Hotkeys can be changed under Options → Controls → Key Binds → AE2 Declogger. Settings are in `config/ae2declogger-common.toml` (detection times, update rate, teleport permissions) and `config/ae2declogger-client.toml` (alerts, pins, terminal button, crafting screen overlay).
+Hotkeys can be changed under Options → Controls → Key Binds → AE2 Declogger. Settings are in `config/ae2declogger-common.toml` (detection times, update rate) and `config/ae2declogger-client.toml` (alerts, pins, terminal button, crafting screen overlay).
 
 The full guide, with every config option and every block reason, is in the [README](https://github.com/syhros/ae2-debugger#readme).
 

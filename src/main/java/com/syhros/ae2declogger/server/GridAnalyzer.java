@@ -92,6 +92,17 @@ public final class GridAnalyzer {
         return new GridAnalyzer(grid, tracker, nowMs, thresholds, limits).run();
     }
 
+    /** Visible for game tests: analyses one CPU the way a network scan would. */
+    public static JobView analyzeCpuForTests(IGrid grid, GridTracker tracker, ICraftingCPU cpu, long nowMs,
+            Thresholds thresholds, Limits limits) {
+        CraftingJobStatus status = cpu.getJobStatus();
+        if (status == null) {
+            throw new IllegalStateException("CPU has no job");
+        }
+        return new GridAnalyzer(grid, tracker, nowMs, thresholds, limits).analyzeJob(cpu, tracker.cpuNumber(cpu),
+                status);
+    }
+
     private GridAnalysis run() {
         int cpus = 0;
         int busy = 0;

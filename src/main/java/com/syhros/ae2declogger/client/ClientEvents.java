@@ -62,6 +62,7 @@ public final class ClientEvents {
                 return;
             }
             Minecraft mc = Minecraft.getInstance();
+            PinManager.tickTarget(mc.player);
             while (KeyBindings.OPEN_MONITOR.consumeClick()) {
                 if (mc.player != null && mc.screen == null) {
                     DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(false));

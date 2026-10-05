@@ -28,13 +28,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
 /**
- * Locator pins, saved per world/server in {@code <game dir>/ae2declogger/pins/<world>.json}. One pin can be "active":
- * the HUD then shows the way to it.
+ * Locator pins, saved per world/server in {@code <game dir>/ae2declogger/pins/<world>.json}, plus one unsaved Go To
+ * target. One of them can be "active": the HUD then shows the way to it.
  */
 public final class PinManager {
 
     public static final int MAX_PINS = 64;
-    private static final int[] COLORS = { 0xFF5555, 0xFFAA00, 0xFFFF55, 0x55FF55, 0x55FFFF, 0x5555FF, 0xFF55FF };
+    /** Pins and the Go To outline are red. */
+    public static final int PIN_COLOR = 0xFF3333;
+    /** After reaching the Go To target, its outline stays this long. */
+    private static final long TARGET_LINGER_MS = 30_000;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static final class Pin {
@@ -70,6 +73,10 @@ public final class PinManager {
     private static boolean hidden;
     @Nullable
     private static Path file;
+    /** Go To target: outlined and navigated to, but not saved and not in the pin list. */
+    @Nullable
+    private static Pin target;
+    private static long targetReachedAtMs = -1;
 
     private PinManager() {
     }
@@ -78,8 +85,64 @@ public final class PinManager {
         return Collections.unmodifiableList(PINS);
     }
 
+    /** Saved pins plus the Go To target, for drawing. */
+    public static List<Pin> visiblePins() {
+        if (target == null) {
+            return pins();
+        }
+        List<Pin> all = new ArrayList<>(PINS.size() + 1);
+        all.add(target);
+        all.addAll(PINS);
+        return all;
+    }
+
+    @Nullable
+    public static Pin target() {
+        return target;
+    }
+
+    /** Outlines a machine in red and shows the way to it, without adding it to the pin list. */
+    public static void setTarget(String label, ResourceKey<Level> dimension, BlockPos pos) {
+        Pin pin = new Pin();
+        pin.id = "goto";
+        pin.label = label;
+        pin.dimension = dimension.location().toString();
+        pin.x = pos.getX();
+        pin.y = pos.getY();
+        pin.z = pos.getZ();
+        pin.color = PIN_COLOR;
+        pin.created = System.currentTimeMillis();
+        target = pin;
+        targetReachedAtMs = -1;
+        hidden = false;
+    }
+
+    public static void clearTarget() {
+        target = null;
+        targetReachedAtMs = -1;
+    }
+
+    /** Called every client tick: the Go To outline goes away a while after the player reached it. */
+    public static void tickTarget(@Nullable net.minecraft.world.entity.player.Player player) {
+        if (target == null || player == null) {
+            return;
+        }
+        boolean sameDim = player.level().dimension().location().toString().equals(target.dimension);
+        boolean near = sameDim && player.blockPosition().distSqr(target.pos()) <= 5 * 5;
+        long now = System.currentTimeMillis();
+        if (near && targetReachedAtMs < 0) {
+            targetReachedAtMs = now;
+        }
+        if (targetReachedAtMs >= 0 && now - targetReachedAtMs > TARGET_LINGER_MS) {
+            clearTarget();
+        }
+    }
+
     @Nullable
     public static Pin active() {
+        if (target != null) {
+            return target;
+        }
         if (activeId == null) {
             return null;
         }
@@ -120,7 +183,7 @@ public final class PinManager {
         pin.x = pos.getX();
         pin.y = pos.getY();
         pin.z = pos.getZ();
-        pin.color = COLORS[Math.floorMod(PINS.size(), COLORS.length)];
+        pin.color = PIN_COLOR;
         pin.created = System.currentTimeMillis();
         PINS.add(0, pin);
         save();
@@ -128,6 +191,7 @@ public final class PinManager {
     }
 
     public static void setActive(@Nullable Pin pin) {
+        clearTarget();
         activeId = pin == null ? null : pin.id;
         if (pin != null) {
             hidden = false;
@@ -200,6 +264,7 @@ public final class PinManager {
         save();
         PINS.clear();
         activeId = null;
+        clearTarget();
         file = null;
     }
 

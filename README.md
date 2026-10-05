@@ -63,10 +63,9 @@ Buttons along the bottom act on the selected step's machine, or on the job's mai
 
 | Button | What it does |
 |---|---|
-| Go To | Pins the machine, starts navigating to it and closes the monitor |
+| Go To | Closes the monitor and outlines the machine in red, through walls, with the way to it on the HUD. The outline is not saved; it goes away 30 seconds after you reach the machine |
 | View Machine | Opens the read-only machine viewer |
-| Pin | Pins the machine without navigating |
-| Teleport | Teleports you next to the machine. Operators can teleport to any machine or pin; creative players without op only to machines the monitor lists (see config) |
+| Pin | Marks the machine in red and keeps it in the Pins tab (saved) |
 
 Other controls: **!** shows only slow, stalled and blocked jobs. **♪** turns stall alerts on or off. The search box filters by item name (Ctrl+F jumps to it). Keys **1** to **4** switch tabs. Right-clicking a job or step opens its machine straight away.
 
@@ -108,7 +107,7 @@ It refreshes once a second. There is no container behind it, so you cannot take 
 
 ### Locator pins
 
-A pin draws a coloured box and a label on the machine. Both are visible through walls, up to 256 blocks away. The pin you are navigating to also shows a line at the top of the screen with its distance, a direction arrow and how far up or down it is. Pins are saved per world or server in `<minecraft folder>/ae2declogger/pins/`.
+A pin draws a red box and a label on the machine. Both are visible through walls, up to 256 blocks away. The pin you are navigating to also shows a line at the top of the screen with its distance, a direction arrow and how far up or down it is. Pins are saved per world or server in `<minecraft folder>/ae2declogger/pins/`.
 
 In the Pins tab, click a pin to select it and click it again (or press Navigate) to navigate to it.
 
@@ -123,7 +122,7 @@ All can be changed under Options → Controls → Key Binds → AE2 Declogger.
 | Key | Action | Default |
 |---|---|---|
 | Open crafting monitor | Opens the monitor for the ME block you look at, or the last network you opened | **K** |
-| Stop navigating to pin | Clears the active pin | not bound |
+| Stop navigating | Stops navigating and clears the Go To outline | not bound |
 | Show/hide locator pins | Hides or shows all pins in the world | not bound |
 
 Inside the monitor: **1**-**4** switch tabs, **Ctrl+F** focuses the search box, **Esc** closes.
@@ -150,9 +149,6 @@ Used by the server (in single player, by the built-in server).
 | machineViewer | `maxSlots` | 108 | 9-512 | Most slots and tanks shown for one machine |
 | link | `allowCrossDimension` | true | | Let **K** open the last network from another dimension |
 | link | `maxLinkDistance` | 0 | 0-1000000 | Most blocks from the last network for **K**; 0 = no limit |
-| teleport | `enabled` | true | | Show and allow the Teleport buttons |
-| teleport | `permissionLevel` | 2 | 0-4 | Permission level needed to teleport |
-| teleport | `allowInCreative` | true | | Creative-mode players may always teleport |
 
 A GregTech machine that reports it is working never shows as Stalled, only as Slow once it runs past recipe time × `recipeTimeMultiplier`. Long GT recipes do not raise false alarms.
 
@@ -175,16 +171,16 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 
 - You can watch a network if you can open one of its terminals or crafting CPUs, or if you are close enough to look at one of its blocks. The last network is remembered per player.
 - The machine viewer opens only for machines listed in your open monitor, or for operators. Refresh requests are rate-limited.
-- Teleport needs `permissionLevel` (operators by default) to go anywhere. With `allowInCreative`, creative players without that level can only teleport to machines their open monitor lists.
 - The server does no work for networks nobody is watching.
 
 ## Compatibility
 
 - **Offline CPUs.** A crafting CPU that loses power or its channel mid-job stays in the list as "Crafting CPU offline" instead of disappearing.
-- **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail. Others show the job, progress and time only.
+- **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail.
+- **Advanced AE.** Quantum Computer CPUs show full detail too: steps, machines and block reasons. They are read by name (Advanced AE 1.1 to 1.3 are checked in CI), and a job on one counts as done or cancelled from its crafting link, not from its CPU disappearing. A quantum computer keeps one CPU number for all its jobs. Other add-on CPUs show the job, progress and time only.
 - **GregTech CEu Modern.** Status, recipe progress, waiting and failure reasons, power, maintenance and formed state come from GT directly. If a different GT version has a different API, the GT part switches itself off with one log line and machines show generic info.
 - **Without GregTech.** Everything works; machines show their block name, inventory, tanks and FE energy.
-- The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2 or GregTech. It even avoids AE2's own provider lookup, because walking it would shift which provider AE2 picks next.
+- The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2, Advanced AE or GregTech. It even avoids AE2's own provider lookup, because walking it would shift which provider AE2 picks next.
 
 ## Known limits
 
@@ -215,8 +211,10 @@ To publish a release, set `mod_version` in `gradle.properties`, then either push
   - a job whose results never come back is reported Stalled with the chest as its machine, and lands in History as complete once the results are inserted;
   - blocking mode with leftover inputs is reported Blocked;
   - a provider with nothing to push into is reported, then reports "No pattern provider" once removed;
+  - a CPU shaped like Advanced AE's quantum computer threads is read like AE2's own, and its job counts as done or cancelled correctly when the CPU disappears;
   - network lookup errors, the remembered network and alert data, and every packet's encoding.
 - **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets (including AE2's crafting status screen and its Inspect popup), checks what they show and takes screenshots.
+- **Advanced AE check**: downloads Advanced AE 1.1, 1.2 and 1.3 releases and checks every class, field and method name the Declogger reads.
 - **Server smoke test**: boots a real Forge server with the release jar, with AE2 alone and with AE2 + GregTech CEu Modern 7.5.3.
 - **GregTech check on a real server**: with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
 

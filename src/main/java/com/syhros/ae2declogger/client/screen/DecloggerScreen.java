@@ -71,9 +71,7 @@ public class DecloggerScreen extends Screen {
     private Button gotoButton;
     private Button viewButton;
     private Button pinButton;
-    private Button teleportButton;
     private Button navigateButton;
-    private Button pinTeleportButton;
     private Button pinRemoveButton;
 
     private long selectedJob = -1;
@@ -147,7 +145,7 @@ public class DecloggerScreen extends Screen {
         addRenderableWidget(search);
 
         int by = top + panelH - 21;
-        int bw = Math.min(90, (panelW - 12 - 9) / 4);
+        int bw = Math.min(110, (panelW - 12 - 6) / 3);
         int bx = left + 6;
         jobButtons.clear();
         gotoButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.goto"),
@@ -156,15 +154,12 @@ public class DecloggerScreen extends Screen {
                 b -> view(targetMachine())).bounds(bx + (bw + 3), by, bw, 16).build());
         pinButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.pin"),
                 b -> pin(targetMachine(), false)).bounds(bx + 2 * (bw + 3), by, bw, 16).build());
-        teleportButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.teleport"),
-                b -> teleport(targetMachine())).bounds(bx + 3 * (bw + 3), by, bw, 16).build());
         gotoButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.goto.tooltip")));
         viewButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.view.tooltip")));
         pinButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.pin.tooltip")));
         jobButtons.add(gotoButton);
         jobButtons.add(viewButton);
         jobButtons.add(pinButton);
-        jobButtons.add(teleportButton);
 
         historyButtons.clear();
         historyButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.export"),
@@ -182,13 +177,6 @@ public class DecloggerScreen extends Screen {
         pinButtons.clear();
         navigateButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.navigate"),
                 b -> toggleNavigate()).bounds(bx, by, bw, 16).build());
-        pinTeleportButton = addRenderableWidget(Button.builder(
-                Component.translatable("ae2declogger.button.teleport"), b -> {
-                    PinManager.Pin p = selectedPinObj();
-                    if (p != null && p.dimensionKey() != null) {
-                        DeclogNetwork.sendToServer(new DeclogNetwork.Teleport(p.dimensionKey(), p.pos()));
-                    }
-                }).bounds(bx + bw + 3, by, bw, 16).build());
         pinRemoveButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.remove"),
                 b -> {
                     PinManager.Pin p = selectedPinObj();
@@ -196,15 +184,14 @@ public class DecloggerScreen extends Screen {
                         PinManager.remove(p);
                         selectedPin = null;
                     }
-                }).bounds(bx + 2 * (bw + 3), by, bw, 16).build());
+                }).bounds(bx + bw + 3, by, bw, 16).build());
         pinButtons.add(navigateButton);
-        pinButtons.add(pinTeleportButton);
         pinButtons.add(pinRemoveButton);
         pinButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.clear_all"),
                 b -> {
                     PinManager.clear();
                     selectedPin = null;
-                }).bounds(bx + 3 * (bw + 3), by, bw, 16).build()));
+                }).bounds(bx + 2 * (bw + 3), by, bw, 16).build()));
 
         updateWidgets();
     }
@@ -229,15 +216,11 @@ public class DecloggerScreen extends Screen {
         gotoButton.active = target != null;
         viewButton.active = target != null;
         pinButton.active = target != null;
-        teleportButton.active = target != null && ClientState.canTeleport();
-        teleportButton.visible = tab == Tab.JOBS && ClientState.canTeleport();
 
         PinManager.Pin pin = selectedPinObj();
         navigateButton.active = pin != null;
         navigateButton.setMessage(Component.translatable(pin != null && pin == PinManager.active()
                 ? "ae2declogger.button.stop" : "ae2declogger.button.navigate"));
-        pinTeleportButton.active = pin != null && ClientState.canTeleport();
-        pinTeleportButton.visible = tab == Tab.PINS && ClientState.canTeleport();
         pinRemoveButton.active = pin != null;
 
         problemsButton.setMessage(Component.literal("!").withStyle(problemsOnly ? ChatFormatting.RED
@@ -420,24 +403,29 @@ public class DecloggerScreen extends Screen {
 
     // ---------------------------------------------------------------- actions
 
+    /** Closes the monitor and outlines the machine in red, with the way to it on the HUD, until you get there. */
     private void goTo(@Nullable MachineRef m) {
         if (m == null) {
             return;
         }
-        PinManager.Pin pin = pin(m, true);
-        PinManager.setActive(pin);
+        PinManager.setTarget(pinLabel(m), m.dimension(), m.pos());
         onClose();
+    }
+
+    private String pinLabel(MachineRef m) {
+        JobView job = selectedJobView();
+        String label = m.name().getString();
+        if (job != null) {
+            label = job.output().getDisplayName().getString() + " - " + label;
+        }
+        return label;
     }
 
     private PinManager.Pin pin(@Nullable MachineRef m, boolean quiet) {
         if (m == null) {
             return null;
         }
-        JobView job = selectedJobView();
-        String label = m.name().getString();
-        if (job != null) {
-            label = job.output().getDisplayName().getString() + " - " + label;
-        }
+        String label = pinLabel(m);
         PinManager.Pin pin = PinManager.add(label, m.dimension(), m.pos());
         if (!quiet && minecraft != null && minecraft.player != null) {
             minecraft.player.displayClientMessage(Component.translatable("ae2declogger.pin.added", label,
@@ -451,12 +439,6 @@ public class DecloggerScreen extends Screen {
             return;
         }
         DeclogNetwork.sendToServer(new DeclogNetwork.RequestMachine(m.dimension(), m.pos(), true));
-    }
-
-    private void teleport(@Nullable MachineRef m) {
-        if (m != null) {
-            DeclogNetwork.sendToServer(new DeclogNetwork.Teleport(m.dimension(), m.pos()));
-        }
     }
 
     private void toggleNavigate() {

@@ -43,6 +43,8 @@ public final class GridTracker {
         final long startedAtMs;
         @Nullable
         final ICraftingLink link;
+        /** The CPU exists only for this job (Advanced AE quantum computer), so it vanishing means the job ended. */
+        final boolean perJobCpu;
         @Nullable
         Fingerprint lastFingerprint;
         long lastActivityAtMs;
@@ -52,13 +54,14 @@ public final class GridTracker {
         final Map<AEKey, Long> blockedSince = new HashMap<>();
 
         CpuTrack(long jobId, @Nullable UUID craftId, GenericStack output, Component cpuName, long startedAtMs,
-                @Nullable ICraftingLink link) {
+                @Nullable ICraftingLink link, boolean perJobCpu) {
             this.jobId = jobId;
             this.craftId = craftId;
             this.output = output;
             this.cpuName = cpuName;
             this.startedAtMs = startedAtMs;
             this.link = link;
+            this.perJobCpu = perJobCpu;
             this.lastActivityAtMs = startedAtMs;
         }
 
@@ -117,7 +120,8 @@ public final class GridTracker {
     }
 
     private final Map<ICraftingCPU, CpuTrack> tracks = new IdentityHashMap<>();
-    private final Map<ICraftingCPU, Integer> cpuNumbers = new IdentityHashMap<>();
+    /** Keyed by {@link CpuAccess#numberKey}, so per-job add-on CPUs share their multiblock's number. */
+    private final Map<Object, Integer> cpuNumbers = new IdentityHashMap<>();
     private final BoundedHistory<Versioned> history;
     private long historyVersion;
     private int historyEpoch;
@@ -133,8 +137,8 @@ public final class GridTracker {
         this.history = new BoundedHistory<>(historySize);
     }
 
-    int cpuNumber(ICraftingCPU cpu) {
-        return cpuNumbers.computeIfAbsent(cpu, c -> nextCpuNumber++);
+    public int cpuNumber(ICraftingCPU cpu) {
+        return cpuNumbers.computeIfAbsent(CpuAccess.numberKey(cpu), c -> nextCpuNumber++);
     }
 
     @Nullable
@@ -152,7 +156,8 @@ public final class GridTracker {
         if (existing != null) {
             finish(existing, nowMs);
         }
-        CpuTrack created = new CpuTrack(JOB_IDS.getAndIncrement(), craftId, output, cpuName, startedAtMs, link);
+        CpuTrack created = new CpuTrack(JOB_IDS.getAndIncrement(), craftId, output, cpuName, startedAtMs, link,
+                CpuAccess.isPerJob(cpu));
         tracks.put(cpu, created);
         return created;
     }
@@ -165,8 +170,11 @@ public final class GridTracker {
         }
     }
 
-    /** Drops CPUs that no longer exist (crafting storage broken); their jobs count as cancelled. */
-    void retainCpus(Set<ICraftingCPU> present, long nowMs) {
+    /**
+     * Drops CPUs that no longer exist: a broken crafting storage (its job counts as cancelled), or an add-on CPU that
+     * only lived for one job (its job's crafting link says how it ended).
+     */
+    public void retainCpus(Set<ICraftingCPU> present, long nowMs) {
         Iterator<Map.Entry<ICraftingCPU, CpuTrack>> it = tracks.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<ICraftingCPU, CpuTrack> e = it.next();
@@ -175,7 +183,11 @@ public final class GridTracker {
                 it.remove();
             }
         }
-        cpuNumbers.keySet().retainAll(present);
+        Set<Object> keys = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (ICraftingCPU cpu : present) {
+            keys.add(CpuAccess.numberKey(cpu));
+        }
+        cpuNumbers.keySet().retainAll(keys);
     }
 
     private void finish(CpuTrack track, long nowMs) {
@@ -183,18 +195,31 @@ public final class GridTracker {
     }
 
     /**
-     * Records a job that left its CPU. AE2 only marks standalone jobs (started from a terminal) as cancelled, never as
-     * done, so "not cancelled" is what completion looks like.
+     * Records a job that left its CPU. A cancelled job has its crafting link cancelled; a finished one has it marked
+     * done (standalone jobs started from a terminal may only ever be cancelled, so "not cancelled" also counts as
+     * done).
      */
     private void finish(CpuTrack track, long nowMs, boolean cpuGone) {
-        boolean completed;
-        if (cpuGone) {
-            completed = false;
-        } else if (track.link != null) {
-            completed = !track.link.isCanceled();
-        } else {
-            completed = track.lastProgress >= 0.999f;
+        finish(track, nowMs, cpuGone, completed(track, cpuGone));
+    }
+
+    static boolean completed(CpuTrack track, boolean cpuGone) {
+        if (track.link != null) {
+            if (track.link.isCanceled()) {
+                return false;
+            }
+            if (track.link.isDone()) {
+                return true;
+            }
+            return !cpuGone || track.perJobCpu;
         }
+        if (cpuGone && !track.perJobCpu) {
+            return false;
+        }
+        return track.lastProgress >= 0.999f || track.perJobCpu;
+    }
+
+    private void finish(CpuTrack track, long nowMs, boolean cpuGone, boolean completed) {
         addHistory(new HistoryEntry(track.output.what(), track.output.amount(),
                 Math.max(0, nowMs - track.startedAtMs), completed, nowMs, track.cpuName));
     }
