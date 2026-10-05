@@ -60,10 +60,11 @@ public final class SelfTestServer {
     static final int IDLE = 0;
     static final int BUILD_REQUESTED = 1;
     static final int WAITING_FOR_NETWORK = 2;
-    static final int CALCULATING = 3;
-    static final int RUNNING = 4;
-    static final int COMPLETE_STONE_REQUESTED = 5;
-    static final int STONE_COMPLETED = 6;
+    static final int INSERTED = 3;
+    static final int CALCULATING = 4;
+    static final int RUNNING = 5;
+    static final int COMPLETE_STONE_REQUESTED = 6;
+    static final int STONE_COMPLETED = 7;
     static final int FAILED = 99;
 
     static final AtomicInteger STAGE = new AtomicInteger(IDLE);
@@ -147,6 +148,15 @@ public final class SelfTestServer {
                 }
                 insert(grid, COBBLE, 32);
                 insert(grid, SAND, 32);
+                waitTicks = 0;
+                STAGE.set(INSERTED);
+            }
+            case INSERTED -> {
+                // AE2 plans against a storage snapshot refreshed once per tick.
+                if (++waitTicks < 10) {
+                    return;
+                }
+                IGrid grid = grid(level);
                 PLANS.clear();
                 PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, IActionSource::empty, STONE, 4,
                         CalculationStrategy.REPORT_MISSING_ITEMS));

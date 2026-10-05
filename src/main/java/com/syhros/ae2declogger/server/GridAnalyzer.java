@@ -159,7 +159,7 @@ public final class GridAnalyzer {
         CpuAccess access = CpuAccess.of(cpu);
         ICraftingLink link = access.link();
         Component cpuName = cpu.getName() != null ? cpu.getName()
-                : Component.translatable("ae2declogger.cpu.numbered", number);
+                : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
         long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
         GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
                 status.crafting(), cpuName, now - elapsedMs, link, now);

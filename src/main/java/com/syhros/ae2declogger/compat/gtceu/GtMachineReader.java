@@ -131,7 +131,7 @@ final class GtMachineReader {
                 if (p instanceof IMaintenanceMachine maintenance && maintenance.hasMaintenanceProblems()) {
                     problem = BlockReason.stronger(problem, BlockReason.MACHINE_MAINTENANCE);
                     errors.add(Component.translatable("ae2declogger.gt.maintenance",
-                            maintenance.getNumMaintenanceProblems()));
+                            String.valueOf(maintenance.getNumMaintenanceProblems())));
                     break;
                 }
             }
@@ -145,7 +145,8 @@ final class GtMachineReader {
             euCapacity = energy.getEnergyCapacity();
             long oneTick = Math.max(1, energy.getInputVoltage());
             if (euCapacity > 0 && status != MachineStatus.WORKING && euStored < oneTick) {
-                Component msg = Component.translatable("ae2declogger.gt.no_energy", euStored, euCapacity);
+                Component msg = Component.translatable("ae2declogger.gt.no_energy", String.valueOf(euStored),
+                        String.valueOf(euCapacity));
                 errors.add(0, msg);
                 problem = BlockReason.MACHINE_NO_POWER;
                 detail = msg;

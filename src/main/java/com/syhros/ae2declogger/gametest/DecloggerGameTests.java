@@ -78,10 +78,10 @@ public final class DecloggerGameTests {
         AtomicReference<JobView> seen = new AtomicReference<>();
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
-                .thenExecute(() -> {
-                    net.insert(TestNetwork.COBBLE, 16);
-                    net.startCalculation(4);
-                })
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                // AE2 plans against a storage snapshot refreshed once per tick.
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(4))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
                 .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
@@ -169,10 +169,10 @@ public final class DecloggerGameTests {
         GridTracker tracker = new GridTracker(10);
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
-                .thenExecute(() -> {
-                    net.insert(TestNetwork.COBBLE, 16);
-                    net.startCalculation(2);
-                })
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                // AE2 plans against a storage snapshot refreshed once per tick.
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(2))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
                 .thenIdle(10)
@@ -210,10 +210,10 @@ public final class DecloggerGameTests {
         GridTracker tracker = new GridTracker(10);
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
-                .thenExecute(() -> {
-                    net.insert(TestNetwork.COBBLE, 16);
-                    net.startCalculation(2);
-                })
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                // AE2 plans against a storage snapshot refreshed once per tick.
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(2))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
                 .thenIdle(5)
