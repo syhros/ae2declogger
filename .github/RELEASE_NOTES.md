@@ -10,7 +10,7 @@ Download **`ae2declogger-forge-@MC_VERSION@-@VERSION@.jar`** below and put it in
 
 1. Craft the **AE2 Declogger** (Spyglass, 2 Logic Processors, Network Tool, Calculation Processor) or take it from the Tools & Utilities creative tab.
 2. Right-click any ME network block to link it. The monitor opens.
-3. Press **K** to open the monitor again from anywhere, as long as the linked Declogger is in your inventory.
+3. Press **K** to open the monitor again while the linked Declogger is in your inventory. The linked network must be loaded: you are nearby, or its chunks are chunk-loaded.
 4. Sneak + right-click a block to open the read-only machine viewer.
 
 Hotkeys can be changed under Options → Controls → Key Binds → AE2 Declogger. Settings are in `config/ae2declogger-common.toml` (detection times, update rate, teleport permissions) and `config/ae2declogger-client.toml` (alerts, pins, terminal button).

@@ -20,8 +20,8 @@ Install the jar on both the client and the server. In single player, the client 
 ## Download and install
 
 1. Get the jar:
-   - **From a release:** the repository's Releases page, file `ae2declogger-forge-1.20.1-<version>.jar`.
-   - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `ae2declogger-jar` artifact (a zip), and take `ae2declogger-forge-1.20.1-1.0.0.jar` out of it. Ignore the `-dev` jar.
+   - **From a release:** the [Releases page](https://github.com/syhros/ae2-debugger/releases), file `ae2declogger-forge-1.20.1-<version>.jar`.
+   - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `ae2declogger-jar` artifact (a zip), and take the jar out of it.
 2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
 3. On a server, copy the same jar into the server's `mods` folder too.
 4. Start the game. The item is under Tools & Utilities, or craft it (recipe below).
@@ -209,6 +209,7 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 - AE2 does not record which pattern provider took which push. When several providers hold the same pattern, all of their machines are listed and the one with a problem is shown first.
 - Items with NBT variants (damaged tools) that a pattern accepts by fuzzy match may show as "waiting for ingredients" a little longer than they should.
 - History is kept in memory and resets when the server restarts.
+- The mod does not load chunks. Opening the monitor with **K** and background alerts only work while the linked network is loaded (you are nearby, or it is chunk-loaded).
 
 ## Building from source
 
