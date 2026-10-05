@@ -4,6 +4,7 @@
 Fails if the server crashes, takes too long, or the log is missing expected lines or contains errors
 from this mod. Used by CI as a production-like check (reobfuscated jar, real mods folder).
 """
+import os
 import re
 import subprocess
 import sys
@@ -34,6 +35,17 @@ if not done.is_set():
     print(f"::error::Server did not finish starting within {timeout}s (exit={proc.poll()})")
     proc.kill()
     sys.exit(1)
+
+# Optionally wait for a log line (e.g. a self-test result) before stopping.
+wait_for = os.environ.get("WAIT_FOR")
+if wait_for:
+    deadline = time.time() + timeout
+    while time.time() < deadline and proc.poll() is None:
+        if any(re.search(wait_for, l) for l in lines):
+            break
+        time.sleep(1)
+    else:
+        print(f"::error::Did not see '{wait_for}' in the log")
 
 # Exercise the mod a little on the running server: the item exists and can be given.
 for cmd in ["forge mods", "give @a ae2declogger:declogger", "list", "stop"]:
