@@ -12,6 +12,7 @@ import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineRef;
 import com.syhros.ae2declogger.data.MachineSnapshot;
 import com.syhros.ae2declogger.logic.BlockReason;
+import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.logic.Thresholds;
 import com.syhros.ae2declogger.server.GridAnalysis;
 import com.syhros.ae2declogger.server.GridAnalyzer;
@@ -195,6 +196,9 @@ public final class GtServerSelfTest {
                     return;
                 }
                 List<String> problems = new ArrayList<>();
+                if (job.state() != JobState.BLOCKED) {
+                    problems.add("job state " + job.state() + ", expected BLOCKED");
+                }
                 MachineRef m = job.primaryMachine();
                 if (m == null || !m.pos().equals(furnace())) {
                     problems.add("primary machine is not the furnace: " + m);

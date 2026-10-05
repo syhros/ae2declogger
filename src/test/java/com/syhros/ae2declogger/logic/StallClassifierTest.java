@@ -97,6 +97,23 @@ class StallClassifierTest {
     }
 
     @Test
+    void hardMachineFaultsBlockSoftOnesDoNot() {
+        assertEquals(JobState.BLOCKED,
+                StallClassifier.classifyMachineFault(JobState.SLOW, BlockReason.MACHINE_NO_POWER));
+        assertEquals(JobState.BLOCKED,
+                StallClassifier.classifyMachineFault(JobState.STALLED, BlockReason.MACHINE_NOT_FORMED));
+        assertEquals(JobState.BLOCKED,
+                StallClassifier.classifyMachineFault(JobState.SLOW, BlockReason.MACHINE_OUTPUT_FULL));
+        // Soft machine states keep the time-based state.
+        assertEquals(JobState.SLOW, StallClassifier.classifyMachineFault(JobState.SLOW, BlockReason.MACHINE_WAITING));
+        assertEquals(JobState.STALLED,
+                StallClassifier.classifyMachineFault(JobState.STALLED, BlockReason.MACHINE_NO_RECIPE));
+        // A step that is still within its normal time is left alone.
+        assertEquals(JobState.IN_PROGRESS,
+                StallClassifier.classifyMachineFault(JobState.IN_PROGRESS, BlockReason.MACHINE_NO_POWER));
+    }
+
+    @Test
     void thresholdsRejectNegativeAndFixInvertedValues() {
         Thresholds fixed = new Thresholds(60_000, 10_000, 0, 0.5, 0);
         assertEquals(60_000, fixed.stallMs());

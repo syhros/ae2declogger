@@ -71,6 +71,17 @@ public enum BlockReason {
         return name().startsWith("MACHINE_");
     }
 
+    /**
+     * Machine faults that do not clear on their own (no power, switched off, not formed, maintenance, output full).
+     * Softer machine states such as "waiting" or "no matching recipe" can resolve by themselves.
+     */
+    public boolean isHardMachineFault() {
+        return switch (this) {
+            case MACHINE_NO_POWER, MACHINE_DISABLED, MACHINE_NOT_FORMED, MACHINE_MAINTENANCE, MACHINE_OUTPUT_FULL -> true;
+            default -> false;
+        };
+    }
+
     public String translationKey() {
         return "ae2declogger.reason." + name().toLowerCase(Locale.ROOT);
     }

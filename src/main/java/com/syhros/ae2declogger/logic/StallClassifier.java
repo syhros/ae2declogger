@@ -87,6 +87,17 @@ public final class StallClassifier {
         return idleMs >= limit ? JobState.SLOW : JobState.IN_PROGRESS;
     }
 
+    /**
+     * A step that is already slow or stalled and whose machine reports a hard fault is blocked: waiting longer will
+     * not help.
+     */
+    public static JobState classifyMachineFault(JobState state, BlockReason machineReason) {
+        if (state == JobState.IN_PROGRESS || machineReason == null || !machineReason.isHardMachineFault()) {
+            return state;
+        }
+        return JobState.worst(state, JobState.BLOCKED);
+    }
+
     static long clamp(long value, long min, long max) {
         return Math.max(min, Math.min(max, value));
     }

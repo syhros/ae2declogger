@@ -294,6 +294,7 @@ public final class GridAnalyzer {
                     if (bad != null) {
                         reason = bad.problem();
                         detail = bad.detail();
+                        state = StallClassifier.classifyMachineFault(state, reason);
                     } else if (anyWorking(machines)) {
                         // The machine is running a recipe: moving, maybe slowly, but not stuck.
                         state = StallClassifier.classifyWorking(idle, recipeMs, thresholds);

@@ -67,7 +67,7 @@ The header shows the network, how many crafting CPUs are busy and the stored AE 
 | In Progress | green | Moving normally |
 | Slow | yellow | No change for longer than expected, but not yet stuck |
 | Stalled | red | Items went out to a machine and nothing came back for too long |
-| Blocked | red | A step cannot start, and the reason has lasted at least 5 seconds |
+| Blocked | red | A step cannot start and the reason has lasted at least 5 seconds, or a slow step's machine has a fault that will not clear by itself (no power, switched off, not formed, maintenance, output full) |
 
 Click a job to see its steps below it. Each step shows the same three numbers as AE2's crafting status screen (stored in the CPU / out at machines / still to start), its own status, and the reason it is stuck.
 
@@ -233,6 +233,7 @@ The detection logic has its own Minecraft-free test build: `cd logic-tests && gr
   - network lookup errors, item link data, and every packet's encoding.
 - **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets, checks what they show and takes screenshots.
 - **Server smoke test**: boots a real Forge server with the release jar, with AE2 alone and with AE2 + GregTech CEu Modern 7.5.3.
+- **GregTech check on a real server**: with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
 
 All of these run in GitHub Actions on every pull request.
 
