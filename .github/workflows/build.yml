@@ -222,16 +222,25 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.pack == 'gtceu-selftest' && 'ci-gametest-jar' || 'ae2declogger-jar' }}
+          name: ae2declogger-jar
           path: jars
 
       - name: Create the GitHub release with the jar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          JAR=$(ls jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar')
+          VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match mod_version ${VERSION} in gradle.properties"
+            exit 1
+          fi
+          JAR=jars/ae2declogger-forge-${MC_VERSION}-${VERSION}.jar
+          test -f "$JAR"
+          sed -e "s/@VERSION@/${VERSION}/g" -e "s/@MC_VERSION@/${MC_VERSION}/g" .github/RELEASE_NOTES.md > notes.md
           gh release create "${GITHUB_REF_NAME}" "$JAR" --repo "${GITHUB_REPOSITORY}" \
-            --title "AE2 Declogger ${GITHUB_REF_NAME}" \
-            --notes "Forge 1.20.1, AE2 15.x. Put the jar in the mods folder on client and server."
+            --title "AE2 Declogger ${VERSION} (Forge ${MC_VERSION})" \
+            --notes-file notes.md
