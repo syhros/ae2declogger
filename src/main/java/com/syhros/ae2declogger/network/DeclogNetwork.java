@@ -41,7 +41,7 @@ import appeng.api.stacks.AEKey;
  */
 public final class DeclogNetwork {
 
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(Ae2Declogger.id("main"),
             () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -57,14 +57,15 @@ public final class DeclogNetwork {
         c2s(CloseMonitor.class, (m, b) -> {
         }, b -> new CloseMonitor(), (msg, player) -> DecloggerServer.closeMonitor(player));
         c2s(RequestMachine.class, RequestMachine::write, RequestMachine::read,
-                (msg, player) -> DecloggerServer.requestMachine(player, msg.dimension(), msg.pos(), msg.open(),
-                        false));
+                (msg, player) -> DecloggerServer.requestMachine(player, msg.dimension(), msg.pos(), msg.open()));
         c2s(Teleport.class, Teleport::write, Teleport::read,
                 (msg, player) -> DecloggerServer.teleport(player, msg.dimension(), msg.pos()));
         c2s(ToggleAlerts.class, (m, b) -> {
         }, b -> new ToggleAlerts(), (msg, player) -> DecloggerServer.toggleAlerts(player));
         c2s(ClearHistory.class, (m, b) -> {
         }, b -> new ClearHistory(), (msg, player) -> DecloggerServer.clearHistory(player));
+        c2s(WatchCraftingScreen.class, WatchCraftingScreen::write, WatchCraftingScreen::read,
+                (msg, player) -> DecloggerServer.watchCraftingScreen(player, msg.watch()));
 
         // Server -> client
         s2c(OpenMonitorScreen.class, OpenMonitorScreen::write, OpenMonitorScreen::read);
@@ -113,7 +114,7 @@ public final class DeclogNetwork {
 
     // ---------------------------------------------------------------- client -> server
 
-    /** Keybind or terminal button. */
+    /** Hotkey, or the button / Inspect in an AE2 screen ({@code fromTerminal}). */
     public record OpenMonitor(boolean fromTerminal) {
         public void write(FriendlyByteBuf buf) {
             buf.writeBoolean(fromTerminal);
@@ -157,6 +158,17 @@ public final class DeclogNetwork {
     public record ClearHistory() {
     }
 
+    /** AE2's crafting status screen opened ({@code watch}) or closed. */
+    public record WatchCraftingScreen(boolean watch) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeBoolean(watch);
+        }
+
+        public static WatchCraftingScreen read(FriendlyByteBuf buf) {
+            return new WatchCraftingScreen(buf.readBoolean());
+        }
+    }
+
     // ---------------------------------------------------------------- server -> client
 
     public record OpenMonitorScreen(Component title) {
@@ -175,10 +187,11 @@ public final class DeclogNetwork {
      * @param removed      ids of rows that are gone
      * @param order        ids of all current rows, in display order
      * @param history      finished jobs to add (oldest first), or the whole list when historyReset
-     * @param alertsOn     whether the player's Declogger has alerts enabled
+     * @param alertsOn     whether the player has alerts on for this network
+     * @param focusJob     job of the CPU shown in the AE2 crafting status screen the player has open, or -1
      */
     public record MonitorUpdate(boolean full, GridSummary summary, List<JobView> changed, long[] removed,
-            long[] order, List<HistoryEntry> history, boolean historyReset, boolean alertsOn) {
+            long[] order, List<HistoryEntry> history, boolean historyReset, boolean alertsOn, long focusJob) {
 
         public void write(FriendlyByteBuf buf) {
             buf.writeBoolean(full);
@@ -189,6 +202,7 @@ public final class DeclogNetwork {
             buf.writeCollection(history, (b, h) -> h.write(b));
             buf.writeBoolean(historyReset);
             buf.writeBoolean(alertsOn);
+            buf.writeLong(focusJob);
         }
 
         public static MonitorUpdate read(FriendlyByteBuf buf) {
@@ -200,7 +214,8 @@ public final class DeclogNetwork {
             List<HistoryEntry> history = dropNulls(buf.readList(HistoryEntry::read));
             boolean reset = buf.readBoolean();
             boolean alerts = buf.readBoolean();
-            return new MonitorUpdate(full, summary, changed, removed, order, history, reset, alerts);
+            long focus = buf.readLong();
+            return new MonitorUpdate(full, summary, changed, removed, order, history, reset, alerts, focus);
         }
     }
 

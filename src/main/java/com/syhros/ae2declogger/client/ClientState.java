@@ -14,6 +14,8 @@ import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineSnapshot;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
+import appeng.api.stacks.AEKey;
+
 import net.minecraft.network.chat.Component;
 
 /** What the client currently knows about the monitored network. Only touched on the render thread. */
@@ -28,6 +30,12 @@ public final class ClientState {
     /** Newest first. */
     public static final List<HistoryEntry> HISTORY = new ArrayList<>();
     public static boolean alertsOn;
+    /** Job of the CPU shown in AE2's crafting status screen (from the server), or -1. */
+    public static long focusJob = -1;
+    /** Set by Inspect: the monitor selects this job and step once it opens. */
+    public static long pendingFocusJob = -1;
+    @Nullable
+    public static AEKey pendingFocusStep;
     public static long serverOffsetMs;
     /** Bumped on every change so screens can rebuild cached lists. */
     public static long version;
@@ -45,6 +53,7 @@ public final class ClientState {
         JOBS.clear();
         HISTORY.clear();
         closedReason = null;
+        focusJob = -1;
         version++;
     }
 
@@ -75,6 +84,7 @@ public final class ClientState {
         summary = update.summary();
         serverOffsetMs = summary.serverTimeMs() - System.currentTimeMillis();
         alertsOn = update.alertsOn();
+        focusJob = update.focusJob();
         closedReason = null;
         version++;
     }

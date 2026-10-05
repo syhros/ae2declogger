@@ -100,6 +100,7 @@ Keep ``CONTEXT.md`` under 20 lines total. Do NOT summarize the full conversation
 - Read-only by design: never extract/insert, never iterate `CraftingService.getProviders()` (it moves AE2's round-robin cursor; use `ProviderIndex.providersFor`).
 - `logic/` is Minecraft-free and unit tested: `cd logic-tests && gradle test` works without Minecraft downloads.
 - Full checks run in GitHub Actions (`.github/workflows/build.yml`): build + unit tests, `runGameTestServer` (AE2 game tests in `gametest/`), `runSelfTestClient` under xvfb (screenshots pushed to the `ci-screenshots` branch), and a real Forge server smoke test with the release jar (AE2 only, and AE2 + GTCEu).
+- No items (removed in 1.1). Entry points: `client/CraftingScreenOverlay` (frames + Inspect popup on AE2's `CraftingCPUScreen`, layout read by reflection, falls back to `getStackUnderMouse`), the terminal icon button, and the K hotkey (looked-at ME block, else `server/NetworkMemory` last network). Alerts are per player per network via `NetworkMemory.alerts` in player persistent data.
 - `gametest/` and `data/ae2declogger/structures/` are excluded from the release jar.
-- Release: push a `v*` tag; CI attaches the jar to a GitHub release.
+- Release: push a `v*` tag, or run the "Build and test" workflow manually (Actions → Run workflow) with "release" ticked; the release job creates tag `v<mod_version>` and attaches the jar. Bump `mod_version` in gradle.properties first. Cloud sessions cannot push tags (403), so they use the manual run.
 

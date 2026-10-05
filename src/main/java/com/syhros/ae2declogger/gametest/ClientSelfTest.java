@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.client.ClientState;
+import com.syhros.ae2declogger.client.CraftingScreenOverlay;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
 import com.syhros.ae2declogger.client.screen.MachineViewerScreen;
@@ -37,6 +38,8 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+
+import appeng.client.gui.me.crafting.CraftingCPUScreen;
 
 /**
  * Automated client run (dev only): creates a flat creative world, lets {@link SelfTestServer} build a demo network,
@@ -126,8 +129,36 @@ public final class ClientSelfTest {
         then("jobs running", 0, () -> SelfTestServer.STAGE.get() >= SelfTestServer.RUNNING, () -> {
             check(SelfTestServer.STAGE.get() != SelfTestServer.FAILED, "server setup: " + SelfTestServer.failure);
         });
-        // Let both jobs get stuck (stall limit 3 s, blocked limit 1 s), then open the monitor like the keybind does.
-        then("open monitor", 140, () -> true,
+        // Let both jobs get stuck (stall limit 3 s, blocked limit 1 s), then open AE2's own crafting CPU screen for the
+        // stone job, as right-clicking the CPU does.
+        then("open AE2 crafting CPU screen", 140, () -> true,
+                () -> SelfTestServer.STAGE.set(SelfTestServer.OPEN_CPU_SCREEN));
+        then("CPU screen matched to the stone job", 0,
+                () -> mc().screen instanceof CraftingCPUScreen<?> && ClientState.JOBS.containsKey(ClientState.focusJob),
+                () -> {
+                    JobView focused = ClientState.JOBS.get(ClientState.focusJob);
+                    check(focused.output().equals(SelfTestServer.STONE),
+                            "the screen's CPU is matched to the stone job");
+                });
+        then("stuck stone entry is framed", 10, () -> CraftingScreenOverlay.testHasFrame(SelfTestServer.STONE),
+                () -> screenshot("01-ae2-crafting-screen-marked"));
+        then("click the stone entry", 0, () -> true, () -> check(
+                CraftingScreenOverlay.testClickEntry(SelfTestServer.STONE), "clicking the stone entry selects it"));
+        then("Inspect popup shown", 0, CraftingScreenOverlay::testPopupShown,
+                () -> screenshot("02-ae2-inspect-popup"));
+        then("press Inspect", 2, () -> true,
+                () -> check(CraftingScreenOverlay.testClickInspect(), "Inspect button clicked"));
+        then("monitor opened on the stone step", 0,
+                () -> monitor() != null && ClientState.summary != null && ClientState.pendingFocusJob < 0, () -> {
+                    JobView selected = ClientState.JOBS.get(monitor().testSelectedJob());
+                    check(selected != null && selected.output().equals(SelfTestServer.STONE),
+                            "Inspect selected the stone job");
+                    check(SelfTestServer.STONE.equals(monitor().testSelectedStep()), "Inspect selected the stone step");
+                });
+        then("monitor from Inspect shot", 5, () -> true, () -> screenshot("03-monitor-from-inspect"));
+        then("close monitor", 5, () -> true, () -> mc().screen.onClose());
+        // The hotkey opens the network the player used last.
+        then("open monitor", 10, () -> mc().screen == null,
                 () -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(false)));
         then("monitor shows jobs", 30, () -> monitor() != null && ClientState.JOBS.size() >= 2, () -> {
             JobView stone = job("Stone");
@@ -149,13 +180,13 @@ public final class ClientSelfTest {
             check(ClientState.summary != null && ClientState.summary.cpus() == 2, "summary shows 2 CPUs");
             monitor().testSelectJobNamed("Stone");
             monitor().testSelectStep(0);
-            screenshot("01-monitor-stalled-job");
+            screenshot("04-monitor-stalled-job");
         });
         then("select blocked job", 10, () -> monitor() != null, () -> {
             monitor().testSelectJobNamed("Glass");
             monitor().testSelectStep(0);
         });
-        then("screenshot blocked job", 5, () -> true, () -> screenshot("02-monitor-blocked-job"));
+        then("screenshot blocked job", 5, () -> true, () -> screenshot("05-monitor-blocked-job"));
         then("open viewer", 0, () -> monitor() != null, () -> {
             monitor().testSelectJobNamed("Stone");
             monitor().testSelectStep(0);
@@ -169,7 +200,7 @@ public final class ClientSelfTest {
                             .anyMatch(s -> s.stack() != null && s.stack().what().equals(SelfTestServer.COBBLE)
                                     && s.stack().amount() == 4 && s.has(MachineSnapshot.FLAG_PATTERN_INPUT));
                     check(hasCobble, "viewer shows 4 cobblestone flagged as pattern input");
-                    screenshot("03-machine-viewer");
+                    screenshot("06-machine-viewer");
                 });
         then("back to monitor", 0, () -> true, () -> mc().screen.onClose());
         then("monitor again", 10, () -> monitor() != null, () -> {
@@ -184,9 +215,9 @@ public final class ClientSelfTest {
             check(job("Stone") == null, "finished job left the job list");
             monitor().testSwitchTab(1);
         });
-        then("history tab", 5, () -> true, () -> screenshot("04-history"));
+        then("history tab", 5, () -> true, () -> screenshot("07-history"));
         then("stats tab", 5, () -> monitor() != null, () -> monitor().testSwitchTab(2));
-        then("stats shot", 5, () -> true, () -> screenshot("05-stats"));
+        then("stats shot", 5, () -> true, () -> screenshot("08-stats"));
         then("go to blocked machine", 5, () -> monitor() != null, () -> {
             monitor().testSwitchTab(0);
             monitor().testSelectJobNamed("Glass");
@@ -197,12 +228,12 @@ public final class ClientSelfTest {
             check(PinManager.active() != null, "Go To created an active pin");
             check(PinManager.active() != null && PinManager.active().pos().equals(SelfTestServer.chestB()),
                     "pin is on chest B");
-            screenshot("06-world-pin-and-hud");
+            screenshot("09-world-pin-and-hud");
         });
         then("reopen monitor", 0, () -> true,
                 () -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(false)));
         then("pins tab", 20, () -> monitor() != null, () -> monitor().testSwitchTab(3));
-        then("pins shot", 5, () -> true, () -> screenshot("07-pins"));
+        then("pins shot", 5, () -> true, () -> screenshot("10-pins"));
         then("close", 5, () -> true, () -> mc().screen.onClose());
         then("unsubscribed", 20, () -> mc().screen == null, () -> {
             check(!PinManager.pins().isEmpty(), "pins kept after closing");

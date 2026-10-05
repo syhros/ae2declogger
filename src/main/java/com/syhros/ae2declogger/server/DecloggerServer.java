@@ -20,7 +20,6 @@ import com.syhros.ae2declogger.data.GridSummary;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineSnapshot;
-import com.syhros.ae2declogger.item.DecloggerItem;
 import com.syhros.ae2declogger.logic.AlertTracker;
 import com.syhros.ae2declogger.logic.DeltaTracker;
 import com.syhros.ae2declogger.logic.JobState;
@@ -34,7 +33,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.level.Level;
 
 import appeng.api.crafting.IPatternDetails;
@@ -43,7 +44,10 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.networking.GridHelper;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.AEBaseMenu;
+import appeng.menu.me.crafting.CraftingCPUMenu;
 
 /**
  * Server side of the mod: who is watching which network, sending them updates, background stall alerts, the machine
@@ -69,9 +73,17 @@ public final class DecloggerServer {
         @Nullable
         GridSummary lastSummary;
         boolean lastAlerts;
+        long lastFocus = -1;
+        /** Set while the player has AE2's crafting status screen open: no monitor screen, data for the overlay only. */
+        @Nullable
+        WeakReference<AbstractContainerMenu> overlayMenu;
 
         Subscription(GridSource source) {
             this.source = source;
+        }
+
+        boolean overlay() {
+            return overlayMenu != null;
         }
     }
 
@@ -89,31 +101,108 @@ public final class DecloggerServer {
 
     // ---------------------------------------------------------------- monitor
 
-    /** Keybind (linked item in inventory) or the button in an AE2 terminal. */
+    /**
+     * The button in an AE2 terminal or crafting status screen ({@code fromTerminal}), or the hotkey: the ME block the
+     * player is looking at, otherwise the network they opened last.
+     */
     public static void openFromRequest(ServerPlayer player, boolean fromTerminal) {
         if (fromTerminal) {
-            if (player.containerMenu instanceof AEBaseMenu menu && menu.getTarget() instanceof IActionHost host) {
-                IGridNode node = host.getActionableNode();
-                if (node != null) {
-                    Component title = Component.translatable("ae2declogger.monitor.title_terminal");
-                    // Close the terminal first so the client is not left with a dangling container.
-                    player.closeContainer();
-                    openMonitor(player, GridSource.ofNode(node, title));
-                    return;
-                }
+            IGridNode node = menuNode(player.containerMenu);
+            if (node != null) {
+                Component title = Component.translatable("ae2declogger.monitor.title_terminal");
+                // Close the terminal first so the client is not left with a dangling container.
+                player.closeContainer();
+                openMonitor(player, GridSource.ofNode(node, title));
+                return;
             }
             player.displayClientMessage(Component.translatable("ae2declogger.error.no_terminal")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
-        ItemStack stack = DecloggerItem.findLinked(player, false);
-        if (stack.isEmpty()) {
-            player.displayClientMessage(Component.translatable("ae2declogger.error.no_item")
+        HitResult hit = player.pick(player.getBlockReach(), 1.0f, false);
+        if (hit instanceof BlockHitResult blockHit && hit.getType() == HitResult.Type.BLOCK
+                && GridHelper.getNodeHost(player.level(), blockHit.getBlockPos()) != null) {
+            GlobalPos pos = GlobalPos.of(player.level().dimension(), blockHit.getBlockPos());
+            openMonitor(player, GridSource.ofLink(pos, blockHit.getDirection(),
+                    Component.translatable("ae2declogger.monitor.title")));
+            return;
+        }
+        GlobalPos last = NetworkMemory.last(player);
+        if (last == null) {
+            player.displayClientMessage(Component.translatable("ae2declogger.error.no_network")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
-        openMonitor(player, DecloggerItem.sourceOf(stack, null));
+        openMonitor(player, GridSource.ofLink(last, null, Component.translatable("ae2declogger.monitor.title")));
     }
+
+    /** The grid node behind an open AE2 screen (terminal, wireless terminal, crafting CPU or status screen). */
+    @Nullable
+    static IGridNode menuNode(AbstractContainerMenu menu) {
+        if (menu instanceof AEBaseMenu aeMenu) {
+            Object target = aeMenu.getTarget();
+            if (target instanceof IActionHost host) {
+                return host.getActionableNode();
+            }
+            if (target instanceof appeng.api.networking.IInWorldGridNodeHost host) {
+                return host.getGridNode(null);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * AE2's crafting status screen opened ({@code watch}) or closed. While it is open the client gets the analysis for
+     * that network so it can mark stuck entries and offer Inspect.
+     */
+    public static void watchCraftingScreen(ServerPlayer player, boolean watch) {
+        Subscription current = MONITORS.get(player.getUUID());
+        if (!watch) {
+            if (current != null && current.overlay()) {
+                MONITORS.remove(player.getUUID());
+            }
+            return;
+        }
+        AbstractContainerMenu menu = player.containerMenu;
+        IGridNode node = menu instanceof CraftingCPUMenu ? menuNode(menu) : null;
+        if (node == null) {
+            return;
+        }
+        GridSource source = GridSource.ofNode(node, Component.translatable("ae2declogger.monitor.title_terminal"));
+        GridSource.Resolved resolved = source.resolve(player);
+        if (resolved.grid() == null) {
+            return;
+        }
+        Subscription sub = new Subscription(source);
+        sub.overlayMenu = new WeakReference<>(menu);
+        MONITORS.put(player.getUUID(), sub);
+        sendUpdate(player, sub, resolved.grid(), true);
+    }
+
+    /** Job id of the CPU shown in an AE2 crafting CPU / status screen, or -1. */
+    private static long focusedJob(Subscription sub, IGrid grid) {
+        AbstractContainerMenu menu = sub.overlayMenu != null ? sub.overlayMenu.get() : null;
+        if (!(menu instanceof CraftingCPUMenu)) {
+            return -1;
+        }
+        try {
+            if (CPU_FIELD == null) {
+                CPU_FIELD = CraftingCPUMenu.class.getDeclaredField("cpu");
+                CPU_FIELD.setAccessible(true);
+            }
+            Object cpu = CPU_FIELD.get(menu);
+            if (cpu instanceof ICraftingCPU craftingCpu) {
+                GridTracker.CpuTrack track = tracker(grid).track(craftingCpu);
+                return track != null ? track.jobId : -1;
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            Ae2Declogger.LOG.debug("Could not read the CPU of the crafting screen", e);
+        }
+        return -1;
+    }
+
+    @Nullable
+    private static java.lang.reflect.Field CPU_FIELD;
 
     public static void openMonitor(ServerPlayer player, GridSource source) {
         GridSource.Resolved resolved = source.resolve(player);
@@ -123,6 +212,10 @@ public final class DecloggerServer {
         }
         Subscription sub = new Subscription(source);
         MONITORS.put(player.getUUID(), sub);
+        GlobalPos remembered = NetworkMemory.positionOf(resolved.grid(), source.node());
+        if (remembered != null) {
+            NetworkMemory.rememberLast(player, remembered);
+        }
         DeclogNetwork.sendTo(player, new DeclogNetwork.OpenMonitorScreen(source.title()));
         sendUpdate(player, sub, resolved.grid(), true);
     }
@@ -172,12 +265,19 @@ public final class DecloggerServer {
     }
 
     private static void sendUpdate(ServerPlayer player, Subscription sub, @Nullable IGrid known, boolean full) {
+        if (sub.overlay() && player.containerMenu != sub.overlayMenu.get()) {
+            // The crafting status screen was closed without telling us.
+            MONITORS.remove(player.getUUID());
+            return;
+        }
         IGrid grid = known;
         if (grid == null) {
             GridSource.Resolved resolved = sub.source.resolve(player);
             if (resolved.error() != null) {
                 MONITORS.remove(player.getUUID());
-                DeclogNetwork.sendTo(player, new DeclogNetwork.MonitorClosed(resolved.error()));
+                if (!sub.overlay()) {
+                    DeclogNetwork.sendTo(player, new DeclogNetwork.MonitorClosed(resolved.error()));
+                }
                 return;
             }
             grid = resolved.grid();
@@ -213,20 +313,22 @@ public final class DecloggerServer {
         GridSummary summary = new GridSummary(sub.source.title(), analysis.cpus(), analysis.busyCpus(),
                 analysis.storedPower(), analysis.maxPower(), analysis.powered(), System.currentTimeMillis(),
                 canTeleport(player));
-        boolean alerts = !DecloggerItem.findLinked(player, true).isEmpty();
+        boolean alerts = alertsOnFor(player, grid);
+        long focus = focusedJob(sub, grid);
 
         boolean summaryChanged = sub.lastSummary == null || !sameIgnoringTime(sub.lastSummary, summary);
         if (!full && delta.isEmpty() && history.isEmpty() && !historyReset && !summaryChanged
-                && alerts == sub.lastAlerts) {
+                && alerts == sub.lastAlerts && focus == sub.lastFocus) {
             return;
         }
         sub.lastSummary = summary;
         sub.lastAlerts = alerts;
+        sub.lastFocus = focus;
 
         long[] removed = delta.removed().stream().mapToLong(Long::longValue).toArray();
         long[] order = current.keySet().stream().mapToLong(Long::longValue).toArray();
         DeclogNetwork.sendTo(player, new DeclogNetwork.MonitorUpdate(full, summary,
-                new ArrayList<>(delta.changed().values()), removed, order, history, historyReset, alerts));
+                new ArrayList<>(delta.changed().values()), removed, order, history, historyReset, alerts, focus));
     }
 
     private static boolean sameIgnoringTime(GridSummary a, GridSummary b) {
@@ -270,12 +372,12 @@ public final class DecloggerServer {
     }
 
     private static void alertsFor(MinecraftServer server, ServerPlayer player) {
-        ItemStack stack = DecloggerItem.findLinked(player, true);
-        if (stack.isEmpty()) {
+        GlobalPos target = NetworkMemory.alerts(player);
+        if (target == null) {
             ALERTS.remove(player.getUUID());
             return;
         }
-        GridSource.Resolved resolved = DecloggerItem.sourceOf(stack, null).resolve(player);
+        GridSource.Resolved resolved = GridSource.ofLink(target, null, Component.empty()).resolve(player);
         if (resolved.grid() == null) {
             return;
         }
@@ -301,21 +403,40 @@ public final class DecloggerServer {
         }
     }
 
+    /** Whether the player has alerts on for this network. */
+    private static boolean alertsOnFor(ServerPlayer player, IGrid grid) {
+        GlobalPos target = NetworkMemory.alerts(player);
+        if (target == null) {
+            return false;
+        }
+        return GridSource.ofLink(target, null, Component.empty()).resolve(player).grid() == grid;
+    }
+
+    /** The bell button in the monitor: alerts on or off for the network the monitor shows. */
     public static void toggleAlerts(ServerPlayer player) {
-        ItemStack stack = DecloggerItem.findLinked(player, false);
-        if (stack.isEmpty()) {
-            player.displayClientMessage(Component.translatable("ae2declogger.error.no_item")
-                    .withStyle(ChatFormatting.RED), true);
+        Subscription sub = MONITORS.get(player.getUUID());
+        if (sub == null || sub.grid == null) {
             return;
         }
-        boolean enabled = !DecloggerItem.alertsEnabled(stack);
-        DecloggerItem.setAlerts(stack, enabled);
-        player.displayClientMessage(Component.translatable(
-                enabled ? "ae2declogger.item.alerts_on" : "ae2declogger.item.alerts_off"), true);
-        Subscription sub = MONITORS.get(player.getUUID());
-        if (sub != null) {
-            sendUpdate(player, sub, null, false);
+        boolean enable = !alertsOnFor(player, sub.grid);
+        if (enable) {
+            GlobalPos pos = NetworkMemory.positionOf(sub.grid, sub.source.node());
+            if (pos == null) {
+                pos = sub.source.link();
+            }
+            if (pos == null) {
+                player.displayClientMessage(Component.translatable("ae2declogger.error.alerts_no_position")
+                        .withStyle(ChatFormatting.RED), true);
+                return;
+            }
+            NetworkMemory.setAlerts(player, pos);
+        } else {
+            NetworkMemory.setAlerts(player, null);
+            ALERTS.remove(player.getUUID());
         }
+        player.displayClientMessage(Component.translatable(
+                enable ? "ae2declogger.alerts_on" : "ae2declogger.alerts_off"), true);
+        sendUpdate(player, sub, null, false);
     }
 
     public static void clearHistory(ServerPlayer player) {
@@ -330,13 +451,10 @@ public final class DecloggerServer {
     // ---------------------------------------------------------------- machine viewer
 
     /**
-     * Sends a read-only snapshot of the block at {@code pos}. Allowed for blocks listed in the player's open monitor,
-     * blocks within reach, and for operators.
-     *
-     * @param direct true when the player shift-clicked the block with the item (range check applies)
+     * Sends a read-only snapshot of the block at {@code pos}. Allowed for blocks listed in the player's open monitor and
+     * for operators.
      */
-    public static void requestMachine(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos, boolean open,
-            boolean direct) {
+    public static void requestMachine(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos, boolean open) {
         ServerLevel level = player.server.getLevel(dimension);
         if (level == null) {
             return;
@@ -350,11 +468,7 @@ public final class DecloggerServer {
         GlobalPos target = GlobalPos.of(dimension, pos);
         Subscription sub = MONITORS.get(player.getUUID());
         boolean listed = sub != null && sub.allowed.contains(target);
-        int range = DeclogConfig.COMMON.machineViewerRange.get();
-        boolean near = player.level().dimension().equals(dimension)
-                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= (double) range * range
-                && carriesDeclogger(player) && level.mayInteract(player, pos);
-        if (!listed && !near && !player.hasPermissions(2)) {
+        if (!listed && !player.hasPermissions(2)) {
             if (open) {
                 player.displayClientMessage(Component.translatable("ae2declogger.error.viewer_not_allowed")
                         .withStyle(ChatFormatting.RED), true);
@@ -365,16 +479,6 @@ public final class DecloggerServer {
         MachineSnapshot snapshot = MachineInspector.snapshot(level, pos, inputs,
                 DeclogConfig.COMMON.machineViewerMaxSlots.get());
         DeclogNetwork.sendTo(player, new DeclogNetwork.MachineData(snapshot, open));
-    }
-
-    private static boolean carriesDeclogger(ServerPlayer player) {
-        var inventory = player.getInventory();
-        for (int i = 0; i < inventory.getContainerSize(); i++) {
-            if (inventory.getItem(i).getItem() instanceof DecloggerItem) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** Inputs of every pattern whose provider pushes into {@code target}; used to highlight slots in the viewer. */

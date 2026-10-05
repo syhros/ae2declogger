@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub release (creates tag v<mod_version> on this commit)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,9 +74,9 @@ jobs:
           unzip -p "$JAR" META-INF/mods.toml
           if unzip -l "$JAR" | grep -q 'gametest/'; then echo "::error::test classes leaked into the release jar"; exit 1; fi
           if unzip -l "$JAR" | grep -q 'structures/'; then echo "::error::test structures leaked into the release jar"; exit 1; fi
-          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the item class)"
+          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the monitor screen)"
           mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/$JAR")
-          javap -p /tmp/jarcheck/com/syhros/ae2declogger/item/DecloggerItem.class | tee /tmp/javap.txt
+          javap -p /tmp/jarcheck/com/syhros/ae2declogger/client/screen/DecloggerScreen.class | tee /tmp/javap.txt
           grep -q 'm_[0-9]*_' /tmp/javap.txt || { echo "::error::jar does not look reobfuscated"; exit 1; }
 
       - uses: actions/upload-artifact@v4
@@ -180,16 +185,16 @@ jobs:
         run: |
           mkdir -p server/mods
           cd server
-          curl -fsSL -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
           java -jar installer.jar --installServer > install.log 2>&1 || { tail -50 install.log; exit 1; }
           echo "eula=true" > eula.txt
           printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\n' > server.properties
           echo "-Xmx3G" > user_jvm_args.txt
           # Official release jars (the Maven artifacts are development builds and do not run on a real server).
-          curl -fsSL -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
-          curl -fsSL -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
           if [ "${{ matrix.pack }}" != "ae2-only" ]; then
-            curl -fsSL -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
+            curl -fsSL --retry 4 --retry-all-errors -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
           fi
           cp $(ls ../jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar') mods/
           if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
@@ -216,22 +221,34 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for a pushed v* tag, or from Actions > Run workflow with "release" ticked.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: [build, smoke, client-selftest]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.pack == 'gtceu-selftest' && 'ci-gametest-jar' || 'ae2declogger-jar' }}
+          name: ae2declogger-jar
           path: jars
 
       - name: Create the GitHub release with the jar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          JAR=$(ls jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar')
-          gh release create "${GITHUB_REF_NAME}" "$JAR" --repo "${GITHUB_REPOSITORY}" \
-            --title "AE2 Declogger ${GITHUB_REF_NAME}" \
-            --notes "Forge 1.20.1, AE2 15.x. Put the jar in the mods folder on client and server."
+          VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          TAG="v${VERSION}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "${TAG}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match mod_version ${VERSION} in gradle.properties"
+            exit 1
+          fi
+          JAR=jars/ae2declogger-forge-${MC_VERSION}-${VERSION}.jar
+          test -f "$JAR"
+          sed -e "s/@VERSION@/${VERSION}/g" -e "s/@MC_VERSION@/${MC_VERSION}/g" .github/RELEASE_NOTES.md > notes.md
+          # Creates the tag on this commit when it does not exist yet (manual runs).
+          gh release create "${TAG}" "$JAR" --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" \
+            --title "AE2 Declogger ${VERSION} (Forge ${MC_VERSION})" \
+            --notes-file notes.md

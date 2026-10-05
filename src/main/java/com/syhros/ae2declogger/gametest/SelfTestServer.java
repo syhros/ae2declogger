@@ -8,9 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 import com.syhros.ae2declogger.Ae2Declogger;
-import com.syhros.ae2declogger.item.DecloggerItem;
-import com.syhros.ae2declogger.item.ModItems;
 import com.syhros.ae2declogger.server.GridSource;
+import com.syhros.ae2declogger.server.NetworkMemory;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
@@ -65,6 +64,9 @@ public final class SelfTestServer {
     static final int RUNNING = 5;
     static final int COMPLETE_STONE_REQUESTED = 6;
     static final int STONE_COMPLETED = 7;
+    /** The client asks for AE2's crafting CPU screen of the CPU running the stone job. */
+    static final int OPEN_CPU_SCREEN = 10;
+    static final int CPU_SCREEN_OPEN = 11;
     static final int FAILED = 99;
 
     static final AtomicInteger STAGE = new AtomicInteger(IDLE);
@@ -196,6 +198,14 @@ public final class SelfTestServer {
                 }
                 STAGE.set(RUNNING);
             }
+            case OPEN_CPU_SCREEN -> {
+                ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+                if (openStoneCpuScreen(level, player)) {
+                    STAGE.set(CPU_SCREEN_OPEN);
+                } else {
+                    fail("no crafting unit found for the CPU running the stone job");
+                }
+            }
             case COMPLETE_STONE_REQUESTED -> {
                 IGrid grid = grid(level);
                 if (grid != null) {
@@ -235,14 +245,28 @@ public final class SelfTestServer {
         b.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
         ((ChestBlockEntity) level.getBlockEntity(chestB())).setItem(0, new ItemStack(Items.SAND, 3));
 
-        // Linked Declogger in the first hotbar slot, alerts on.
-        ItemStack declogger = new ItemStack(ModItems.DECLOGGER.get());
-        DecloggerItem.setLink(declogger, GlobalPos.of(level.dimension(), drive()), null);
-        player.getInventory().setItem(0, declogger);
-        player.getInventory().selected = 0;
+        // The hotkey opens the network the player used last; alerts on for it.
+        GlobalPos network = GlobalPos.of(level.dimension(), drive());
+        NetworkMemory.rememberLast(player, network);
+        NetworkMemory.setAlerts(player, network);
 
         // Stand back so the whole row and both chests are in view.
         player.teleportTo(level, origin.getX() + 3.5, origin.getY(), origin.getZ() - 4.5, 0f, 20f);
+    }
+
+    /** Opens AE2's own crafting CPU screen for the CPU that runs the stone job, as right-clicking the CPU does. */
+    private static boolean openStoneCpuScreen(ServerLevel level, ServerPlayer player) {
+        for (BlockPos pos : new BlockPos[] { origin.east(1), origin.east(3) }) {
+            if (level.getBlockEntity(pos) instanceof appeng.blockentity.crafting.CraftingBlockEntity unit
+                    && unit.getCluster() != null) {
+                var job = unit.getCluster().craftingLogic.getFinalJobOutput();
+                if (job != null && job.what().equals(STONE)) {
+                    return appeng.menu.MenuOpener.open(appeng.menu.me.crafting.CraftingCPUMenu.TYPE, player,
+                            appeng.menu.locator.MenuLocators.forBlockEntity(unit));
+                }
+            }
+        }
+        return false;
     }
 
     @Nullable
