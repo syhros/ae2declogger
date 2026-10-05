@@ -154,8 +154,8 @@ public final class ClientSelfTest {
                     check(selected != null && selected.output().equals(SelfTestServer.STONE),
                             "Inspect selected the stone job");
                     check(SelfTestServer.STONE.equals(monitor().testSelectedStep()), "Inspect selected the stone step");
-                    screenshot("03-monitor-from-inspect");
                 });
+        then("monitor from Inspect shot", 5, () -> true, () -> screenshot("03-monitor-from-inspect"));
         then("close monitor", 5, () -> true, () -> mc().screen.onClose());
         // The hotkey opens the network the player used last.
         then("open monitor", 10, () -> mc().screen == null,
