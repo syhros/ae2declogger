@@ -57,6 +57,20 @@ public final class DecloggerGameTests {
         return GridAnalyzer.analyze(net.requireGrid(), tracker, System.currentTimeMillis(), FAST, LIMITS);
     }
 
+    /**
+     * Thresholds are wall-clock based while the test server may tick faster or slower than 20 TPS, so tests wait for
+     * a state instead of a fixed number of ticks.
+     */
+    private static Runnable until(GameTestHelper helper, TestNetwork net, GridTracker tracker,
+            java.util.function.Predicate<JobView> condition, String what) {
+        return () -> {
+            List<JobView> jobs = analyze(net, tracker).jobs();
+            helper.assertTrue(!jobs.isEmpty() && condition.test(jobs.get(0)),
+                    "waiting for " + what + ", have " + (jobs.isEmpty() ? "no job" : jobs.get(0).state() + " / "
+                            + jobs.get(0).reason()));
+        };
+    }
+
     private static StepView step(GameTestHelper helper, JobView job, Object key) {
         for (StepView s : job.steps()) {
             if (s.key().equals(key)) {
@@ -87,7 +101,7 @@ public final class DecloggerGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
                         "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
                 .thenExecute(() -> analyze(net, tracker)) // first look
-                .thenIdle(50)
+                .thenWaitUntil(until(helper, net, tracker, j -> j.state() == JobState.STALLED, "STALLED"))
                 .thenExecute(() -> {
                     GridAnalysis a = analyze(net, tracker);
                     helper.assertTrue(a.cpus() == 1 && a.busyCpus() == 1, "cpu counts " + a.cpus() + "/" + a.busyCpus());
@@ -183,7 +197,7 @@ public final class DecloggerGameTests {
                     helper.assertTrue(stone.pending() == 2 && stone.active() == 0,
                             "nothing should have been pushed: " + stone);
                 })
-                .thenIdle(30)
+                .thenWaitUntil(until(helper, net, tracker, j -> j.state() == JobState.BLOCKED, "BLOCKED"))
                 .thenExecute(() -> {
                     GridAnalysis a = analyze(net, tracker);
                     JobView job = a.jobs().get(0);
@@ -218,7 +232,7 @@ public final class DecloggerGameTests {
                 .thenExecute(net::submit)
                 .thenIdle(5)
                 .thenExecute(() -> analyze(net, tracker))
-                .thenIdle(30)
+                .thenWaitUntil(until(helper, net, tracker, j -> j.state() == JobState.BLOCKED, "BLOCKED"))
                 .thenExecute(() -> {
                     JobView job = analyze(net, tracker).jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
@@ -229,7 +243,7 @@ public final class DecloggerGameTests {
                             && m.pos().equals(net.abs(TestNetwork.PROVIDER))), "provider not listed " + stone.machines());
                 })
                 .thenExecute(() -> helper.setBlock(TestNetwork.PROVIDER, Blocks.AIR.defaultBlockState()))
-                .thenIdle(10)
+                .thenWaitUntil(until(helper, net, tracker, j -> j.reason() == BlockReason.NO_PROVIDER, "NO_PROVIDER"))
                 .thenExecute(() -> {
                     JobView job = analyze(net, tracker).jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
@@ -257,7 +271,8 @@ public final class DecloggerGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 2, "not pushed yet"))
                 .thenExecute(() -> analyze(net, tracker))
                 .thenExecute(() -> helper.setBlock(TestNetwork.CELL, Blocks.AIR.defaultBlockState()))
-                .thenIdle(40)
+                .thenWaitUntil(until(helper, net, tracker,
+                        j -> j.reason() == BlockReason.CPU_OFFLINE && j.state() == JobState.BLOCKED, "CPU offline"))
                 .thenExecute(() -> {
                     GridAnalysis a = analyze(net, tracker);
                     helper.assertTrue(!a.powered(), "network should be unpowered");

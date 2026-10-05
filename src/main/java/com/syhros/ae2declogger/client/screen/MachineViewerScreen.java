@@ -58,14 +58,22 @@ public class MachineViewerScreen extends Screen {
         return snapshot.dimension().equals(dimension) && snapshot.pos().equals(pos);
     }
 
+    /** Panel height that fits the current snapshot, within the screen. */
+    private int targetPanelHeight() {
+        int w = Math.min(width - 12, 9 * SLOT + 120);
+        MachineSnapshot snap = snapshot();
+        int body = snap == null ? 60 : measure(snap, w - 12);
+        return Math.max(140, Math.min(height - 12, 30 + body + 36));
+    }
+
     @Override
     protected void init() {
         panelW = Math.min(width - 12, 9 * SLOT + 120);
-        panelH = Math.min(height - 12, 280);
+        panelH = targetPanelHeight();
         left = (width - panelW) / 2;
         top = (height - panelH) / 2;
         bodyTop = top + 30;
-        bodyBottom = top + panelH - 24;
+        bodyBottom = top + panelH - 34;
         int by = top + panelH - 20;
         int bw = (panelW - 12 - 9) / 4;
         int bx = left + 6;
@@ -147,6 +155,9 @@ public class MachineViewerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if (targetPanelHeight() != panelH) {
+            rebuildWidgets();
+        }
         renderBackground(g);
         UiUtil.panel(g, left, top, panelW, panelH);
         MachineSnapshot snap = snapshot();
@@ -173,13 +184,15 @@ public class MachineViewerScreen extends Screen {
         g.enableScissor(left + 1, bodyTop, left + panelW - 1, bodyBottom);
         int y = bodyTop - (int) scroll;
 
-        Component status = Component.translatable(snap.status().translationKey())
-                .withStyle(s -> s.withColor(snap.status().color()));
-        Component statusLine = snap.statusText() != null
-                ? Component.translatable("ae2declogger.viewer.status_detail", status, snap.statusText())
-                : Component.translatable("ae2declogger.viewer.status", status);
-        UiUtil.text(g, font, statusLine, x, y, w, UiUtil.TEXT);
-        y += 11;
+        if (hasStatusLine(snap)) {
+            Component status = Component.translatable(snap.status().translationKey())
+                    .withStyle(s -> s.withColor(snap.status().color()));
+            Component statusLine = snap.statusText() != null
+                    ? Component.translatable("ae2declogger.viewer.status_detail", status, snap.statusText())
+                    : Component.translatable("ae2declogger.viewer.status", status);
+            UiUtil.text(g, font, statusLine, x, y, w, UiUtil.TEXT);
+            y += 11;
+        }
 
         if (snap.duration() > 0) {
             float fraction = snap.progress() / (float) snap.duration();
@@ -229,7 +242,7 @@ public class MachineViewerScreen extends Screen {
         UiUtil.scrollbar(g, left + panelW - 5, bodyTop, bodyBottom - bodyTop, scroll, contentHeight);
 
         g.drawString(font, Component.translatable("ae2declogger.viewer.read_only").withStyle(ChatFormatting.ITALIC),
-                x, bodyBottom + 1, UiUtil.TEXT_FAINT, false);
+                x, bodyBottom + 3, UiUtil.TEXT_FAINT, false);
 
         super.render(g, mouseX, mouseY, partialTick);
         if (tooltip != null) {
@@ -237,8 +250,13 @@ public class MachineViewerScreen extends Screen {
         }
     }
 
+    /** Non-GregTech blocks have no status to report; skip the line instead of showing "Unknown". */
+    private static boolean hasStatusLine(MachineSnapshot snap) {
+        return snap.status() != com.syhros.ae2declogger.data.MachineStatus.UNKNOWN || snap.statusText() != null;
+    }
+
     private int measure(MachineSnapshot snap, int w) {
-        int h = 11;
+        int h = hasStatusLine(snap) ? 11 : 0;
         if (snap.duration() > 0) {
             h += 10;
         }

@@ -126,7 +126,7 @@
   "ae2declogger.state.slow": "Slow",
   "ae2declogger.state.stalled": "Stalled",
   "ae2declogger.stats.empty": "No statistics yet.",
-  "ae2declogger.stats.jobs": "%s jobs, %s%% done",
+  "ae2declogger.stats.jobs": "runs: %s, %s%% done",
   "ae2declogger.stats.line": "avg %s | best %s | %s per item | %s made",
   "ae2declogger.step.counts": "Stored %s | Crafting %s | Scheduled %s",
   "ae2declogger.step.counts.long": "In CPU: %s, at machines: %s, still to start: %s",

@@ -93,3 +93,13 @@ When the user signals they are done (e.g. "bye", "done", "wrap up", "end session
 
 Keep ``CONTEXT.md`` under 20 lines total. Do NOT summarize the full conversation  -  only what's needed to resume next session.
 
+## Project notes: AE2 Declogger
+
+- Forge 1.20.1 mod (ModDevGradle legacyforge 2.0.86, Forge 47.3.0, Java 17). Mod id `ae2declogger`, package `com.syhros.ae2declogger`.
+- Depends on AE2 15.x (`appeng:appliedenergistics2-forge` from modmaven.dev); GregTech CEu Modern 7.5.3 is compile-only and optional (`compat/gtceu`, only `GtMachineReader` touches GT classes).
+- Read-only by design: never extract/insert, never iterate `CraftingService.getProviders()` (it moves AE2's round-robin cursor; use `ProviderIndex.providersFor`).
+- `logic/` is Minecraft-free and unit tested: `cd logic-tests && gradle test` works without Minecraft downloads.
+- Full checks run in GitHub Actions (`.github/workflows/build.yml`): build + unit tests, `runGameTestServer` (AE2 game tests in `gametest/`), `runSelfTestClient` under xvfb (screenshots pushed to the `ci-screenshots` branch), and a real Forge server smoke test with the release jar (AE2 only, and AE2 + GTCEu).
+- `gametest/` and `data/ae2declogger/structures/` are excluded from the release jar.
+- Release: push a `v*` tag; CI attaches the jar to a GitHub release.
+

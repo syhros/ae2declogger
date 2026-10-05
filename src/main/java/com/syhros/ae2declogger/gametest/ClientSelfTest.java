@@ -103,6 +103,8 @@ public final class ClientSelfTest {
         // First launch shows the accessibility onboarding screen instead of the title screen; any menu will do.
         then("main menu", 40, () -> mc().getOverlay() == null && mc().level == null && mc().screen != null, () -> {
             LOG.add("menu screen: " + mc().screen.getClass().getSimpleName());
+            // No "Move with WASD" tutorial pop-up in the screenshots.
+            mc().getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
             var cfg = DeclogConfig.COMMON;
             cfg.slowAfterSeconds.set(1);
             cfg.stallAfterSeconds.set(3);

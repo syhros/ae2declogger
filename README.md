@@ -17,6 +17,15 @@ Built for [Sky Greg](https://www.curseforge.com/minecraft/modpacks/sky-greg) (Gr
 
 Install the jar on both the client and the server. In single player, the client is enough.
 
+## Download and install
+
+1. Get the jar:
+   - **From a release:** the repository's Releases page, file `ae2declogger-forge-1.20.1-<version>.jar`.
+   - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `ae2declogger-jar` artifact (a zip), and take `ae2declogger-forge-1.20.1-1.0.0.jar` out of it. Ignore the `-dev` jar.
+2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
+3. On a server, copy the same jar into the server's `mods` folder too.
+4. Start the game. The item is under Tools & Utilities, or craft it (recipe below).
+
 ## Getting the item
 
 **AE2 Declogger**, crafted from:
