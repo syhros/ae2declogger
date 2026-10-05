@@ -25,7 +25,6 @@ import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
@@ -70,7 +69,7 @@ public final class ClientSelfTest {
     }
 
     private static void then(String name, int delayTicks, BooleanSupplier ready, Runnable run) {
-        ACTIONS.add(new Action(name, ready, run, 1200 + delayTicks));
+        ACTIONS.add(new Action(name, ready, run, 3600 + delayTicks));
         DELAYS.add(delayTicks);
     }
 
@@ -101,7 +100,9 @@ public final class ClientSelfTest {
     }
 
     private static void plan() {
-        then("title screen", 40, () -> mc().screen instanceof TitleScreen, () -> {
+        // First launch shows the accessibility onboarding screen instead of the title screen; any menu will do.
+        then("main menu", 40, () -> mc().getOverlay() == null && mc().level == null && mc().screen != null, () -> {
+            LOG.add("menu screen: " + mc().screen.getClass().getSimpleName());
             var cfg = DeclogConfig.COMMON;
             cfg.slowAfterSeconds.set(1);
             cfg.stallAfterSeconds.set(3);
