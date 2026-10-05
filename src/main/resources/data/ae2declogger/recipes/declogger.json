@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " G ",
+    "LNL",
+    " C "
+  ],
+  "key": {
+    "G": { "item": "minecraft:spyglass" },
+    "L": { "item": "ae2:logic_processor" },
+    "N": { "item": "ae2:network_tool" },
+    "C": { "item": "ae2:calculation_processor" }
+  },
+  "result": { "item": "ae2declogger:declogger" }
+}

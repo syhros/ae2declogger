@@ -1,0 +1,237 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or PR cancels the run that is still going.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MC_VERSION: 1.20.1
+  FORGE_VERSION: 47.3.0
+  AE2_VERSION: 15.4.10
+  GUIDEME_VERSION: 20.1.7
+  GTCEU_VERSION: 7.5.3
+
+jobs:
+  build:
+    name: Compile, unit tests, game tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Build (compile, unit tests, reobfuscated jar)
+        run: |
+          set -o pipefail
+          ./gradlew build --no-daemon 2>&1 | tee build.log || {
+            echo "===== compiler and test errors ====="
+            grep -E "error:|warning: \[|FAILED|What went wrong|Could not|expected:|Exception" -A 3 build.log | grep -v "^\s*at " | head -400
+            exit 1
+          }
+
+      - name: Game tests (headless server with AE2)
+        run: |
+          set -o pipefail
+          ./gradlew runGameTestServer --no-daemon 2>&1 | tee gametest.log || {
+            echo "===== game test failures ====="
+            grep -E "GameTest|gametest|failed|FAILED|Exception|Error|error" gametest.log | grep -v "^\s*at " | tail -200
+            exit 1
+          }
+          grep -E "All [0-9]+ required tests passed|tests passed|GameTest" gametest.log | tail -20
+
+      - name: Check the jar
+        run: |
+          ls -la build/libs
+          JAR=build/libs/ae2declogger-forge-${MC_VERSION}-$(grep '^mod_version=' gradle.properties | cut -d= -f2).jar
+          test -f "$JAR"
+          echo "JAR=$JAR" >> "$GITHUB_ENV"
+          unzip -l "$JAR"
+          echo "--- mods.toml"
+          unzip -p "$JAR" META-INF/mods.toml
+          if unzip -l "$JAR" | grep -q 'gametest/'; then echo "::error::test classes leaked into the release jar"; exit 1; fi
+          if unzip -l "$JAR" | grep -q 'structures/'; then echo "::error::test structures leaked into the release jar"; exit 1; fi
+          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the item class)"
+          mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/$JAR")
+          javap -p /tmp/jarcheck/com/syhros/ae2declogger/item/DecloggerItem.class | tee /tmp/javap.txt
+          grep -q 'm_[0-9]*_' /tmp/javap.txt || { echo "::error::jar does not look reobfuscated"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ae2declogger-jar
+          path: ${{ env.JAR }}
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-gametest-jar
+          path: build/libs/*-gametest.jar
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gametest-logs
+          path: |
+            run/gametest/logs/
+            build/reports/tests/
+          if-no-files-found: ignore
+
+  client-selftest:
+    name: Client self-test (real screens, screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri mesa-utils
+
+      - name: Run the client self-test
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelfTestClient --no-daemon --stacktrace || echo "client exited with $?"
+          echo "--- result"
+          cat run/selftest/selftest-result.txt
+          head -1 run/selftest/selftest-result.txt | grep -qx PASS
+
+      - name: Publish screenshots to the ci-screenshots branch
+        if: always() && github.event_name != 'pull_request' || always() && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/shots
+          cp run/selftest/screenshots/*.png /tmp/shots/ 2>/dev/null || true
+          cp run/selftest/selftest-result.txt /tmp/shots/ 2>/dev/null || echo "no result file" > /tmp/shots/selftest-result.txt
+          cd /tmp/shots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Self-test screenshots for ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-screenshots
+          path: |
+            run/selftest/screenshots/
+            run/selftest/selftest-result.txt
+            run/selftest/logs/
+            run/selftest/crash-reports/
+          if-no-files-found: ignore
+
+  smoke:
+    name: Server smoke test (${{ matrix.pack }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pack: [ae2-only, ae2-gtceu, gtceu-selftest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.pack == 'gtceu-selftest' && 'ci-gametest-jar' || 'ae2declogger-jar' }}
+          path: jars
+
+      - name: Install Forge server and mods
+        run: |
+          mkdir -p server/mods
+          cd server
+          curl -fsSL -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
+          java -jar installer.jar --installServer > install.log 2>&1 || { tail -50 install.log; exit 1; }
+          echo "eula=true" > eula.txt
+          printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\n' > server.properties
+          echo "-Xmx3G" > user_jvm_args.txt
+          # Official release jars (the Maven artifacts are development builds and do not run on a real server).
+          curl -fsSL -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
+          curl -fsSL -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
+          if [ "${{ matrix.pack }}" != "ae2-only" ]; then
+            curl -fsSL -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
+          fi
+          cp $(ls ../jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar') mods/
+          if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
+          ls -la mods
+
+      - name: Start, check, stop
+        run: |
+          if [ "${{ matrix.pack }}" = "ae2-only" ]; then GT="GregTech integration: off"; else GT="GregTech integration: on"; fi
+          if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then
+            export WAIT_FOR="AE2 DECLOGGER GT SELFTEST (PASS|FAIL)"
+            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "$GT" "AE2 DECLOGGER GT SELFTEST PASS"
+          else
+            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "$GT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-logs-${{ matrix.pack }}
+          path: |
+            server/logs/
+            server/crash-reports/
+          if-no-files-found: ignore
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, smoke, client-selftest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.pack == 'gtceu-selftest' && 'ci-gametest-jar' || 'ae2declogger-jar' }}
+          path: jars
+
+      - name: Create the GitHub release with the jar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          JAR=$(ls jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar')
+          gh release create "${GITHUB_REF_NAME}" "$JAR" --repo "${GITHUB_REPOSITORY}" \
+            --title "AE2 Declogger ${GITHUB_REF_NAME}" \
+            --notes "Forge 1.20.1, AE2 15.x. Put the jar in the mods folder on client and server."

@@ -1,0 +1,173 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.86'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = "${mod_id}-forge-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'ModMaven (AE2)'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'appeng' }
+    }
+    maven {
+        name = 'GregTechCEu'
+        url = 'https://maven.gtceu.com'
+        content { includeGroup 'com.gregtechceu.gtceu' }
+    }
+    maven {
+        name = 'FirstDarkDev (LDLib)'
+        url = 'https://maven.firstdark.dev/snapshots'
+        content { includeGroup 'com.lowdragmc.ldlib' }
+    }
+}
+
+// Code under these paths only runs in the development game-test and self-test runs.
+def devOnly = ['com/syhros/ae2declogger/gametest/**', 'data/ae2declogger/structures/**']
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        // Runs every @GameTest in this mod on a headless server, then exits (non-zero on failure).
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = file('run/gametest')
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        // Opens the mod's screens with sample data, saves screenshots and quits. Needs a display (xvfb in CI).
+        selfTestClient {
+            client()
+            gameDirectory = file('run/selftest')
+            systemProperty 'ae2declogger.selfTest', 'true'
+            programArguments.addAll('--username', 'DecloggerTest', '--width', '1280', '--height', '720')
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+
+    modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    modRuntimeOnly "org.appliedenergistics:guideme:${guideme_version}"
+
+    // Optional GregTech integration: only compiled against, never bundled.
+    modCompileOnly("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}") { transitive = false }
+    modCompileOnly("com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}") { transitive = false }
+
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:deprecation', '-Xmaxerrs', '1000']
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}
+
+def replaceProperties = [
+        minecraft_version      : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        forge_version_range    : forge_version_range,
+        loader_version_range   : loader_version_range,
+        mod_id                 : mod_id,
+        mod_name               : mod_name,
+        mod_license            : mod_license,
+        mod_version            : mod_version,
+        mod_authors            : mod_authors,
+        ae2_version_range      : ae2_version_range,
+]
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveClassifier = 'dev'
+    exclude devOnly
+    manifest.attributes([
+            'Specification-Title'     : mod_id,
+            'Specification-Vendor'    : mod_authors,
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : project.name,
+            'Implementation-Version'  : project.version,
+            'Implementation-Vendor'   : mod_authors,
+    ])
+}
+
+// CI-only jar that keeps the test code, reobfuscated so it runs on a real (production) Forge server.
+tasks.register('gametestJar', Jar) {
+    dependsOn 'classes'
+    archiveClassifier = 'gametest-dev'
+    from sourceSets.main.output
+}
+obfuscation {
+    reobfuscate(tasks.named('gametestJar'), sourceSets.main) {
+        archiveClassifier = 'gametest'
+    }
+}
+
+// `build` produces the reobfuscated jar (no classifier) that goes into a real mods folder.
+// The "-dev" jar uses development names and only works inside this workspace.
+afterEvaluate {
+    tasks.named('reobfJar') {
+        archiveClassifier = ''
+    }
+}
+tasks.named('assemble') {
+    dependsOn 'reobfJar', 'reobfGametestJar'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

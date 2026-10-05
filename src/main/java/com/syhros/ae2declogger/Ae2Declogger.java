@@ -1,0 +1,70 @@
+package com.syhros.ae2declogger;
+
+import org.slf4j.Logger;
+
+import com.mojang.logging.LogUtils;
+import com.syhros.ae2declogger.compat.gtceu.GtCompat;
+import com.syhros.ae2declogger.config.DeclogConfig;
+import com.syhros.ae2declogger.item.ModItems;
+import com.syhros.ae2declogger.network.DeclogNetwork;
+import com.syhros.ae2declogger.server.DecloggerServer;
+
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+
+@Mod(Ae2Declogger.MOD_ID)
+public final class Ae2Declogger {
+
+    public static final String MOD_ID = "ae2declogger";
+    public static final Logger LOG = LogUtils.getLogger();
+
+    public Ae2Declogger() {
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModItems.ITEMS.register(modBus);
+        modBus.addListener(ModItems::addToCreativeTabs);
+        modBus.addListener(this::commonSetup);
+
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, DeclogConfig.COMMON_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, DeclogConfig.CLIENT_SPEC);
+
+        DeclogNetwork.register();
+
+        MinecraftForge.EVENT_BUS.addListener(this::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(this::onLogout);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
+    }
+
+    private void commonSetup(FMLCommonSetupEvent event) {
+        LOG.info("AE2 Declogger ready (GregTech integration: {})", GtCompat.isActive() ? "on" : "off");
+    }
+
+    private void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            DecloggerServer.tick(event.getServer());
+        }
+    }
+
+    private void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            DecloggerServer.onLogout(player);
+        }
+    }
+
+    private void onServerStopped(ServerStoppedEvent event) {
+        DecloggerServer.onServerStopped();
+    }
+
+    public static ResourceLocation id(String path) {
+        return new ResourceLocation(MOD_ID, path);
+    }
+}

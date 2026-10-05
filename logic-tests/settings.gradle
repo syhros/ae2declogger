@@ -1,0 +1,3 @@
+// Standalone build for the Minecraft-free logic classes, so they can be tested without
+// downloading Minecraft or Forge. The full mod build runs the same tests.
+rootProject.name = 'ae2declogger-logic-tests'
