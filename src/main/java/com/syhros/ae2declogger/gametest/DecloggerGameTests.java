@@ -304,6 +304,31 @@ public final class DecloggerGameTests {
                 .thenSucceed();
     }
 
+    /** A job the player cancels must show up in the history as cancelled, not complete. */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void cancelledJobIsRecordedAsCancelled(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        GridTracker tracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(3))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 3, "not pushed yet"))
+                .thenExecute(() -> analyze(net, tracker))
+                .thenExecute(() -> net.cpu().cancelJob())
+                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenExecute(() -> {
+                    helper.assertTrue(analyze(net, tracker).jobs().isEmpty(), "cancelled job still listed");
+                    List<HistoryEntry> history = tracker.historySince(-1);
+                    helper.assertTrue(history.size() == 1 && !history.get(0).completed(),
+                            "cancelled job should be recorded as cancelled: " + history);
+                })
+                .thenSucceed();
+    }
+
     /** Resolving a network from a block position, and the error for a non-ME block. */
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void gridSourceResolves(GameTestHelper helper) {

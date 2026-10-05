@@ -171,7 +171,7 @@ public final class GridTracker {
         while (it.hasNext()) {
             Map.Entry<ICraftingCPU, CpuTrack> e = it.next();
             if (!present.contains(e.getKey())) {
-                finish(e.getValue(), nowMs);
+                finish(e.getValue(), nowMs, true);
                 it.remove();
             }
         }
@@ -179,9 +179,19 @@ public final class GridTracker {
     }
 
     private void finish(CpuTrack track, long nowMs) {
+        finish(track, nowMs, false);
+    }
+
+    /**
+     * Records a job that left its CPU. AE2 only marks standalone jobs (started from a terminal) as cancelled, never as
+     * done, so "not cancelled" is what completion looks like.
+     */
+    private void finish(CpuTrack track, long nowMs, boolean cpuGone) {
         boolean completed;
-        if (track.link != null) {
-            completed = track.link.isDone() && !track.link.isCanceled();
+        if (cpuGone) {
+            completed = false;
+        } else if (track.link != null) {
+            completed = !track.link.isCanceled();
         } else {
             completed = track.lastProgress >= 0.999f;
         }
