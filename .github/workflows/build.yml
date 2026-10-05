@@ -74,9 +74,9 @@ jobs:
           unzip -p "$JAR" META-INF/mods.toml
           if unzip -l "$JAR" | grep -q 'gametest/'; then echo "::error::test classes leaked into the release jar"; exit 1; fi
           if unzip -l "$JAR" | grep -q 'structures/'; then echo "::error::test structures leaked into the release jar"; exit 1; fi
-          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the item class)"
+          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the monitor screen)"
           mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/$JAR")
-          javap -p /tmp/jarcheck/com/syhros/ae2declogger/item/DecloggerItem.class | tee /tmp/javap.txt
+          javap -p /tmp/jarcheck/com/syhros/ae2declogger/client/screen/DecloggerScreen.class | tee /tmp/javap.txt
           grep -q 'm_[0-9]*_' /tmp/javap.txt || { echo "::error::jar does not look reobfuscated"; exit 1; }
 
       - uses: actions/upload-artifact@v4

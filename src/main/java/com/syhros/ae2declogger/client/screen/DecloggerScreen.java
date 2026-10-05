@@ -254,7 +254,50 @@ public class DecloggerScreen extends Screen {
     @Override
     public void tick() {
         search.tick();
+        applyPendingFocus();
         updateWidgets();
+    }
+
+    /** Inspect in AE2's crafting status screen: select that job and step once the data is here. */
+    private void applyPendingFocus() {
+        if (ClientState.pendingFocusJob < 0 || ClientState.summary == null) {
+            return;
+        }
+        long id = ClientState.pendingFocusJob;
+        AEKey step = ClientState.pendingFocusStep;
+        ClientState.pendingFocusJob = -1;
+        ClientState.pendingFocusStep = null;
+        JobView job = ClientState.JOBS.get(id);
+        if (job == null && step != null) {
+            // The job id is unknown (job just finished or restarted): pick a job that has this step.
+            for (JobView j : ClientState.JOBS.values()) {
+                if (j.steps().stream().anyMatch(s -> s.key().equals(step)) || j.output().equals(step)) {
+                    job = j;
+                    break;
+                }
+            }
+        }
+        if (job == null) {
+            return;
+        }
+        if (tab != Tab.JOBS) {
+            switchTab(Tab.JOBS);
+        }
+        // Clear the search and problems filter so the job is visible.
+        problemsOnly = false;
+        search.setValue("");
+        selectedJob = job.id();
+        selectedStep = step != null && job.steps().stream().anyMatch(s -> s.key().equals(step)) ? step : null;
+    }
+
+    /** For the self-test: the selected job and step. */
+    public long testSelectedJob() {
+        return selectedJob;
+    }
+
+    @Nullable
+    public AEKey testSelectedStep() {
+        return selectedStep;
     }
 
     // ---------------------------------------------------------------- data

@@ -10,8 +10,6 @@ import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineRef;
 import com.syhros.ae2declogger.data.MachineSnapshot;
 import com.syhros.ae2declogger.data.StepView;
-import com.syhros.ae2declogger.item.DecloggerItem;
-import com.syhros.ae2declogger.item.ModItems;
 import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.logic.Thresholds;
@@ -19,6 +17,7 @@ import com.syhros.ae2declogger.network.DeclogNetwork;
 import com.syhros.ae2declogger.server.GridAnalysis;
 import com.syhros.ae2declogger.server.GridAnalyzer;
 import com.syhros.ae2declogger.server.GridSource;
+import com.syhros.ae2declogger.server.NetworkMemory;
 import com.syhros.ae2declogger.server.GridTracker;
 import com.syhros.ae2declogger.server.MachineInspector;
 
@@ -361,24 +360,38 @@ public final class DecloggerGameTests {
                 .thenSucceed();
     }
 
-    /** Link data on the item, alert default and finding the item in an inventory. */
+    /**
+     * What the mod remembers per player (last network for the hotkey, alert network), keeping it on respawn, and
+     * finding a block position for a network that resolves back to the same network.
+     */
     @GameTest(template = "empty")
-    public static void itemLinkRoundTrip(GameTestHelper helper) {
-        ItemStack stack = new ItemStack(ModItems.DECLOGGER.get());
-        helper.assertTrue(DecloggerItem.getLink(stack) == null, "fresh item is linked");
-        helper.assertTrue(DecloggerItem.alertsEnabled(stack), "alerts should default to on");
-        GlobalPos link = GlobalPos.of(helper.getLevel().dimension(), new BlockPos(10, 64, -5));
-        DecloggerItem.setLink(stack, link, Direction.NORTH);
-        helper.assertTrue(link.equals(DecloggerItem.getLink(stack)), "link did not round-trip");
-        helper.assertTrue(DecloggerItem.getLinkSide(stack) == Direction.NORTH, "side did not round-trip");
-        DecloggerItem.setAlerts(stack, false);
-        helper.assertTrue(!DecloggerItem.alertsEnabled(stack), "alerts did not switch off");
+    public static void networkMemoryRoundTrip(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, false);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> {
+                    Player player = helper.makeMockPlayer();
+                    helper.assertTrue(NetworkMemory.last(player) == null && NetworkMemory.alerts(player) == null,
+                            "a new player already has a remembered network");
+                    GlobalPos pos = NetworkMemory.positionOf(net.grid(), null);
+                    helper.assertTrue(pos != null, "no position found for the network");
+                    var back = GridSource.resolveAt(net.level(), pos.pos(), null);
+                    helper.assertTrue(back.grid() == net.grid(), "remembered position resolves to another network");
 
-        Player player = helper.makeMockPlayer();
-        player.getInventory().setItem(5, stack);
-        helper.assertTrue(DecloggerItem.findLinked(player, false) == stack, "linked item not found");
-        helper.assertTrue(DecloggerItem.findLinked(player, true).isEmpty(), "item with alerts off returned");
-        helper.succeed();
+                    NetworkMemory.rememberLast(player, pos);
+                    NetworkMemory.setAlerts(player, pos);
+                    helper.assertTrue(pos.equals(NetworkMemory.last(player)), "last network did not round-trip");
+                    helper.assertTrue(pos.equals(NetworkMemory.alerts(player)), "alert network did not round-trip");
+
+                    Player respawned = helper.makeMockPlayer();
+                    NetworkMemory.copy(player, respawned);
+                    helper.assertTrue(pos.equals(NetworkMemory.last(respawned)), "memory lost on respawn");
+
+                    NetworkMemory.setAlerts(player, null);
+                    helper.assertTrue(NetworkMemory.alerts(player) == null, "alerts did not switch off");
+                    helper.assertTrue(pos.equals(NetworkMemory.last(player)), "switching alerts off cleared last");
+                })
+                .thenSucceed();
     }
 
     /** Every packet type encodes and decodes without leftovers. */
@@ -394,6 +407,12 @@ public final class DecloggerGameTests {
         req.write(buf);
         helper.assertTrue(DeclogNetwork.RequestMachine.read(buf).equals(req) && buf.readableBytes() == 0,
                 "RequestMachine");
+
+        var watch = new DeclogNetwork.WatchCraftingScreen(true);
+        buf = new FriendlyByteBuf(Unpooled.buffer());
+        watch.write(buf);
+        helper.assertTrue(DeclogNetwork.WatchCraftingScreen.read(buf).equals(watch) && buf.readableBytes() == 0,
+                "WatchCraftingScreen");
 
         var alert = new DeclogNetwork.Alert(TestNetwork.STONE, 64, JobState.STALLED,
                 BlockReason.MACHINE_NO_POWER, net.minecraft.network.chat.Component.literal("x"), null);

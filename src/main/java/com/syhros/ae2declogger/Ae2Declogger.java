@@ -5,9 +5,9 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import com.syhros.ae2declogger.compat.gtceu.GtCompat;
 import com.syhros.ae2declogger.config.DeclogConfig;
-import com.syhros.ae2declogger.item.ModItems;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 import com.syhros.ae2declogger.server.DecloggerServer;
+import com.syhros.ae2declogger.server.NetworkMemory;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,8 +30,6 @@ public final class Ae2Declogger {
 
     public Ae2Declogger() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-        ModItems.ITEMS.register(modBus);
-        modBus.addListener(ModItems::addToCreativeTabs);
         modBus.addListener(this::commonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, DeclogConfig.COMMON_SPEC);
@@ -42,6 +40,7 @@ public final class Ae2Declogger {
         MinecraftForge.EVENT_BUS.addListener(this::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(this::onLogout);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
+        MinecraftForge.EVENT_BUS.addListener(this::onPlayerClone);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -58,6 +57,11 @@ public final class Ae2Declogger {
         if (event.getEntity() instanceof ServerPlayer player) {
             DecloggerServer.onLogout(player);
         }
+    }
+
+    /** Keeps the remembered network and alert setting when a player respawns or changes dimension. */
+    private void onPlayerClone(PlayerEvent.Clone event) {
+        NetworkMemory.copy(event.getOriginal(), event.getEntity());
     }
 
     private void onServerStopped(ServerStoppedEvent event) {

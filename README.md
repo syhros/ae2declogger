@@ -24,37 +24,19 @@ Install the jar on both the client and the server. In single player, the client 
    - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `ae2declogger-jar` artifact (a zip), and take the jar out of it.
 2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
 3. On a server, copy the same jar into the server's `mods` folder too.
-4. Start the game. The item is under Tools & Utilities, or craft it (recipe below).
-
-## Getting the item
-
-**AE2 Declogger**, crafted from:
-
-```
- . S .
- L N L
- . C .
-```
-
-- S = Spyglass
-- L = Logic Processor
-- N = Network Tool
-- C = Calculation Processor
-
-It is also in the creative **Tools & Utilities** tab.
+4. Start the game. There is nothing to craft: the Declogger lives inside AE2's own screens.
 
 ## Using it
 
 | Action | What happens |
 |---|---|
-| Right-click any ME network block (cable, drive, interface, terminal...) | Links the Declogger to that network and opens the monitor |
-| Right-click in the air | Opens the monitor for the linked network |
-| Sneak + right-click any block | Opens the read-only machine viewer for that block (within 8 blocks) |
-| Sneak + right-click in the air | Turns stall alerts on or off for this Declogger |
-| Press **K** | Opens the monitor for the first linked Declogger in your inventory |
+| Open a crafting CPU in AE2 (the **Crafting Status** tab of a terminal, or right-click a crafting unit) | Slow and stuck entries get a coloured frame |
+| Click an entry in that screen | A popup shows its state, how long it has been like that, why, and the machine. Press **Inspect** to open the monitor on that job and step |
 | Click the Declogger icon above an AE2 terminal or crafting status screen | Opens the monitor for that terminal's network |
+| Press **K** while looking at any ME block (cable, drive, interface...) | Opens the monitor for that block's network |
+| Press **K** anywhere else | Opens the monitor for the last network you opened it for |
 
-A linked Declogger glows and shows the linked position in its tooltip.
+Frame colours in the crafting screen: yellow = Slow, red = Stalled or Blocked. Entries that are crafting normally have no frame. Turn the frames and popup off with `craftingOverlay` in the client config.
 
 ### The monitor
 
@@ -71,7 +53,7 @@ The header shows the network, how many crafting CPUs are busy and the stored AE 
 
 Click a job to see its steps below it. Each step shows the same three numbers as AE2's crafting status screen (stored in the CPU / out at machines / still to start), its own status, and the reason it is stuck.
 
-**History.** Finished and cancelled jobs, with how long they took. Jobs only show up here if they finish while someone has the monitor open or carries a linked Declogger with alerts on, because that is when the server is watching.
+**History.** Finished and cancelled jobs, with how long they took. Jobs only show up here if they finish while someone has the monitor open or has alerts on for that network, because that is when the server is watching.
 
 **Stats.** Per item: number of jobs, share that completed, average and best time, time per item.
 
@@ -132,7 +114,7 @@ In the Pins tab, click a pin to select it and click it again (or press Navigate)
 
 ### Alerts
 
-With alerts on (the default), carrying a linked Declogger anywhere in your inventory makes the server check that network every 2 seconds. When a job turns Stalled or Blocked you get a chat message with the item, the reason and clickable coordinates, a bell sound and a pop-up. Each breakdown alerts once; it alerts again only after the job has recovered and got stuck again.
+Press **♪** in the monitor to turn alerts on for that network (one network per player, remembered across restarts). The server then checks it every 2 seconds while it is loaded, whether or not any screen is open. When a job turns Stalled or Blocked you get a chat message with the item, the reason and clickable coordinates, a bell sound and a pop-up. Each breakdown alerts once; it alerts again only after the job has recovered and got stuck again.
 
 ## Hotkeys
 
@@ -140,7 +122,7 @@ All can be changed under Options → Controls → Key Binds → AE2 Declogger.
 
 | Key | Action | Default |
 |---|---|---|
-| Open crafting monitor | Opens the monitor for the first linked Declogger in your inventory | **K** |
+| Open crafting monitor | Opens the monitor for the ME block you look at, or the last network you opened | **K** |
 | Stop navigating to pin | Clears the active pin | not bound |
 | Show/hide locator pins | Hides or shows all pins in the world | not bound |
 
@@ -166,9 +148,8 @@ Used by the server (in single player, by the built-in server).
 | detection | `blockedAfterSeconds` | 5 | 0-3600 | How long a blocker must last before the step shows Blocked |
 | history | `historySize` | 50 | 1-1000 | Finished jobs kept per network |
 | machineViewer | `maxSlots` | 108 | 9-512 | Most slots and tanks shown for one machine |
-| machineViewer | `directViewRange` | 8 | 1-64 | Range for sneak + right-click viewing |
-| link | `allowCrossDimension` | true | | Allow opening the monitor from another dimension |
-| link | `maxLinkDistance` | 0 | 0-1000000 | Most blocks from the linked network; 0 = no limit |
+| link | `allowCrossDimension` | true | | Let **K** open the last network from another dimension |
+| link | `maxLinkDistance` | 0 | 0-1000000 | Most blocks from the last network for **K**; 0 = no limit |
 | teleport | `enabled` | true | | Show and allow the Teleport buttons |
 | teleport | `permissionLevel` | 2 | 0-4 | Permission level needed to teleport |
 | teleport | `allowInCreative` | true | | Creative-mode players may always teleport |
@@ -183,6 +164,7 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 | alerts | `sound` | true | Bell sound on a stall |
 | alerts | `toast` | true | Pop-up on a stall |
 | ui | `terminalButton` | true | Declogger button on AE2 terminals and crafting status screens |
+| ui | `craftingOverlay` | true | Frames on stuck entries and the Inspect popup in AE2's crafting status screen |
 | ui | `showOnlyProblems` | false | Start the monitor with the problems-only filter on |
 | pins | `renderInWorld` | true | Draw pins in the world |
 | pins | `hud` | true | Show the navigation line |
@@ -191,8 +173,8 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 
 ## Multiplayer and permissions
 
-- Anyone holding a linked Declogger can watch that network. Linking needs a right-click on one of its blocks.
-- The machine viewer opens only for machines listed in your open monitor, for blocks within `directViewRange` that you may interact with while carrying a Declogger, or for operators. Refresh requests are rate-limited.
+- You can watch a network if you can open one of its terminals or crafting CPUs, or if you are close enough to look at one of its blocks. The last network is remembered per player.
+- The machine viewer opens only for machines listed in your open monitor, or for operators. Refresh requests are rate-limited.
 - Teleport needs `permissionLevel` (operators by default) to go anywhere. With `allowInCreative`, creative players without that level can only teleport to machines their open monitor lists.
 - The server does no work for networks nobody is watching.
 
@@ -209,7 +191,7 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 - AE2 does not record which pattern provider took which push. When several providers hold the same pattern, all of their machines are listed and the one with a problem is shown first.
 - Items with NBT variants (damaged tools) that a pattern accepts by fuzzy match may show as "waiting for ingredients" a little longer than they should.
 - History is kept in memory and resets when the server restarts.
-- The mod does not load chunks. Opening the monitor with **K** and background alerts only work while the linked network is loaded (you are nearby, or it is chunk-loaded).
+- The mod does not load chunks. Opening the monitor with **K** and background alerts only work while that network is loaded (you are nearby, or it is chunk-loaded).
 
 ## Building from source
 
@@ -233,8 +215,8 @@ To publish a release, set `mod_version` in `gradle.properties`, then either push
   - a job whose results never come back is reported Stalled with the chest as its machine, and lands in History as complete once the results are inserted;
   - blocking mode with leftover inputs is reported Blocked;
   - a provider with nothing to push into is reported, then reports "No pattern provider" once removed;
-  - network lookup errors, item link data, and every packet's encoding.
-- **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets, checks what they show and takes screenshots.
+  - network lookup errors, the remembered network and alert data, and every packet's encoding.
+- **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets (including AE2's crafting status screen and its Inspect popup), checks what they show and takes screenshots.
 - **Server smoke test**: boots a real Forge server with the release jar, with AE2 alone and with AE2 + GregTech CEu Modern 7.5.3.
 - **GregTech check on a real server**: with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
 

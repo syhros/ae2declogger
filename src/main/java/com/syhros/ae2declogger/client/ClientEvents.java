@@ -5,7 +5,6 @@ import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
 import com.syhros.ae2declogger.config.DeclogConfig;
-import com.syhros.ae2declogger.item.ModItems;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.client.Minecraft;
@@ -14,7 +13,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
@@ -126,9 +125,9 @@ public final class ClientEvents {
         }
     }
 
-    /** 16x16 button showing the Declogger item. */
+    /** 16x16 button with the Declogger icon. */
     static final class IconButton extends Button {
-        private static ItemStack icon;
+        private static final ResourceLocation ICON = Ae2Declogger.id("textures/gui/button.png");
 
         IconButton(int x, int y, OnPress onPress) {
             super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress, DEFAULT_NARRATION);
@@ -136,12 +135,9 @@ public final class ClientEvents {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            if (icon == null) {
-                icon = new ItemStack(ModItems.DECLOGGER.get());
-            }
             g.fill(getX(), getY(), getX() + width, getY() + height, isHoveredOrFocused() ? 0xFF5A6070 : 0xFF2C3038);
             g.renderOutline(getX(), getY(), width, height, 0xFF8A90A0);
-            g.renderItem(icon, getX(), getY());
+            g.blit(ICON, getX(), getY(), 0, 0, 16, 16, 16, 16);
         }
     }
 }

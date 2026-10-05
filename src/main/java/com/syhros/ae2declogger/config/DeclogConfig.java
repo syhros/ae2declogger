@@ -46,7 +46,6 @@ public final class DeclogConfig {
 
         public final ForgeConfigSpec.IntValue historySize;
         public final ForgeConfigSpec.IntValue machineViewerMaxSlots;
-        public final ForgeConfigSpec.IntValue machineViewerRange;
 
         public final ForgeConfigSpec.BooleanValue allowCrossDimension;
         public final ForgeConfigSpec.IntValue maxLinkDistance;
@@ -61,7 +60,7 @@ public final class DeclogConfig {
                     .comment("Ticks between updates while the monitor screen is open (20 ticks = 1 second).")
                     .defineInRange("updateIntervalTicks", 10, 5, 200);
             alertIntervalTicks = b
-                    .comment("Ticks between background checks for stall alerts (players carrying a linked Declogger).")
+                    .comment("Ticks between background checks for stall alerts (players who turned alerts on for a network).")
                     .defineInRange("alertIntervalTicks", 40, 20, 1200);
             maxJobs = b.comment("Most crafting CPUs listed per network. Busy CPUs with problems are listed first.")
                     .defineInRange("maxJobs", 32, 1, 256);
@@ -96,16 +95,12 @@ public final class DeclogConfig {
             b.comment("Read-only machine viewer.").push("machineViewer");
             machineViewerMaxSlots = b.comment("Most slots and tanks sent for one machine.")
                     .defineInRange("maxSlots", 108, 9, 512);
-            machineViewerRange = b.comment(
-                    "Shift-right-clicking a block with the Declogger opens the viewer if it is within this many blocks.",
-                    "Machines listed in the monitor can always be viewed.")
-                    .defineInRange("directViewRange", 8, 1, 64);
             b.pop();
 
-            b.comment("Linking the Declogger item to a network.").push("link");
+            b.comment("Opening the monitor with the hotkey for the remembered network.").push("link");
             allowCrossDimension = b.comment("Allow opening the monitor for a network in another dimension.")
                     .define("allowCrossDimension", true);
-            maxLinkDistance = b.comment("Most blocks away from the linked network the monitor can be opened. 0 = no limit.")
+            maxLinkDistance = b.comment("Most blocks away from the remembered network the hotkey still opens the monitor. 0 = no limit.")
                     .defineInRange("maxLinkDistance", 0, 0, 1_000_000);
             b.pop();
 
@@ -129,6 +124,7 @@ public final class DeclogConfig {
         public final ForgeConfigSpec.BooleanValue alertsSound;
         public final ForgeConfigSpec.BooleanValue alertsToast;
         public final ForgeConfigSpec.BooleanValue terminalButton;
+        public final ForgeConfigSpec.BooleanValue craftingOverlay;
         public final ForgeConfigSpec.BooleanValue pinsInWorld;
         public final ForgeConfigSpec.BooleanValue pinsHud;
         public final ForgeConfigSpec.IntValue pinRenderDistance;
@@ -136,7 +132,7 @@ public final class DeclogConfig {
         public final ForgeConfigSpec.BooleanValue showOnlyProblems;
 
         Client(ForgeConfigSpec.Builder b) {
-            b.comment("Alerts when a job stalls or gets blocked. Turn alerts on or off per item with sneak + right-click.")
+            b.comment("Alerts when a job stalls or gets blocked. Turn alerts on or off per network with the ♪ button in the monitor.")
                     .push("alerts");
             alertsChat = b.comment("Post a chat message.").define("chat", true);
             alertsSound = b.comment("Play a bell sound.").define("sound", true);
@@ -146,6 +142,9 @@ public final class DeclogConfig {
             b.push("ui");
             terminalButton = b.comment("Add a Declogger button to AE2 terminal and crafting status screens.")
                     .define("terminalButton", true);
+            craftingOverlay = b.comment("Mark stuck entries in AE2's crafting status screen and show the Inspect popup",
+                    "when an entry is clicked.")
+                    .define("craftingOverlay", true);
             showOnlyProblems = b.comment("Start the monitor with the 'problems only' filter switched on.")
                     .define("showOnlyProblems", false);
             b.pop();
