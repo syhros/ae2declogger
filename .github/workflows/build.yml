@@ -185,16 +185,16 @@ jobs:
         run: |
           mkdir -p server/mods
           cd server
-          curl -fsSL -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
           java -jar installer.jar --installServer > install.log 2>&1 || { tail -50 install.log; exit 1; }
           echo "eula=true" > eula.txt
           printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\n' > server.properties
           echo "-Xmx3G" > user_jvm_args.txt
           # Official release jars (the Maven artifacts are development builds and do not run on a real server).
-          curl -fsSL -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
-          curl -fsSL -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
+          curl -fsSL --retry 4 --retry-all-errors -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
           if [ "${{ matrix.pack }}" != "ae2-only" ]; then
-            curl -fsSL -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
+            curl -fsSL --retry 4 --retry-all-errors -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
           fi
           cp $(ls ../jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar') mods/
           if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
