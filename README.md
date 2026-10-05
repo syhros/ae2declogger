@@ -224,6 +224,8 @@ The release jar is `build/libs/ae2declogger-forge-1.20.1-<version>.jar`. The `-d
 
 The detection logic has its own Minecraft-free test build: `cd logic-tests && gradle test`.
 
+To publish a release, set `mod_version` in `gradle.properties`, then either push a tag `v<version>` or open **Actions → Build and test → Run workflow**, pick the branch and tick **release**. The jar is attached to the GitHub release only after every test job passes.
+
 ## Tests
 
 - **Unit tests** for the stall/block rules, change timers, alert de-duplication, history stats, CSV escaping and formatting.

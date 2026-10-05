@@ -101,5 +101,5 @@ Keep ``CONTEXT.md`` under 20 lines total. Do NOT summarize the full conversation
 - `logic/` is Minecraft-free and unit tested: `cd logic-tests && gradle test` works without Minecraft downloads.
 - Full checks run in GitHub Actions (`.github/workflows/build.yml`): build + unit tests, `runGameTestServer` (AE2 game tests in `gametest/`), `runSelfTestClient` under xvfb (screenshots pushed to the `ci-screenshots` branch), and a real Forge server smoke test with the release jar (AE2 only, and AE2 + GTCEu).
 - `gametest/` and `data/ae2declogger/structures/` are excluded from the release jar.
-- Release: push a `v*` tag; CI attaches the jar to a GitHub release.
+- Release: push a `v*` tag, or run the "Build and test" workflow manually (Actions → Run workflow) with "release" ticked; the release job creates tag `v<mod_version>` and attaches the jar. Bump `mod_version` in gradle.properties first. Cloud sessions cannot push tags (403), so they use the manual run.
 

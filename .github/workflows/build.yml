@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub release (creates tag v<mod_version> on this commit)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -216,7 +221,8 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for a pushed v* tag, or from Actions > Run workflow with "release" ticked.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: [build, smoke, client-selftest]
     runs-on: ubuntu-latest
     permissions:
@@ -234,13 +240,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
-          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+          TAG="v${VERSION}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "${TAG}" ]; then
             echo "::error::tag ${GITHUB_REF_NAME} does not match mod_version ${VERSION} in gradle.properties"
             exit 1
           fi
           JAR=jars/ae2declogger-forge-${MC_VERSION}-${VERSION}.jar
           test -f "$JAR"
           sed -e "s/@VERSION@/${VERSION}/g" -e "s/@MC_VERSION@/${MC_VERSION}/g" .github/RELEASE_NOTES.md > notes.md
-          gh release create "${GITHUB_REF_NAME}" "$JAR" --repo "${GITHUB_REPOSITORY}" \
+          # Creates the tag on this commit when it does not exist yet (manual runs).
+          gh release create "${TAG}" "$JAR" --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" \
             --title "AE2 Declogger ${VERSION} (Forge ${MC_VERSION})" \
             --notes-file notes.md
