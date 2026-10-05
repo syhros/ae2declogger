@@ -125,7 +125,9 @@ final class TestNetwork {
 
     void startCalculation(long amount) {
         IGrid grid = requireGrid();
-        plan = grid.getCraftingService().beginCraftingCalculation(level(), IActionSource::empty, STONE, amount,
+        // AE2 only looks at patterns when the requester has a grid node, so plan as a machine on this grid.
+        IActionSource source = IActionSource.ofMachine(grid::getPivot);
+        plan = grid.getCraftingService().beginCraftingCalculation(level(), () -> source, STONE, amount,
                 CalculationStrategy.REPORT_MISSING_ITEMS);
     }
 

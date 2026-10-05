@@ -158,9 +158,11 @@ public final class SelfTestServer {
                 }
                 IGrid grid = grid(level);
                 PLANS.clear();
-                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, IActionSource::empty, STONE, 4,
+                // AE2 only looks at patterns when the requester has a grid node.
+                IActionSource source = IActionSource.ofMachine(grid::getPivot);
+                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, STONE, 4,
                         CalculationStrategy.REPORT_MISSING_ITEMS));
-                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, IActionSource::empty, GLASS, 2,
+                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, GLASS, 2,
                         CalculationStrategy.REPORT_MISSING_ITEMS));
                 waitTicks = 0;
                 STAGE.set(CALCULATING);
