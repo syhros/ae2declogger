@@ -1,0 +1,19 @@
+# Gradle / IDE
+.gradle/
+build/
+out/
+run/
+runs/
+logs/
+*.iml
+.idea/
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Local-only Claude Code and dual-graph files
+.claude/settings.local.json
+.dual-graph/
+CONTEXT.md
