@@ -822,6 +822,53 @@ public class DecloggerScreen extends Screen {
         return Math.max(0, Math.min(scroll, Math.max(0, content - view)));
     }
 
+    // ---------------------------------------------------------------- hooks for the automated client self-test
+
+    /** Selects the job at {@code index} in the current (filtered) list. */
+    public void testSelectJob(int index) {
+        rebuildIfNeeded();
+        if (index >= 0 && index < jobs.size()) {
+            selectedJob = jobs.get(index).id();
+            selectedStep = null;
+        }
+    }
+
+    /** Selects the first job whose output display name contains {@code text}. */
+    public boolean testSelectJobNamed(String text) {
+        rebuildIfNeeded();
+        for (JobView job : jobs) {
+            if (job.output().getDisplayName().getString().contains(text)) {
+                selectedJob = job.id();
+                selectedStep = null;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void testSelectStep(int index) {
+        JobView job = selectedJobView();
+        if (job != null && index >= 0 && index < job.steps().size()) {
+            selectedJob = job.id();
+            selectedStep = job.steps().get(index).key();
+        }
+    }
+
+    public void testSwitchTab(int index) {
+        switchTab(Tab.values()[index]);
+    }
+
+    /** Presses one of the job buttons: "goto", "view" or "pin". */
+    public void testPress(String button) {
+        MachineRef target = targetMachine();
+        switch (button) {
+            case "goto" -> goTo(target);
+            case "view" -> view(target);
+            case "pin" -> pin(target, false);
+            default -> throw new IllegalArgumentException(button);
+        }
+    }
+
     // ---------------------------------------------------------------- input
 
     @Override

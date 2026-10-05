@@ -91,7 +91,7 @@ final class TestNetwork {
 
     @Nullable
     IGrid grid() {
-        return GridSource.resolveAt(level(), abs(PROVIDER), null).grid();
+        return GridSource.resolveAt(level(), abs(CELL), null).grid();
     }
 
     IGrid requireGrid() {

@@ -17,3 +17,7 @@ bin/
 .claude/settings.local.json
 .dual-graph/
 CONTEXT.md
+
+# Python
+__pycache__/
+*.pyc

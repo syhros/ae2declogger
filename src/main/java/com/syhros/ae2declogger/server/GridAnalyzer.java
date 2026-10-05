@@ -488,11 +488,6 @@ public final class GridAnalyzer {
         ServerLevel level = info.level();
         for (BlockPos target : info.targets()) {
             MachineRef ref = machineAt(level, target, MachineRef.Kind.MACHINE);
-            // Skip empty sides of an omnidirectional provider.
-            if (ref.status() == MachineStatus.UNKNOWN && !ref.hasProblem() && level.isLoaded(target)
-                    && level.getBlockState(target).isAir()) {
-                continue;
-            }
             if (!refs.contains(ref)) {
                 refs.add(ref);
             }
