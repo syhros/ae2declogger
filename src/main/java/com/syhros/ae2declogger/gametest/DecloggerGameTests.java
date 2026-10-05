@@ -239,6 +239,71 @@ public final class DecloggerGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * The network loses power mid-job. AE2 then leaves the CPU out of its CPU list; the monitor must keep showing the
+     * job as CPU offline instead of dropping it and logging it as cancelled.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void offlineCpuStaysListed(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        GridTracker tracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(2))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 2, "not pushed yet"))
+                .thenExecute(() -> analyze(net, tracker))
+                .thenExecute(() -> helper.setBlock(TestNetwork.CELL, Blocks.AIR.defaultBlockState()))
+                .thenIdle(40)
+                .thenExecute(() -> {
+                    GridAnalysis a = analyze(net, tracker);
+                    helper.assertTrue(!a.powered(), "network should be unpowered");
+                    helper.assertTrue(a.jobs().size() == 1, "offline CPU's job disappeared: " + a.jobs());
+                    JobView job = a.jobs().get(0);
+                    helper.assertTrue(job.reason() == BlockReason.CPU_OFFLINE, "job reason " + job.reason());
+                    helper.assertTrue(job.state() == JobState.BLOCKED, "job state " + job.state());
+                    helper.assertTrue(tracker.historySince(-1).isEmpty(),
+                            "job was logged as finished: " + tracker.historySince(-1));
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * A pattern with two outputs: one came back, the other is still at the machine, and the provider is in blocking
+     * mode. That is normal operation and must not be reported as blocked.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void multiOutputWaitsForMachine(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true, true);
+        net.blockingMode(true);
+        GridTracker tracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(2))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 1, "first push missing"))
+                .thenExecute(() -> net.insert(TestNetwork.GRAVEL, 1)) // the gravel half comes back
+                .thenIdle(5)
+                .thenExecute(() -> analyze(net, tracker))
+                .thenIdle(30)
+                .thenExecute(() -> {
+                    JobView job = analyze(net, tracker).jobs().get(0);
+                    StepView gravel = step(helper, job, TestNetwork.GRAVEL);
+                    helper.assertTrue(gravel.active() == 0 && gravel.pending() == 1, "gravel step " + gravel);
+                    helper.assertTrue(gravel.reason() == BlockReason.MACHINE_BUSY, "gravel reason " + gravel.reason());
+                    helper.assertTrue(gravel.state() != JobState.BLOCKED, "gravel step reported blocked");
+                    StepView stone = step(helper, job, TestNetwork.STONE);
+                    helper.assertTrue(stone.active() == 1, "stone still out: " + stone);
+                })
+                .thenSucceed();
+    }
+
     /** Resolving a network from a block position, and the error for a non-ME block. */
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void gridSourceResolves(GameTestHelper helper) {

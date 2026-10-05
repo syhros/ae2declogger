@@ -182,7 +182,9 @@ public final class SelfTestServer {
                         var result = grid.getCraftingService().submitJob(plan, null, null, false,
                                 IActionSource.empty());
                         if (!result.successful()) {
-                            fail("job not accepted: " + result.errorCode());
+                            fail("job not accepted: " + result.errorCode() + "; missing "
+                                    + TestNetwork.describe(plan.missingItems()) + "; network has "
+                                    + TestNetwork.describe(grid.getStorageService().getCachedInventory()));
                             return;
                         }
                     } catch (Exception e) {

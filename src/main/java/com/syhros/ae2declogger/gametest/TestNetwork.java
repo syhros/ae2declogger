@@ -60,7 +60,14 @@ final class TestNetwork {
         this.helper = helper;
     }
 
+    static final AEItemKey GRAVEL = AEItemKey.of(Items.GRAVEL);
+
     static TestNetwork build(GameTestHelper helper, boolean withChest) {
+        return build(helper, withChest, false);
+    }
+
+    /** @param multiOutput pattern makes stone and gravel from one cobblestone */
+    static TestNetwork build(GameTestHelper helper, boolean withChest, boolean multiOutput) {
         helper.setBlock(CELL, AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
         helper.setBlock(DRIVE, AEBlocks.DRIVE.block().defaultBlockState());
         helper.setBlock(CPU, AEBlocks.CRAFTING_STORAGE_1K.block().defaultBlockState());
@@ -73,9 +80,11 @@ final class TestNetwork {
         drive.getInternalInventory().addItems(AEItems.ITEM_CELL_1K.stack());
 
         PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
+        GenericStack[] outputs = multiOutput
+                ? new GenericStack[] { new GenericStack(STONE, 1), new GenericStack(GRAVEL, 1) }
+                : new GenericStack[] { new GenericStack(STONE, 1) };
         ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
-                new GenericStack[] { new GenericStack(COBBLE, 1) },
-                new GenericStack[] { new GenericStack(STONE, 1) });
+                new GenericStack[] { new GenericStack(COBBLE, 1) }, outputs);
         provider.getLogic().getPatternInv().addItems(pattern);
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
         return new TestNetwork(helper);
@@ -91,7 +100,7 @@ final class TestNetwork {
 
     @Nullable
     IGrid grid() {
-        return GridSource.resolveAt(level(), abs(CELL), null).grid();
+        return GridSource.resolveAt(level(), abs(DRIVE), null).grid();
     }
 
     IGrid requireGrid() {
@@ -127,12 +136,26 @@ final class TestNetwork {
     void submit() {
         try {
             ICraftingPlan p = plan.get();
-            helper.assertTrue(!p.simulation(), "plan is missing items: " + p.missingItems());
+            helper.assertTrue(!p.simulation(), "plan is missing " + describe(p.missingItems()) + "; used "
+                    + describe(p.usedItems()) + "; network has " + describe(requireGrid().getStorageService()
+                            .getCachedInventory()) + "; craftable stone=" + requireGrid().getCraftingService()
+                                    .isCraftable(STONE));
             var result = requireGrid().getCraftingService().submitJob(p, null, null, false, IActionSource.empty());
             helper.assertTrue(result.successful(), "job was not accepted: " + result.errorCode());
         } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    static String describe(appeng.api.stacks.KeyCounter counter) {
+        StringBuilder sb = new StringBuilder("[");
+        for (var e : counter) {
+            if (sb.length() > 1) {
+                sb.append(", ");
+            }
+            sb.append(e.getKey().getId()).append(" x").append(e.getLongValue());
+        }
+        return sb.append(']').toString();
     }
 
     ICraftingCPU cpu() {
