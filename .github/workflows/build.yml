@@ -30,6 +30,8 @@ jobs:
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Build (compile, unit tests, reobfuscated jar)
         run: |
@@ -95,6 +97,8 @@ jobs:
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Install a virtual display
         run: |

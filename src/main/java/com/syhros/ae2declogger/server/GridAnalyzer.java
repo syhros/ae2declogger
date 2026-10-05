@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineRef;
 import com.syhros.ae2declogger.data.MachineStatus;
@@ -42,7 +43,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import appeng.me.service.CraftingService;
+import appeng.blockentity.crafting.CraftingBlockEntity;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 
 /**
  * Looks at every crafting CPU on a network and works out, per job and per step, whether it is moving and if not,
@@ -95,7 +97,7 @@ public final class GridAnalyzer {
         int busy = 0;
         List<JobView> jobs = new ArrayList<>();
         Set<ICraftingCPU> present = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (ICraftingCPU cpu : crafting.getCpus()) {
+        for (ICraftingCPU cpu : allCpus()) {
             cpus++;
             present.add(cpu);
             int number = tracker.cpuNumber(cpu);
@@ -108,7 +110,12 @@ public final class GridAnalyzer {
                 continue;
             }
             busy++;
-            jobs.add(analyzeJob(cpu, number, status));
+            try {
+                jobs.add(analyzeJob(cpu, number, status));
+            } catch (RuntimeException | LinkageError e) {
+                // One odd CPU (an add-on type, a half-loaded cluster) must not hide the others.
+                Ae2Declogger.LOG.debug("Could not analyse crafting CPU {}", number, e);
+            }
         }
         tracker.retainCpus(present, now);
 
@@ -120,6 +127,32 @@ public final class GridAnalyzer {
         boolean powered = energy.isNetworkPowered();
         return new GridAnalysis(jobs, cpus, busy, energy.getStoredPower(), energy.getMaxStoredPower(), powered,
                 referenced, now);
+    }
+
+    /**
+     * The CPUs AE2 reports plus crafting clusters it leaves out because they are offline, so a CPU that loses power
+     * mid-job stays visible (as CPU offline) instead of looking cancelled.
+     */
+    private List<ICraftingCPU> allCpus() {
+        List<ICraftingCPU> result = new ArrayList<>(crafting.getCpus());
+        Set<ICraftingCPU> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        seen.addAll(result);
+        try {
+            for (Class<?> type : grid.getMachineClasses()) {
+                if (!CraftingBlockEntity.class.isAssignableFrom(type)) {
+                    continue;
+                }
+                for (Object machine : grid.getMachines(type)) {
+                    CraftingCPUCluster cluster = ((CraftingBlockEntity) machine).getCluster();
+                    if (cluster != null && !cluster.isDestroyed() && seen.add(cluster)) {
+                        result.add(cluster);
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            Ae2Declogger.LOG.debug("Could not list offline crafting CPUs", e);
+        }
+        return result;
     }
 
     private JobView analyzeJob(ICraftingCPU cpu, int number, CraftingJobStatus status) {
@@ -137,6 +170,7 @@ public final class GridAnalyzer {
         }
         List<Amounts> amounts = new ArrayList<>();
         Map<IPatternDetails, Long> tasks = null;
+        Set<AEKey> analysed = new LinkedHashSet<>();
         long totalActive = 0;
         long totalPending = 0;
         if (access.hasDetails()) {
@@ -154,10 +188,12 @@ public final class GridAnalyzer {
                     continue;
                 }
                 amounts.add(new Amounts(key, access.stored(key), active, pending));
+                analysed.add(key);
                 totalActive += active;
                 totalPending += pending;
             }
-            track.retainKeys(keys);
+            // Forget timers for keys that dropped to zero, so a value that comes back is seen as a change.
+            track.retainKeys(analysed);
         }
         track.observeActivity(access.lastModifiedTick(), CpuAccess.currentTick(),
                 new GridTracker.Fingerprint(progress, totalActive, totalPending, amounts.size()), now);
@@ -239,7 +275,9 @@ public final class GridAnalyzer {
 
         if (active > 0) {
             track.clearBlocked(key);
-            long idle = Math.max(0, now - activeChangedAt);
+            // Pending going down also means the step is moving (blocking mode keeps "active" at the same value).
+            long movedAt = Math.max(activeChangedAt, pendingChangedAt);
+            long idle = Math.max(0, now - movedAt);
             JobState state = StallClassifier.classifyActive(idle, -1, thresholds);
             BlockReason reason = BlockReason.NONE;
             Component detail = null;
@@ -265,8 +303,7 @@ public final class GridAnalyzer {
                     }
                 }
             }
-            return new StepView(key, stored, active, pending, state, reason, detail, activeChangedAt, recipeMs,
-                    machines);
+            return new StepView(key, stored, active, pending, state, reason, detail, movedAt, recipeMs, machines);
         }
 
         Diagnosis d = diagnosePending(access, key, tasks);
@@ -317,6 +354,12 @@ public final class GridAnalyzer {
             return new Diagnosis(coming ? BlockReason.WAITING_INGREDIENTS : BlockReason.MISSING_INGREDIENT,
                     missing.getDisplayName(), List.of());
         }
+        // Another output of this pattern is still out at the machine: it is busy with the previous batch.
+        for (GenericStack out : pattern.getOutputs()) {
+            if (out != null && access.active(out.what()) > 0) {
+                return new Diagnosis(BlockReason.MACHINE_BUSY, out.what().getDisplayName(), List.of());
+            }
+        }
         if (!access.isActive()) {
             return new Diagnosis(BlockReason.CPU_OFFLINE, null, List.of());
         }
@@ -344,7 +387,9 @@ public final class GridAnalyzer {
 
             BlockReason r = BlockReason.NONE;
             Component d = null;
-            if (provider.isBusy()) {
+            if (info != null && !info.online()) {
+                r = BlockReason.PROVIDER_OFFLINE;
+            } else if (provider.isBusy()) {
                 r = BlockReason.PROVIDERS_BUSY;
             } else if (logic != null && logic.getCraftingLockedReason() != LockCraftingMode.NONE) {
                 r = BlockReason.PROVIDER_LOCKED;
@@ -449,17 +494,17 @@ public final class GridAnalyzer {
         return false;
     }
 
+    /**
+     * Providers holding {@code pattern}, online ones first, capped. Read from the provider index, never from AE2's
+     * own provider lookup (iterating that would shift AE2's round-robin).
+     */
     private List<ICraftingProvider> providersOf(IPatternDetails pattern) {
-        List<ICraftingProvider> result = new ArrayList<>();
-        if (crafting instanceof CraftingService service) {
-            for (ICraftingProvider provider : service.getProviders(pattern)) {
-                result.add(provider);
-                if (result.size() >= limits.maxMachines()) {
-                    break;
-                }
-            }
-        }
-        return result;
+        List<ICraftingProvider> all = new ArrayList<>(providers().providersFor(pattern));
+        all.sort(Comparator.comparingInt((ICraftingProvider p) -> {
+            ProviderIndex.ProviderInfo info = providers().get(p);
+            return info == null || info.online() ? 0 : 1;
+        }));
+        return all.size() > limits.maxMachines() ? all.subList(0, limits.maxMachines()) : all;
     }
 
     /** Machines that make {@code key}: the targets of every provider holding a pattern for it. */

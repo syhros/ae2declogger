@@ -15,6 +15,10 @@ public enum BlockReason {
     NO_PROVIDER(true, 90),
     /** Every provider still has items it could not hand to its machine. */
     PROVIDERS_BUSY(true, 70),
+    /** The pattern provider holding the pattern has no channel or power. */
+    PROVIDER_OFFLINE(true, 89),
+    /** The machine is still working on the previous batch of this pattern (another output is still out). Normal. */
+    MACHINE_BUSY(false, 0),
     /** Provider is waiting for a redstone signal or for a result (lock crafting mode). */
     PROVIDER_LOCKED(true, 65),
     /** Provider is in blocking mode and its machine still holds the previous inputs. */

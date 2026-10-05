@@ -75,7 +75,7 @@ Buttons along the bottom act on the selected step's machine, or on the job's mai
 | Go To | Pins the machine, starts navigating to it and closes the monitor |
 | View Machine | Opens the read-only machine viewer |
 | Pin | Pins the machine without navigating |
-| Teleport | Teleports you next to the machine (operators or creative only, see config) |
+| Teleport | Teleports you next to the machine. Operators can teleport to any machine or pin; creative players without op only to machines the monitor lists (see config) |
 
 Other controls: **!** shows only slow, stalled and blocked jobs. **♪** turns stall alerts on or off. The search box filters by item name (Ctrl+F jumps to it). Keys **1** to **4** switch tabs. Right-clicking a job or step opens its machine straight away.
 
@@ -89,6 +89,8 @@ History and Stats have **Export CSV**, which writes current jobs and history to 
 | Missing ingredient | An input is neither in the CPU nor being made | Something consumed it; cancel and restart the job |
 | No pattern provider has this pattern | The pattern was removed or its provider is offline | Re-insert the pattern, check channels |
 | Pattern providers busy | The provider still holds items it could not hand to the machine | The machine's input is full or wrong side |
+| Pattern provider offline | The provider with the pattern has no channel or power | Check channels and power at the provider |
+| Machine busy with the previous batch | Another output of the same pattern is still at the machine | Nothing; this is normal while a machine works |
 | Pattern provider locked | Lock crafting mode is waiting for redstone or for a result | Check the provider's lock setting |
 | Blocking mode: machine still holds the last inputs | Blocking mode is on and the machine has not used its previous inputs | Look at the machine: power, recipe, output space |
 | Machine refuses the inputs | Provider is free but every push fails | No inventory on the facing side, or the inventory is full |
@@ -181,16 +183,17 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 ## Multiplayer and permissions
 
 - Anyone holding a linked Declogger can watch that network. Linking needs a right-click on one of its blocks.
-- The machine viewer opens only for machines listed in your open monitor, blocks within `directViewRange`, or for operators.
-- Teleport needs `permissionLevel` (operators by default) or creative mode.
+- The machine viewer opens only for machines listed in your open monitor, for blocks within `directViewRange` that you may interact with while carrying a Declogger, or for operators. Refresh requests are rate-limited.
+- Teleport needs `permissionLevel` (operators by default) to go anywhere. With `allowInCreative`, creative players without that level can only teleport to machines their open monitor lists.
 - The server does no work for networks nobody is watching.
 
 ## Compatibility
 
+- **Offline CPUs.** A crafting CPU that loses power or its channel mid-job stays in the list as "Crafting CPU offline" instead of disappearing.
 - **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail. Others show the job, progress and time only.
 - **GregTech CEu Modern.** Status, recipe progress, waiting and failure reasons, power, maintenance and formed state come from GT directly. If a different GT version has a different API, the GT part switches itself off with one log line and machines show generic info.
 - **Without GregTech.** Everything works; machines show their block name, inventory, tanks and FE energy.
-- The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2 or GregTech.
+- The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2 or GregTech. It even avoids AE2's own provider lookup, because walking it would shift which provider AE2 picks next.
 
 ## Known limits
 

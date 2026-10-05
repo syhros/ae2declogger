@@ -214,7 +214,7 @@ public final class GridTracker {
     }
 
     /** Entries newer than {@code version}, oldest first. */
-    synchronized List<HistoryEntry> historySince(long version) {
+    public synchronized List<HistoryEntry> historySince(long version) {
         List<HistoryEntry> result = new ArrayList<>();
         List<Versioned> all = history.snapshot();
         for (int i = all.size() - 1; i >= 0; i--) {

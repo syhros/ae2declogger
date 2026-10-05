@@ -1,5 +1,6 @@
 package com.syhros.ae2declogger.server;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,9 +77,12 @@ public final class DecloggerServer {
 
     private static final class AlertState {
         final AlertTracker<Long> tracker = new AlertTracker<>();
-        @Nullable
-        IGrid grid;
+        // Weak so a network that was rebuilt or unloaded can be garbage collected.
+        WeakReference<IGrid> grid = new WeakReference<>(null);
     }
+
+    private static final int VIEWER_COOLDOWN_TICKS = 5;
+    private static final Map<UUID, Long> LAST_VIEW_REQUEST = new HashMap<>();
 
     private DecloggerServer() {
     }
@@ -130,12 +134,14 @@ public final class DecloggerServer {
     public static void onLogout(ServerPlayer player) {
         MONITORS.remove(player.getUUID());
         ALERTS.remove(player.getUUID());
+        LAST_VIEW_REQUEST.remove(player.getUUID());
     }
 
     public static void onServerStopped() {
         MONITORS.clear();
         ALERTS.clear();
         TRACKERS.clear();
+        LAST_VIEW_REQUEST.clear();
         ticks = 0;
     }
 
@@ -151,7 +157,7 @@ public final class DecloggerServer {
                 }
                 try {
                     sendUpdate(player, e.getValue(), null, false);
-                } catch (RuntimeException ex) {
+                } catch (RuntimeException | LinkageError ex) {
                     Ae2Declogger.LOG.error("AE2 Declogger update failed for {}", player.getGameProfile().getName(),
                             ex);
                     MONITORS.remove(e.getKey());
@@ -161,11 +167,7 @@ public final class DecloggerServer {
             }
         }
         if (ticks % DeclogConfig.COMMON.alertIntervalTicks.get() == 0) {
-            try {
-                runAlerts(server);
-            } catch (RuntimeException ex) {
-                Ae2Declogger.LOG.error("AE2 Declogger alert check failed", ex);
-            }
+            runAlerts(server);
         }
     }
 
@@ -183,6 +185,7 @@ public final class DecloggerServer {
         if (sub.grid != grid) {
             full = true;
             sub.grid = grid;
+            sub.allowed.clear();
         }
         if (full) {
             sub.delta.reset();
@@ -257,34 +260,43 @@ public final class DecloggerServer {
 
     private static void runAlerts(MinecraftServer server) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            ItemStack stack = DecloggerItem.findLinked(player, true);
-            if (stack.isEmpty()) {
-                ALERTS.remove(player.getUUID());
-                continue;
+            try {
+                alertsFor(server, player);
+            } catch (RuntimeException | LinkageError ex) {
+                // One broken network must not stop alerts for everyone else.
+                Ae2Declogger.LOG.debug("Alert check failed for {}", player.getGameProfile().getName(), ex);
             }
-            GridSource.Resolved resolved = DecloggerItem.sourceOf(stack, null).resolve(player);
-            if (resolved.grid() == null) {
-                continue;
-            }
-            IGrid grid = resolved.grid();
-            GridAnalysis analysis = analysis(grid, tracker(grid), server);
-            AlertState state = ALERTS.computeIfAbsent(player.getUUID(), u -> new AlertState());
-            if (state.grid != grid) {
-                state.tracker.reset();
-                state.grid = grid;
-            }
-            Map<Long, JobState> states = new HashMap<>();
-            Map<Long, JobView> byId = new HashMap<>();
-            for (JobView job : analysis.jobs()) {
-                states.put(job.id(), job.state());
-                byId.put(job.id(), job);
-            }
-            for (Long id : state.tracker.update(states)) {
-                JobView job = byId.get(id);
-                if (job != null) {
-                    DeclogNetwork.sendTo(player, new DeclogNetwork.Alert(job.output(), job.amount(), job.state(),
-                            job.reason(), job.detail(), job.primaryMachine()));
-                }
+        }
+    }
+
+    private static void alertsFor(MinecraftServer server, ServerPlayer player) {
+        ItemStack stack = DecloggerItem.findLinked(player, true);
+        if (stack.isEmpty()) {
+            ALERTS.remove(player.getUUID());
+            return;
+        }
+        GridSource.Resolved resolved = DecloggerItem.sourceOf(stack, null).resolve(player);
+        if (resolved.grid() == null) {
+            return;
+        }
+        IGrid grid = resolved.grid();
+        GridAnalysis analysis = analysis(grid, tracker(grid), server);
+        AlertState state = ALERTS.computeIfAbsent(player.getUUID(), u -> new AlertState());
+        if (state.grid.get() != grid) {
+            state.tracker.reset();
+            state.grid = new WeakReference<>(grid);
+        }
+        Map<Long, JobState> states = new HashMap<>();
+        Map<Long, JobView> byId = new HashMap<>();
+        for (JobView job : analysis.jobs()) {
+            states.put(job.id(), job.state());
+            byId.put(job.id(), job);
+        }
+        for (Long id : state.tracker.update(states)) {
+            JobView job = byId.get(id);
+            if (job != null) {
+                DeclogNetwork.sendTo(player, new DeclogNetwork.Alert(job.output(), job.amount(), job.state(),
+                        job.reason(), job.detail(), job.primaryMachine()));
             }
         }
     }
@@ -329,12 +341,19 @@ public final class DecloggerServer {
         if (level == null) {
             return;
         }
+        long tick = player.server.getTickCount();
+        Long last = LAST_VIEW_REQUEST.get(player.getUUID());
+        if (!open && last != null && tick - last < VIEWER_COOLDOWN_TICKS) {
+            return; // refresh spam from a client
+        }
+        LAST_VIEW_REQUEST.put(player.getUUID(), tick);
         GlobalPos target = GlobalPos.of(dimension, pos);
         Subscription sub = MONITORS.get(player.getUUID());
         boolean listed = sub != null && sub.allowed.contains(target);
         int range = DeclogConfig.COMMON.machineViewerRange.get();
         boolean near = player.level().dimension().equals(dimension)
-                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= (double) range * range;
+                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= (double) range * range
+                && carriesDeclogger(player) && level.mayInteract(player, pos);
         if (!listed && !near && !player.hasPermissions(2)) {
             if (open) {
                 player.displayClientMessage(Component.translatable("ae2declogger.error.viewer_not_allowed")
@@ -346,6 +365,16 @@ public final class DecloggerServer {
         MachineSnapshot snapshot = MachineInspector.snapshot(level, pos, inputs,
                 DeclogConfig.COMMON.machineViewerMaxSlots.get());
         DeclogNetwork.sendTo(player, new DeclogNetwork.MachineData(snapshot, open));
+    }
+
+    private static boolean carriesDeclogger(ServerPlayer player) {
+        var inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            if (inventory.getItem(i).getItem() instanceof DecloggerItem) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Inputs of every pattern whose provider pushes into {@code target}; used to highlight slots in the viewer. */
@@ -388,8 +417,17 @@ public final class DecloggerServer {
                 || (cfg.teleportInCreative.get() && player.isCreative());
     }
 
+    /**
+     * Players with the permission level may teleport anywhere (they could use /tp anyway). Creative players without
+     * it may only teleport to machines their open monitor lists, so a modified client cannot jump to arbitrary
+     * coordinates or make the server generate far-away chunks.
+     */
     public static void teleport(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos) {
-        if (!canTeleport(player)) {
+        var cfg = DeclogConfig.COMMON;
+        boolean privileged = cfg.teleportEnabled.get() && player.hasPermissions(cfg.teleportPermissionLevel.get());
+        Subscription sub = MONITORS.get(player.getUUID());
+        boolean listed = sub != null && sub.allowed.contains(GlobalPos.of(dimension, pos));
+        if (!canTeleport(player) || (!privileged && !listed)) {
             player.displayClientMessage(Component.translatable("ae2declogger.error.teleport_denied")
                     .withStyle(ChatFormatting.RED), true);
             return;

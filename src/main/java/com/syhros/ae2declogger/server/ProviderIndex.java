@@ -1,6 +1,7 @@
 package com.syhros.ae2declogger.server;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGrid;
@@ -38,10 +40,11 @@ final class ProviderIndex {
      *                pattern buffer)
      */
     record ProviderInfo(ICraftingProvider provider, ServerLevel level, BlockPos pos, List<BlockPos> targets,
-            @Nullable PatternProviderLogic logic) {
+            @Nullable PatternProviderLogic logic, boolean online) {
     }
 
     private final Map<ICraftingProvider, ProviderInfo> byProvider = new IdentityHashMap<>();
+    private final Map<IPatternDetails, List<ICraftingProvider>> byPattern = new HashMap<>();
 
     private ProviderIndex() {
     }
@@ -81,7 +84,22 @@ final class ProviderIndex {
                 // GregTech ME pattern buffers live inside the multiblock; the controller is the "machine".
                 targets.addAll(GtCompat.controllersOf(level, pos));
             }
-            index.byProvider.put(provider, new ProviderInfo(provider, level, pos, List.copyOf(targets), logic));
+            boolean online;
+            try {
+                online = node.isActive();
+            } catch (RuntimeException e) {
+                online = true;
+            }
+            index.byProvider.put(provider, new ProviderInfo(provider, level, pos, List.copyOf(targets), logic, online));
+            try {
+                for (IPatternDetails pattern : provider.getAvailablePatterns()) {
+                    if (pattern != null) {
+                        index.byPattern.computeIfAbsent(pattern, k -> new ArrayList<>(2)).add(provider);
+                    }
+                }
+            } catch (RuntimeException e) {
+                // a provider that cannot list its patterns is simply not matched
+            }
         }
         return index;
     }
@@ -140,6 +158,14 @@ final class ProviderIndex {
             return part.getHost().getLocation().getPos();
         }
         return null;
+    }
+
+    /**
+     * Every provider on the network (online or not) that holds {@code pattern}. Built from the providers' own pattern
+     * lists instead of AE2's provider lookup, because iterating that lookup moves AE2's round-robin position.
+     */
+    List<ICraftingProvider> providersFor(IPatternDetails pattern) {
+        return byPattern.getOrDefault(pattern, List.of());
     }
 
     @Nullable

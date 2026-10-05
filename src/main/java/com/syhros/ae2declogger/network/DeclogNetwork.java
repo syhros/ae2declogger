@@ -84,7 +84,7 @@ public final class DeclogNetwork {
                     if (player != null) {
                         try {
                             handler.accept(msg, player);
-                        } catch (RuntimeException e) {
+                        } catch (RuntimeException | LinkageError e) {
                             Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(),
                                     player.getGameProfile().getName(), e);
                         }
