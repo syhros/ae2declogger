@@ -33,6 +33,15 @@ legacyForge {
             systemProperty 'ae2declogger.selfTest', 'true'
             programArguments.addAll('--username', 'DecloggerTest', '--width', '1280', '--height', '720')
         }
+        // Builds a network next to spawn on a real dedicated server, runs a job through it and logs PASS or FAIL
+        // (gametest/ServerSelfTest), then stops.
+        selfTestServer {
+            server()
+            programArgument '--nogui'
+            gameDirectory = file('run/selftest-server')
+            systemProperty 'ae2declogger.serverSelfTest', 'true'
+            systemProperty 'ae2declogger.selfTestExit', 'true'
+        }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.INFO
@@ -84,4 +93,15 @@ afterEvaluate {
 }
 tasks.named('assemble') {
     dependsOn 'reobfJar', 'reobfGametestJar'
+}
+
+// The self-test server needs the EULA accepted and a flat world, in its own run folder.
+tasks.matching { it.name == 'runSelfTestServer' }.configureEach {
+    doFirst {
+        def dir = file('run/selftest-server')
+        dir.mkdirs()
+        new File(dir, 'eula.txt').text = 'eula=true\n'
+        new File(dir, 'server.properties').text = ['online-mode=false', 'level-type=minecraft\\:flat',
+                'spawn-protection=0', 'max-tick-time=-1'].join('\n') + '\n'
+    }
 }
