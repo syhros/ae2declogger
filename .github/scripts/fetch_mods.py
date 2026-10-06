@@ -8,6 +8,7 @@ Packs:
   addons   AE2 with the popular add-ons that exist for this version (Advanced AE, Extended AE, MEGA Cells, AE2
            Wireless Terminals, Applied Flux), so conflicts and add-on CPUs/providers show up
   gtceu    AE2 with GregTech CEu Modern (1.20.1)
+  tech     AE2 with the tech mods the Declogger reads machine status from (those that exist for this version)
 
 Takes the newest release (else beta) from Modrinth for the version and loader, plus required dependencies.
 AE2 builds Modrinth does not have (1.18.2) come from AE2's GitHub releases.
@@ -30,6 +31,9 @@ PACKS = {
     "ae2": ["ae2"],
     "addons": ["ae2", "advancedae", "extended-ae", "mega", "applied-energistics-2-wireless-terminals", "appflux"],
     "gtceu": ["ae2"],
+    # Tech mods with machine status integrations (compat/), checked by gametest/ModMachineSelfTest
+    "tech": ["ae2", "mekanism", "enderio", "immersiveengineering", "modern-industrialization", "industrial-foregoing",
+             "create", "powah", "oritech", "iron-furnaces"],
 }
 # AE2 releases that are only on GitHub (and CurseForge).
 GITHUB_AE2 = {

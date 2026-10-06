@@ -17,6 +17,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceLocation;
 //#endif
 //#if MC >= 1.19.3
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 //#endif
 
@@ -51,6 +52,36 @@ public final class Mc {
         ResourceLocation parsed = id == null ? null : ResourceLocation.tryParse(id);
         //#endif
         return parsed == null ? null : ResourceKey.create(DIMENSIONS, parsed);
+    }
+
+    /** A registered block by id ("mekanism:enrichment_chamber"), or null. */
+    @Nullable
+    public static net.minecraft.world.level.block.Block block(String id) {
+        //#if MC >= 26.1
+        //$$ Identifier key = Identifier.tryParse(id);
+        //$$ return key == null ? null : BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
+        //#elseif MC >= 1.19.3
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        return key == null ? null : BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
+        //#else
+        //$$ ResourceLocation key = ResourceLocation.tryParse(id);
+        //$$ return key == null ? null : Registry.BLOCK.getOptional(key).orElse(null);
+        //#endif
+    }
+
+    /** A registered item by id, or null. */
+    @Nullable
+    public static net.minecraft.world.item.Item item(String id) {
+        //#if MC >= 26.1
+        //$$ Identifier key = Identifier.tryParse(id);
+        //$$ return key == null ? null : BuiltInRegistries.ITEM.getOptional(key).orElse(null);
+        //#elseif MC >= 1.19.3
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        return key == null ? null : BuiltInRegistries.ITEM.getOptional(key).orElse(null);
+        //#else
+        //$$ ResourceLocation key = ResourceLocation.tryParse(id);
+        //$$ return key == null ? null : Registry.ITEM.getOptional(key).orElse(null);
+        //#endif
     }
 
     public static Level level(Entity entity) {

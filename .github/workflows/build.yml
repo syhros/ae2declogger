@@ -220,9 +220,10 @@ jobs:
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
 
   smoke:
-    # A real dedicated server per version, with AE2 alone, with popular AE2 add-ons, and with GregTech where it is
-    # built. The test jar runs the server self-test (gametest/ServerSelfTest) next to spawn: a two-step job, a stall,
-    # the machine viewer and the history, with the add-ons loaded.
+    # A real dedicated server per version, with AE2 alone, with popular AE2 add-ons, with the tech mods the Declogger
+    # reads machine status from, and with GregTech where it is built. The test jar runs the server self-test
+    # (gametest/ServerSelfTest) next to spawn: a two-step job, a stall, the machine viewer and the history. On the tech
+    # server, gametest/ModMachineSelfTest also checks every machine status integration against the installed mods.
     name: Server (${{ matrix.s.name }}, ${{ matrix.s.pack }})
     needs: [plan, build]
     runs-on: ubuntu-latest
@@ -256,10 +257,11 @@ jobs:
           curl -fsSL --retry 4 --retry-all-errors -o installer.jar "$URL"
           java -jar installer.jar --installServer > install.log 2>&1 || { tail -50 install.log; exit 1; }
           echo "eula=true" > eula.txt
-          printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\n' > server.properties
+          printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\npause-when-empty-seconds=0\n' > server.properties
           echo "-Xmx3G" > user_jvm_args.txt
           echo "-Dae2declogger.serverSelfTest=true" >> user_jvm_args.txt
           if [ "${{ matrix.s.pack }}" = "gtceu" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
+          if [ "${{ matrix.s.pack }}" = "tech" ]; then echo "-Dae2declogger.modSelfTest=true" >> user_jvm_args.txt; fi
           python3 ../.github/scripts/fetch_mods.py "${{ matrix.s.mc }}" "${{ matrix.s.loader }}" "${{ matrix.s.pack }}" mods
           cp ../jars/*-gametest.jar mods/
           ls -la mods
@@ -270,6 +272,10 @@ jobs:
             export WAIT_FOR="AE2 DECLOGGER SERVER SELFTEST (PASS|FAIL) && AE2 DECLOGGER GT SELFTEST (PASS|FAIL)"
             python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "GregTech integration: on" \
               "AE2 DECLOGGER SERVER SELFTEST PASS" "AE2 DECLOGGER GT SELFTEST PASS"
+          elif [ "${{ matrix.s.pack }}" = "tech" ]; then
+            export WAIT_FOR="AE2 DECLOGGER SERVER SELFTEST (PASS|FAIL) && AE2 DECLOGGER MOD SELFTEST (PASS|FAIL)"
+            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" \
+              "AE2 DECLOGGER SERVER SELFTEST PASS" "AE2 DECLOGGER MOD SELFTEST PASS"
           else
             export WAIT_FOR="AE2 DECLOGGER SERVER SELFTEST (PASS|FAIL)"
             python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "GregTech integration: off" \

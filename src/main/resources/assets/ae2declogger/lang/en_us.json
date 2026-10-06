@@ -170,5 +170,22 @@
   "key.ae2declogger.stop_navigation": "Stop navigating (clears the Go To outline)",
   "key.ae2declogger.toggle_pins": "Show/hide locator pins",
   "key.categories.ae2declogger": "AE2 Declogger",
-  "key.category.ae2declogger.main": "AE2 Declogger"
+  "key.category.ae2declogger.main": "AE2 Declogger",
+  "ae2declogger.compat.energy_empty": "Energy buffer is empty",
+  "ae2declogger.compat.not_enough_energy": "Not enough energy",
+  "ae2declogger.compat.redstone_off": "Switched off by redstone",
+  "ae2declogger.compat.not_formed": "Structure is not complete",
+  "ae2declogger.compat.hatch_unmatched": "Hatch is not part of a complete structure",
+  "ae2declogger.compat.queue_full": "Process queue is full",
+  "ae2declogger.compat.output_full": "Output is full",
+  "ae2declogger.compat.no_recipe": "No recipe for these ingredients",
+  "ae2declogger.compat.no_input": "Waiting for ingredients",
+  "ae2declogger.compat.cannot_process": "Cannot process: no recipe, missing ingredients or output full",
+  "ae2declogger.compat.no_rotation": "Not rotating",
+  "ae2declogger.compat.overstressed": "Rotation network is overstressed",
+  "ae2declogger.compat.too_slow": "Rotating too slowly",
+  "ae2declogger.compat.no_operator": "No mixer or press above the basin",
+  "ae2declogger.compat.no_rods": "No charged Energizing Rods aimed at it",
+  "ae2declogger.compat.no_fuel": "No fuel",
+  "ae2declogger.compat.progress": "Progress %s%%"
 }

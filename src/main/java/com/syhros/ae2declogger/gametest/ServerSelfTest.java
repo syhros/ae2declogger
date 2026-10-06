@@ -323,6 +323,11 @@ public final class ServerSelfTest {
         return GridSource.resolveAt(level, drive(), null).grid();
     }
 
+    /** True while this test is enabled and has not logged its result. */
+    static boolean pending() {
+        return ENABLED && stage >= 0;
+    }
+
     private static void next() {
         stage++;
         ticks = 0;
@@ -331,7 +336,7 @@ public final class ServerSelfTest {
     private static void done(boolean pass, String message) {
         stage = -1;
         Ae2Declogger.LOG.info("AE2 DECLOGGER SERVER SELFTEST {}: {}", pass ? "PASS" : "FAIL", message);
-        if (EXIT && server != null) {
+        if (EXIT && server != null && !ModMachineSelfTest.pending()) {
             server.halt(false);
         }
     }

@@ -41,6 +41,8 @@ legacyForge {
             gameDirectory = file('run/selftest-server')
             systemProperty 'ae2declogger.serverSelfTest', 'true'
             systemProperty 'ae2declogger.selfTestExit', 'true'
+            // also checks the machine status integrations of any tech mods in the run's mods folder
+            systemProperty 'ae2declogger.modSelfTest', 'true'
         }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'

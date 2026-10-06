@@ -3,7 +3,7 @@
 
 Writes to $GITHUB_OUTPUT:
   versions  [{"name": "neoforge-1.21.1", "mc": "1.21.1", "loader": "neoforge", "java": "21", "loaderVersion": ...}]
-  smoke     the versions crossed with the server test packs (ae2, addons, and gtceu where GregTech is built)
+  smoke     the versions crossed with the server test packs (ae2, addons, tech, and gtceu where GregTech is built)
 """
 import json
 import os
@@ -33,7 +33,7 @@ for d in sorted((root / "versions").iterdir()):
 
 smoke = []
 for v in versions:
-    for pack in ["ae2", "addons"] + (["gtceu"] if v["gtceu"] else []):
+    for pack in ["ae2", "addons", "tech"] + (["gtceu"] if v["gtceu"] else []):
         smoke.append({**v, "pack": pack})
 
 out = os.environ.get("GITHUB_OUTPUT")
