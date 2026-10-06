@@ -12,6 +12,7 @@ Packs:
 Takes the newest release (else beta) from Modrinth for the version and loader, plus required dependencies.
 AE2 builds Modrinth does not have (1.18.2) come from AE2's GitHub releases.
 """
+import io
 import json
 import os
 import sys
@@ -108,22 +109,35 @@ BUILTIN = {"minecraft", "forge", "neoforge", "java", "fml", "javafml", "lowcodef
 
 
 def jar_mods(path):
-    """(mod ids, mandatory dependency ids) from a jar's mods.toml / neoforge.mods.toml."""
+    """(mod ids, mandatory dependency ids) from a jar's mods.toml / neoforge.mods.toml. Mods bundled inside the jar
+    (META-INF/jarjar) count as present: the loader loads them from there."""
     try:
         with zipfile.ZipFile(path) as z:
-            names = [n for n in ("META-INF/neoforge.mods.toml", "META-INF/mods.toml") if n in z.namelist()]
-            if not names:
-                return set(), set()
-            data = tomllib.loads(z.read(names[0]).decode("utf8", "replace"))
+            return zip_mods(z)
     except Exception as e:  # noqa: BLE001 - a jar we cannot read adds nothing
         print(f"  could not read the mod list of {os.path.basename(path)}: {e}")
         return set(), set()
-    ids = {m.get("modId") for m in data.get("mods", []) if m.get("modId")}
-    deps = set()
-    for entries in data.get("dependencies", {}).values():
-        for d in entries if isinstance(entries, list) else []:
-            if d.get("mandatory") is True or str(d.get("type", "")).lower() == "required":
-                deps.add(d.get("modId"))
+
+
+def zip_mods(z):
+    ids, deps = set(), set()
+    names = [n for n in ("META-INF/neoforge.mods.toml", "META-INF/mods.toml") if n in z.namelist()]
+    if names:
+        data = tomllib.loads(z.read(names[0]).decode("utf8", "replace"))
+        ids = {m.get("modId") for m in data.get("mods", []) if m.get("modId")}
+        for entries in data.get("dependencies", {}).values():
+            for d in entries if isinstance(entries, list) else []:
+                if d.get("mandatory") is True or str(d.get("type", "")).lower() == "required":
+                    deps.add(d.get("modId"))
+    for name in z.namelist():
+        if name.startswith("META-INF/jarjar/") and name.endswith(".jar"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(z.read(name))) as inner:
+                    inner_ids, inner_deps = zip_mods(inner)
+            except Exception:  # noqa: BLE001 - an unreadable bundled jar adds nothing
+                continue
+            ids |= inner_ids
+            deps |= inner_deps
     return ids, deps - BUILTIN - {None}
 
 
