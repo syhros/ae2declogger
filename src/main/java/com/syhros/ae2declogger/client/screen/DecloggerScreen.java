@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.Exporter;
 import com.syhros.ae2declogger.client.pins.PinManager;
@@ -20,10 +21,13 @@ import com.syhros.ae2declogger.logic.JobStats;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.ChatFormatting;
+//#if MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
+//#else
+//$$ import com.mojang.blaze3d.vertex.PoseStack;
+//#endif
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -123,17 +127,17 @@ public class DecloggerScreen extends Screen {
         int tx = left + 6;
         for (Tab t : Tab.values()) {
             Tab target = t;
-            Button b = Button.builder(Component.translatable("ae2declogger.tab." + t.name().toLowerCase(Locale.ROOT)),
+            Button b = Widgets.builder(Component.translatable("ae2declogger.tab." + t.name().toLowerCase(Locale.ROOT)),
                     btn -> switchTab(target)).bounds(tx, top + 19, 54, 14).build();
             tabButtons.add(addRenderableWidget(b));
             tx += 56;
         }
 
         int right = left + panelW - 6;
-        alertsButton = addRenderableWidget(Button.builder(Component.literal("♪"),
+        alertsButton = addRenderableWidget(Widgets.builder(Component.literal("♪"),
                 b -> DeclogNetwork.sendToServer(new DeclogNetwork.ToggleAlerts()))
                 .bounds(right - 16, top + 19, 16, 14).build());
-        problemsButton = addRenderableWidget(Button.builder(Component.literal("!"), b -> {
+        problemsButton = addRenderableWidget(Widgets.builder(Component.literal("!"), b -> {
             problemsOnly = !problemsOnly;
             jobScroll = 0;
         }).bounds(right - 34, top + 19, 16, 14).build());
@@ -148,36 +152,36 @@ public class DecloggerScreen extends Screen {
         int bw = Math.min(110, (panelW - 12 - 6) / 3);
         int bx = left + 6;
         jobButtons.clear();
-        gotoButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.goto"),
+        gotoButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.goto"),
                 b -> goTo(targetMachine())).bounds(bx, by, bw, 16).build());
-        viewButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.view"),
+        viewButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.view"),
                 b -> view(targetMachine())).bounds(bx + (bw + 3), by, bw, 16).build());
-        pinButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.pin"),
+        pinButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.pin"),
                 b -> pin(targetMachine(), false)).bounds(bx + 2 * (bw + 3), by, bw, 16).build());
-        gotoButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.goto.tooltip")));
-        viewButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.view.tooltip")));
-        pinButton.setTooltip(Tooltip.create(Component.translatable("ae2declogger.button.pin.tooltip")));
+        Widgets.tooltip(gotoButton, Component.translatable("ae2declogger.button.goto.tooltip"));
+        Widgets.tooltip(viewButton, Component.translatable("ae2declogger.button.view.tooltip"));
+        Widgets.tooltip(pinButton, Component.translatable("ae2declogger.button.pin.tooltip"));
         jobButtons.add(gotoButton);
         jobButtons.add(viewButton);
         jobButtons.add(pinButton);
 
         historyButtons.clear();
-        historyButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.export"),
+        historyButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.export"),
                 b -> Exporter.export(new ArrayList<>(ClientState.JOBS.values()), ClientState.HISTORY))
                 .bounds(bx, by, bw, 16).build()));
-        historyButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.clear"),
+        historyButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.clear"),
                 b -> DeclogNetwork.sendToServer(new DeclogNetwork.ClearHistory())).bounds(bx + bw + 3, by, bw, 16)
                 .build()));
 
         statsButtons.clear();
-        statsButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.export"),
+        statsButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.export"),
                 b -> Exporter.export(new ArrayList<>(ClientState.JOBS.values()), ClientState.HISTORY))
                 .bounds(bx, by, bw, 16).build()));
 
         pinButtons.clear();
-        navigateButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.navigate"),
+        navigateButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.navigate"),
                 b -> toggleNavigate()).bounds(bx, by, bw, 16).build());
-        pinRemoveButton = addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.remove"),
+        pinRemoveButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.remove"),
                 b -> {
                     PinManager.Pin p = selectedPinObj();
                     if (p != null) {
@@ -187,7 +191,7 @@ public class DecloggerScreen extends Screen {
                 }).bounds(bx + bw + 3, by, bw, 16).build());
         pinButtons.add(navigateButton);
         pinButtons.add(pinRemoveButton);
-        pinButtons.add(addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.clear_all"),
+        pinButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.clear_all"),
                 b -> {
                     PinManager.clear();
                     selectedPin = null;
@@ -225,12 +229,12 @@ public class DecloggerScreen extends Screen {
 
         problemsButton.setMessage(Component.literal("!").withStyle(problemsOnly ? ChatFormatting.RED
                 : ChatFormatting.GRAY));
-        problemsButton.setTooltip(Tooltip.create(Component.translatable(problemsOnly
-                ? "ae2declogger.button.problems.on" : "ae2declogger.button.problems.off")));
+        Widgets.tooltip(problemsButton, Component.translatable(problemsOnly
+                ? "ae2declogger.button.problems.on" : "ae2declogger.button.problems.off"));
         alertsButton.setMessage(Component.literal("♪").withStyle(ClientState.alertsOn ? ChatFormatting.GREEN
                 : ChatFormatting.DARK_GRAY));
-        alertsButton.setTooltip(Tooltip.create(Component.translatable(ClientState.alertsOn
-                ? "ae2declogger.button.alerts.on" : "ae2declogger.button.alerts.off")));
+        Widgets.tooltip(alertsButton, Component.translatable(ClientState.alertsOn
+                ? "ae2declogger.button.alerts.on" : "ae2declogger.button.alerts.off"));
         search.visible = tab != Tab.PINS;
     }
 
@@ -471,11 +475,11 @@ public class DecloggerScreen extends Screen {
      * The darkened (or blurred) world behind the panel. From 1.20.2 Screen.render() draws it too, and drawing it twice
      * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
      */
-    private void drawBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void drawBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
         //#if MC >= 1.20.2
-        //$$ super.renderBackground(g, mouseX, mouseY, partialTick);
+        //$$ super.renderBackground(g.raw(), mouseX, mouseY, partialTick);
         //#else
-        renderBackground(g);
+        renderBackground(g.raw());
         //#endif
     }
 
@@ -487,7 +491,13 @@ public class DecloggerScreen extends Screen {
     //#endif
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    //#if MC >= 1.20
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        Gfx g = new Gfx(graphics);
+    //#else
+    //$$ public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(pose, this);
+    //#endif
         drawBackground(g, mouseX, mouseY, partialTick);
         rebuildIfNeeded();
         UiUtil.panel(g, left, top, panelW, panelH);
@@ -499,17 +509,19 @@ public class DecloggerScreen extends Screen {
             case STATS -> tooltip = renderStats(g, mouseX, mouseY);
             case PINS -> tooltip = renderPins(g, mouseX, mouseY);
         }
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(g.raw(), mouseX, mouseY, partialTick);
         if (search.visible && search.getValue().isEmpty() && !search.isFocused()) {
-            g.drawString(font, Component.translatable("ae2declogger.search"), search.getX() + 4, search.getY() + 2,
+            g.drawString(font, Component.translatable("ae2declogger.search"), Widgets.x(search) + 4, Widgets.y(search) + 2,
                     UiUtil.TEXT_FAINT, false);
         }
         if (tooltip != null && !tooltip.isEmpty()) {
             g.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        } else {
+            Widgets.renderTooltips(g, font, children(), mouseX, mouseY);
         }
     }
 
-    private void renderHeader(GuiGraphics g) {
+    private void renderHeader(Gfx g) {
         int x = left + 6;
         int y = top + 6;
         Component t = ClientState.title;
@@ -536,7 +548,7 @@ public class DecloggerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> renderJobs(GuiGraphics g, int mouseX, int mouseY) {
+    private List<Component> renderJobs(Gfx g, int mouseX, int mouseY) {
         List<Component> tooltip = null;
         int x = left + 6;
         int w = panelW - 16;
@@ -736,7 +748,7 @@ public class DecloggerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> renderHistory(GuiGraphics g, int mouseX, int mouseY) {
+    private List<Component> renderHistory(Gfx g, int mouseX, int mouseY) {
         int x = left + 6;
         int w = panelW - 16;
         if (history.isEmpty()) {
@@ -795,7 +807,7 @@ public class DecloggerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> renderStats(GuiGraphics g, int mouseX, int mouseY) {
+    private List<Component> renderStats(Gfx g, int mouseX, int mouseY) {
         int x = left + 6;
         int w = panelW - 16;
         if (stats.isEmpty()) {
@@ -844,7 +856,7 @@ public class DecloggerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> renderPins(GuiGraphics g, int mouseX, int mouseY) {
+    private List<Component> renderPins(Gfx g, int mouseX, int mouseY) {
         int x = left + 6;
         int w = panelW - 16;
         List<PinManager.Pin> pins = PinManager.pins();
@@ -872,7 +884,7 @@ public class DecloggerScreen extends Screen {
             }
             g.fill(x + 4, y + 4, x + 14, y + 14, 0xFF000000 | pin.color);
             String distance = "";
-            if (player != null && player.level().dimension().location().toString().equals(pin.dimension)) {
+            if (player != null && Mc.level(player).dimension().location().toString().equals(pin.dimension)) {
                 distance = Math.round(Math.sqrt(player.blockPosition().distSqr(pin.pos()))) + "m";
             }
             Component right = Component.literal((pin == active ? "▶ " : "") + distance);
@@ -1028,7 +1040,11 @@ public class DecloggerScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_F && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && search.visible) {
             setFocused(search);
+            //#if MC >= 1.19.3
             search.setFocused(true);
+            //#else
+            //$$ search.setFocus(true);
+            //#endif
             return true;
         }
         if (search.isFocused() && keyCode != GLFW.GLFW_KEY_ESCAPE) {

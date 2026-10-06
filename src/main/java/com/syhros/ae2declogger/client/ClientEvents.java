@@ -4,13 +4,18 @@ import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
+import com.syhros.ae2declogger.client.screen.Gfx;
+import com.syhros.ae2declogger.client.screen.Widgets;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.client.Minecraft;
+//#if MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
+//#else
+//$$ import com.mojang.blaze3d.vertex.PoseStack;
+//#endif
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -47,8 +52,13 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
-            event.registerAboveAll("navigation", (gui, g, partialTick, width, height) -> PinRenderer.renderHud(g,
+            //#if MC >= 1.20
+            event.registerAboveAll("navigation", (gui, g, partialTick, width, height) -> PinRenderer.renderHud(new Gfx(g),
                     partialTick, width, height));
+            //#else
+            //$$ event.registerAboveAll("navigation", (gui, pose, partialTick, width, height) -> PinRenderer.renderHud(
+            //$$         new Gfx(pose, Minecraft.getInstance().screen), partialTick, width, height));
+            //#endif
         }
     }
 
@@ -113,8 +123,13 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void screenRender(ScreenEvent.Render.Post event) {
-            CraftingScreenOverlay.onRender(event.getScreen(), event.getGuiGraphics(), event.getMouseX(),
+            //#if MC >= 1.20
+            CraftingScreenOverlay.onRender(event.getScreen(), new Gfx(event.getGuiGraphics()), event.getMouseX(),
                     event.getMouseY());
+            //#else
+            //$$ CraftingScreenOverlay.onRender(event.getScreen(), new Gfx(event.getPoseStack(), event.getScreen()),
+            //$$         event.getMouseX(), event.getMouseY());
+            //#endif
         }
 
         @SubscribeEvent
@@ -144,7 +159,7 @@ public final class ClientEvents {
                 y = screen.getGuiTop() + 2;
             }
             IconButton button = new IconButton(x, y, b -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(true)));
-            button.setTooltip(Tooltip.create(Component.translatable("ae2declogger.terminal_button")));
+            Widgets.tooltip(button, Component.translatable("ae2declogger.terminal_button"));
             event.addListener(button);
         }
     }
@@ -154,14 +169,26 @@ public final class ClientEvents {
         private static final ResourceLocation ICON = Ae2Declogger.id("textures/gui/button.png");
 
         IconButton(int x, int y, OnPress onPress) {
+            //#if MC >= 1.19.3
             super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress, DEFAULT_NARRATION);
+            //#else
+            //$$ super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress);
+            //#endif
         }
 
         @Override
-        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.fill(getX(), getY(), getX() + width, getY() + height, isHoveredOrFocused() ? 0xFF5A6070 : 0xFF2C3038);
-            g.renderOutline(getX(), getY(), width, height, 0xFF8A90A0);
-            g.blit(ICON, getX(), getY(), 0, 0, 16, 16, 16, 16);
+        //#if MC >= 1.20
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            Gfx g = new Gfx(graphics);
+        //#else
+        //$$ public void renderButton(PoseStack pose, int mouseX, int mouseY, float partialTick) {
+        //$$     Gfx g = new Gfx(pose, Minecraft.getInstance().screen);
+        //#endif
+            int x = Widgets.x(this);
+            int y = Widgets.y(this);
+            g.fill(x, y, x + width, y + height, isHoveredOrFocused() ? 0xFF5A6070 : 0xFF2C3038);
+            g.renderOutline(x, y, width, height, 0xFF8A90A0);
+            g.blit(ICON, x, y, 0, 0, 16, 16, 16, 16);
         }
     }
 }

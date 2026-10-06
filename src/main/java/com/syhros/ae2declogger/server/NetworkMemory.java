@@ -1,10 +1,11 @@
 package com.syhros.ae2declogger.server;
 
+import com.syhros.ae2declogger.Mc;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -110,6 +111,6 @@ public final class NetworkMemory {
         if (dim == null) {
             return null;
         }
-        return GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), BlockPos.of(t.getLong("pos")));
+        return GlobalPos.of(ResourceKey.create(Mc.DIMENSIONS, dim), BlockPos.of(t.getLong("pos")));
     }
 }

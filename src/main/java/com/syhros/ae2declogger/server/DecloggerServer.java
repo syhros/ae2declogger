@@ -14,6 +14,7 @@ import java.util.WeakHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.data.GridSummary;
@@ -128,14 +129,10 @@ public final class DecloggerServer {
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
-        //#if MC >= 1.20.5
-        //$$ HitResult hit = player.pick(player.blockInteractionRange(), 1.0f, false);
-        //#else
-        HitResult hit = player.pick(player.getBlockReach(), 1.0f, false);
-        //#endif
+        HitResult hit = player.pick(Mc.reach(player), 1.0f, false);
         if (hit instanceof BlockHitResult blockHit && hit.getType() == HitResult.Type.BLOCK
-                && GridHelper.getNodeHost(player.level(), blockHit.getBlockPos()) != null) {
-            GlobalPos pos = GlobalPos.of(player.level().dimension(), blockHit.getBlockPos());
+                && GridHelper.getNodeHost(Mc.level(player), blockHit.getBlockPos()) != null) {
+            GlobalPos pos = GlobalPos.of(Mc.level(player).dimension(), blockHit.getBlockPos());
             openMonitor(player, GridSource.ofLink(pos, blockHit.getDirection(),
                     Component.translatable("ae2declogger.monitor.title")));
             return;

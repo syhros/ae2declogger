@@ -13,7 +13,11 @@ import com.syhros.ae2declogger.logic.Formatting;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.ChatFormatting;
+//#if MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
+//#else
+//$$ import com.mojang.blaze3d.vertex.PoseStack;
+//#endif
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -21,7 +25,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
-import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 
@@ -77,13 +80,13 @@ public class MachineViewerScreen extends Screen {
         int by = top + panelH - 20;
         int bw = (panelW - 12 - 9) / 4;
         int bx = left + 6;
-        addRenderableWidget(Button.builder(Component.translatable(parent != null ? "ae2declogger.button.back"
+        addRenderableWidget(Widgets.builder(Component.translatable(parent != null ? "ae2declogger.button.back"
                 : "ae2declogger.button.close"), b -> onClose()).bounds(bx, by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.refresh"),
+        addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.refresh"),
                 b -> refresh()).bounds(bx + bw + 3, by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.pin"), b -> pin(false))
+        addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.pin"), b -> pin(false))
                 .bounds(bx + 2 * (bw + 3), by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.goto"), b -> pin(true))
+        addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.goto"), b -> pin(true))
                 .bounds(bx + 3 * (bw + 3), by, bw, 16).build());
     }
 
@@ -161,11 +164,11 @@ public class MachineViewerScreen extends Screen {
      * The darkened (or blurred) world behind the panel. From 1.20.2 Screen.render() draws it too, and drawing it twice
      * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
      */
-    private void drawBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void drawBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
         //#if MC >= 1.20.2
-        //$$ super.renderBackground(g, mouseX, mouseY, partialTick);
+        //$$ super.renderBackground(g.raw(), mouseX, mouseY, partialTick);
         //#else
-        renderBackground(g);
+        renderBackground(g.raw());
         //#endif
     }
 
@@ -177,7 +180,13 @@ public class MachineViewerScreen extends Screen {
     //#endif
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    //#if MC >= 1.20
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        Gfx g = new Gfx(graphics);
+    //#else
+    //$$ public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(pose, this);
+    //#endif
         if (targetPanelHeight() != panelH) {
             rebuildWidgets();
         }
@@ -189,7 +198,7 @@ public class MachineViewerScreen extends Screen {
         if (snap == null) {
             g.drawCenteredString(font, Component.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
                     top + 40, UiUtil.TEXT_DIM);
-            super.render(g, mouseX, mouseY, partialTick);
+            super.render(g.raw(), mouseX, mouseY, partialTick);
             return;
         }
 
@@ -267,9 +276,11 @@ public class MachineViewerScreen extends Screen {
         g.drawString(font, Component.translatable("ae2declogger.viewer.read_only").withStyle(ChatFormatting.ITALIC),
                 x, bodyBottom + 3, UiUtil.TEXT_FAINT, false);
 
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(g.raw(), mouseX, mouseY, partialTick);
         if (tooltip != null) {
             g.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        } else {
+            Widgets.renderTooltips(g, font, children(), mouseX, mouseY);
         }
     }
 
@@ -295,7 +306,7 @@ public class MachineViewerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> drawSlot(GuiGraphics g, MachineSnapshot.Slot slot, int x, int y, int mouseX,
+    private List<Component> drawSlot(Gfx g, MachineSnapshot.Slot slot, int x, int y, int mouseX,
             int mouseY) {
         g.fill(x, y, x + SLOT - 1, y + SLOT - 1, 0xFF373B44);
         g.fill(x + 1, y + 1, x + SLOT - 2, y + SLOT - 2, 0xFF1C1F25);
@@ -310,15 +321,15 @@ public class MachineViewerScreen extends Screen {
         }
         GenericStack stack = slot.stack();
         if (stack != null) {
-            AEKeyRendering.drawInGui(minecraft, g, x + 1, y + 1, stack.what());
+            g.key(stack.what(), x + 1, y + 1);
             String amount = UiUtil.amount(stack.what(), stack.amount());
             if (stack.what() instanceof AEFluidKey || stack.amount() > 1) {
-                g.pose().pushPose();
-                g.pose().translate(0, 0, 200);
-                g.pose().scale(0.5f, 0.5f, 1f);
+                g.push();
+                g.translate(0, 0, 200);
+                g.scale(0.5f, 0.5f);
                 int tw = font.width(amount);
                 g.drawString(font, amount, (x + SLOT - 2) * 2 - tw, (y + SLOT - 6) * 2, 0xFFFFFFFF, true);
-                g.pose().popPose();
+                g.pop();
             }
         }
         boolean hover = mouseX >= x && mouseX < x + SLOT - 1 && mouseY >= y && mouseY < y + SLOT - 1;

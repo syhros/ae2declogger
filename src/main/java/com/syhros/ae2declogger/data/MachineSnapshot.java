@@ -5,10 +5,10 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.network.Bufs;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -87,7 +87,7 @@ public record MachineSnapshot(ResourceKey<Level> dimension, BlockPos pos, Compon
     }
 
     public static MachineSnapshot read(FriendlyByteBuf buf) {
-        ResourceKey<Level> dim = buf.readResourceKey(Registries.DIMENSION);
+        ResourceKey<Level> dim = buf.readResourceKey(Mc.DIMENSIONS);
         BlockPos pos = buf.readBlockPos();
         Component name = Bufs.readComponent(buf);
         MachineStatus status = buf.readEnum(MachineStatus.class);

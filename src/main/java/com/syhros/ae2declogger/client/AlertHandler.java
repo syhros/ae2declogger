@@ -48,7 +48,7 @@ public final class AlertHandler {
             mc.player.displayClientMessage(msg, false);
         }
         if (cfg.alertsSound.get()) {
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_BELL.value(), 0.7f, 0.9f));
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(bell(), 0.7f, 0.9f));
         }
         if (cfg.alertsToast.get()) {
             //#if MC >= 1.20.5
@@ -58,5 +58,13 @@ public final class AlertHandler {
             //#endif
                     Component.translatable("ae2declogger.alert.toast_title", state), item);
         }
+    }
+
+    private static net.minecraft.sounds.SoundEvent bell() {
+        //#if MC >= 1.19.3
+        return SoundEvents.NOTE_BLOCK_BELL.value();
+        //#else
+        //$$ return SoundEvents.NOTE_BLOCK_BELL;
+        //#endif
     }
 }

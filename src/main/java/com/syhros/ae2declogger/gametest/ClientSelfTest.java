@@ -26,13 +26,17 @@ import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+//#if MC >= 1.19.3
 import net.minecraft.core.registries.Registries;
+//#endif
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
+//#if MC >= 1.19.3
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
+//#endif
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 //#if NEOFORGE
 //$$ import net.neoforged.api.distmarker.Dist;
@@ -129,6 +133,7 @@ public final class ClientSelfTest {
             mc().options.guiScale().set(2);
             mc().resizeDisplay();
             String name = "declogger-selftest-" + System.currentTimeMillis();
+            //#if MC >= 1.19.3
             LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
                     new GameRules(), WorldDataConfiguration.DEFAULT);
             mc().createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(1234L, false, false),
@@ -138,6 +143,14 @@ public final class ClientSelfTest {
                     //$$ , null
                     //#endif
             );
+            //#else
+            //$$ LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+            //$$         new GameRules(), net.minecraft.world.level.DataPackConfig.DEFAULT);
+            //$$ var registries = net.minecraft.core.RegistryAccess.builtinCopy().freeze();
+            //$$ var worldGen = registries.registryOrThrow(net.minecraft.core.Registry.WORLD_PRESET_REGISTRY)
+            //$$         .getHolderOrThrow(WorldPresets.FLAT).value().createWorldGenSettings(1234L, false, false);
+            //$$ mc().createWorldOpenFlows().createFreshLevel(name, settings, registries, worldGen);
+            //#endif
         });
         then("in world", 60, () -> mc().level != null && mc().player != null && mc().screen == null
                 && mc().getSingleplayerServer() != null, () -> SelfTestServer.STAGE.set(SelfTestServer.BUILD_REQUESTED));

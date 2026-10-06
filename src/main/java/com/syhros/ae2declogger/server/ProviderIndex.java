@@ -31,8 +31,13 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.GenericStack;
 import appeng.helpers.InterfaceLogicHost;
+//#if MC >= 1.20
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
+//#else
+//$$ import appeng.helpers.iface.PatternProviderLogic;
+//$$ import appeng.helpers.iface.PatternProviderLogicHost;
+//#endif
 import appeng.me.InWorldGridNode;
 import appeng.parts.AEBasePart;
 

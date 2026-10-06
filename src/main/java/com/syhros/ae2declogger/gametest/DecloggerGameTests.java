@@ -89,7 +89,7 @@ public final class DecloggerGameTests {
             java.util.function.Predicate<JobView> condition, String what) {
         return () -> {
             List<JobView> jobs = analyze(net, tracker).jobs();
-            helper.assertTrue(!jobs.isEmpty() && condition.test(jobs.get(0)),
+            Asserts.isTrue(helper, !jobs.isEmpty() && condition.test(jobs.get(0)),
                     "waiting for " + what + ", have " + (jobs.isEmpty() ? "no job" : jobs.get(0).state() + " / "
                             + jobs.get(0).reason()));
         };
@@ -122,75 +122,75 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(4))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 4,
                         "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
                 .thenExecute(() -> analyze(net, tracker)) // first look
                 .thenWaitUntil(until(helper, net, tracker, j -> j.state() == JobState.STALLED, "STALLED"))
                 .thenExecute(() -> {
                     GridAnalysis a = analyze(net, tracker);
-                    helper.assertTrue(a.cpus() == 1 && a.busyCpus() == 1, "cpu counts " + a.cpus() + "/" + a.busyCpus());
-                    helper.assertTrue(a.jobs().size() == 1, "expected one job, got " + a.jobs());
+                    Asserts.isTrue(helper, a.cpus() == 1 && a.busyCpus() == 1, "cpu counts " + a.cpus() + "/" + a.busyCpus());
+                    Asserts.isTrue(helper, a.jobs().size() == 1, "expected one job, got " + a.jobs());
                     JobView job = a.jobs().get(0);
-                    helper.assertTrue(job.output().equals(TestNetwork.STONE) && job.amount() == 4,
+                    Asserts.isTrue(helper, job.output().equals(TestNetwork.STONE) && job.amount() == 4,
                             "wrong job output " + job.output() + " x" + job.amount());
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.active() == 4 && stone.pending() == 0,
+                    Asserts.isTrue(helper, stone.active() == 4 && stone.pending() == 0,
                             "stone step amounts active=" + stone.active() + " pending=" + stone.pending());
-                    helper.assertTrue(stone.state() == JobState.STALLED, "stone step state " + stone.state());
-                    helper.assertTrue(stone.reason() == BlockReason.OUTPUT_NOT_RETURNING,
+                    Asserts.isTrue(helper, stone.state() == JobState.STALLED, "stone step state " + stone.state());
+                    Asserts.isTrue(helper, stone.reason() == BlockReason.OUTPUT_NOT_RETURNING,
                             "stone step reason " + stone.reason());
-                    helper.assertTrue(job.state() == JobState.STALLED, "job state " + job.state());
+                    Asserts.isTrue(helper, job.state() == JobState.STALLED, "job state " + job.state());
                     MachineRef machine = job.primaryMachine();
-                    helper.assertTrue(machine != null && machine.pos().equals(net.abs(TestNetwork.CHEST)),
+                    Asserts.isTrue(helper, machine != null && machine.pos().equals(net.abs(TestNetwork.CHEST)),
                             "primary machine should be the chest, got " + machine);
-                    helper.assertTrue(a.machines().contains(GlobalPos.of(net.level().dimension(),
+                    Asserts.isTrue(helper, a.machines().contains(GlobalPos.of(net.level().dimension(),
                             net.abs(TestNetwork.CHEST))), "chest missing from allowed viewer positions");
 
                     // Nothing changed: a second look must produce an identical row (so no network traffic).
                     GridAnalysis again = analyze(net, tracker);
-                    helper.assertTrue(again.jobs().equals(a.jobs()), "job row changed without any change in game");
+                    Asserts.isTrue(helper, again.jobs().equals(a.jobs()), "job row changed without any change in game");
 
                     // Wire format round trip.
                     FriendlyByteBuf buf = buffer(helper);
                     job.write(buf);
                     JobView back = JobView.read(buf);
-                    helper.assertTrue(job.equals(back), "JobView did not survive encode/decode");
-                    helper.assertTrue(buf.readableBytes() == 0, "JobView left unread bytes");
+                    Asserts.isTrue(helper, job.equals(back), "JobView did not survive encode/decode");
+                    Asserts.isTrue(helper, buf.readableBytes() == 0, "JobView left unread bytes");
                     seen.set(job);
                 })
                 .thenExecute(() -> {
                     // Read-only viewer on the chest.
                     MachineSnapshot snap = MachineInspector.snapshot(net.level(), net.abs(TestNetwork.CHEST),
                             Set.of(TestNetwork.COBBLE), 108);
-                    helper.assertTrue(snap.sections().size() == 1, "chest sections " + snap.sections());
+                    Asserts.isTrue(helper, snap.sections().size() == 1, "chest sections " + snap.sections());
                     MachineSnapshot.Section section = snap.sections().get(0);
-                    helper.assertTrue(section.kind() == MachineSnapshot.SectionKind.INVENTORY, "section kind");
-                    helper.assertTrue(section.slots().size() == 27, "chest slots " + section.slots().size());
+                    Asserts.isTrue(helper, section.kind() == MachineSnapshot.SectionKind.INVENTORY, "section kind");
+                    Asserts.isTrue(helper, section.slots().size() == 27, "chest slots " + section.slots().size());
                     MachineSnapshot.Slot first = section.slots().get(0);
-                    helper.assertTrue(first.stack() != null && first.stack().what().equals(TestNetwork.COBBLE)
+                    Asserts.isTrue(helper, first.stack() != null && first.stack().what().equals(TestNetwork.COBBLE)
                             && first.stack().amount() == 4, "first slot " + first.stack());
-                    helper.assertTrue(first.has(MachineSnapshot.FLAG_PATTERN_INPUT), "pattern input not flagged");
-                    helper.assertTrue(!first.has(MachineSnapshot.FLAG_FULL), "4 cobblestone is not a full stack");
+                    Asserts.isTrue(helper, first.has(MachineSnapshot.FLAG_PATTERN_INPUT), "pattern input not flagged");
+                    Asserts.isTrue(helper, !first.has(MachineSnapshot.FLAG_FULL), "4 cobblestone is not a full stack");
                     // The snapshot must not have touched the chest.
-                    helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4, "viewer changed the chest");
+                    Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 4, "viewer changed the chest");
 
                     FriendlyByteBuf buf = buffer(helper);
                     snap.write(buf);
                     MachineSnapshot back = MachineSnapshot.read(buf);
-                    helper.assertTrue(back.equals(snap), "MachineSnapshot did not survive encode/decode");
+                    Asserts.isTrue(helper, back.equals(snap), "MachineSnapshot did not survive encode/decode");
                 })
                 .thenExecute(() -> net.insert(TestNetwork.STONE, 4))
-                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenWaitUntil(() -> Asserts.isFalse(helper, net.cpu().isBusy(), "job still running"))
                 .thenExecute(() -> {
                     GridAnalysis done = analyze(net, tracker);
-                    helper.assertTrue(done.jobs().isEmpty(), "finished job still listed");
+                    Asserts.isTrue(helper, done.jobs().isEmpty(), "finished job still listed");
                     List<HistoryEntry> history = tracker.historySince(-1);
-                    helper.assertTrue(history.size() == 1, "history " + history);
+                    Asserts.isTrue(helper, history.size() == 1, "history " + history);
                     HistoryEntry entry = history.get(0);
-                    helper.assertTrue(entry.completed(), "job should be recorded as complete");
-                    helper.assertTrue(entry.output().equals(TestNetwork.STONE) && entry.amount() == 4,
+                    Asserts.isTrue(helper, entry.completed(), "job should be recorded as complete");
+                    Asserts.isTrue(helper, entry.output().equals(TestNetwork.STONE) && entry.amount() == 4,
                             "history entry " + entry);
-                    helper.assertTrue(entry.durationMs() > 0, "duration " + entry.durationMs());
+                    Asserts.isTrue(helper, entry.durationMs() > 0, "duration " + entry.durationMs());
                 })
                 .thenSucceed();
     }
@@ -218,7 +218,7 @@ public final class DecloggerGameTests {
                     GridAnalysis first = analyze(net, tracker);
                     JobView job = first.jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.pending() == 2 && stone.active() == 0,
+                    Asserts.isTrue(helper, stone.pending() == 2 && stone.active() == 0,
                             "nothing should have been pushed: " + stone);
                 })
                 .thenWaitUntil(until(helper, net, tracker, j -> j.state() == JobState.BLOCKED, "BLOCKED"))
@@ -226,14 +226,14 @@ public final class DecloggerGameTests {
                     GridAnalysis a = analyze(net, tracker);
                     JobView job = a.jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.state() == JobState.BLOCKED, "step state " + stone.state());
-                    helper.assertTrue(stone.reason() == BlockReason.PROVIDER_BLOCKING, "step reason " + stone.reason());
-                    helper.assertTrue(job.state() == JobState.BLOCKED, "job state " + job.state());
-                    helper.assertTrue(job.reason() == BlockReason.PROVIDER_BLOCKING, "job reason " + job.reason());
+                    Asserts.isTrue(helper, stone.state() == JobState.BLOCKED, "step state " + stone.state());
+                    Asserts.isTrue(helper, stone.reason() == BlockReason.PROVIDER_BLOCKING, "step reason " + stone.reason());
+                    Asserts.isTrue(helper, job.state() == JobState.BLOCKED, "job state " + job.state());
+                    Asserts.isTrue(helper, job.reason() == BlockReason.PROVIDER_BLOCKING, "job reason " + job.reason());
                     boolean chestListed = stone.machines().stream()
                             .anyMatch(m -> m.pos().equals(net.abs(TestNetwork.CHEST)));
-                    helper.assertTrue(chestListed, "chest not listed as the machine: " + stone.machines());
-                    helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 1, "chest contents changed");
+                    Asserts.isTrue(helper, chestListed, "chest not listed as the machine: " + stone.machines());
+                    Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 1, "chest contents changed");
                 })
                 .thenSucceed();
     }
@@ -260,10 +260,10 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> {
                     JobView job = analyze(net, tracker).jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.state() == JobState.BLOCKED, "step state " + stone.state());
-                    helper.assertTrue(stone.reason() == BlockReason.PUSH_REJECTED, "step reason " + stone.reason());
+                    Asserts.isTrue(helper, stone.state() == JobState.BLOCKED, "step state " + stone.state());
+                    Asserts.isTrue(helper, stone.reason() == BlockReason.PUSH_REJECTED, "step reason " + stone.reason());
                     // Nothing to push into: the provider itself is listed.
-                    helper.assertTrue(stone.machines().stream().anyMatch(m -> m.kind() == MachineRef.Kind.PROVIDER
+                    Asserts.isTrue(helper, stone.machines().stream().anyMatch(m -> m.kind() == MachineRef.Kind.PROVIDER
                             && m.pos().equals(net.abs(TestNetwork.PROVIDER))), "provider not listed " + stone.machines());
                 })
                 .thenExecute(() -> helper.setBlock(TestNetwork.PROVIDER, Blocks.AIR.defaultBlockState()))
@@ -271,8 +271,8 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> {
                     JobView job = analyze(net, tracker).jobs().get(0);
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.reason() == BlockReason.NO_PROVIDER, "step reason " + stone.reason());
-                    helper.assertTrue(stone.state() == JobState.BLOCKED, "step state " + stone.state());
+                    Asserts.isTrue(helper, stone.reason() == BlockReason.NO_PROVIDER, "step reason " + stone.reason());
+                    Asserts.isTrue(helper, stone.state() == JobState.BLOCKED, "step state " + stone.state());
                 })
                 .thenSucceed();
     }
@@ -292,19 +292,19 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(2))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 2, "not pushed yet"))
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 2, "not pushed yet"))
                 .thenExecute(() -> analyze(net, tracker))
                 .thenExecute(() -> helper.setBlock(TestNetwork.CELL, Blocks.AIR.defaultBlockState()))
                 .thenWaitUntil(until(helper, net, tracker,
                         j -> j.reason() == BlockReason.CPU_OFFLINE && j.state() == JobState.BLOCKED, "CPU offline"))
                 .thenExecute(() -> {
                     GridAnalysis a = analyze(net, tracker);
-                    helper.assertTrue(!a.powered(), "network should be unpowered");
-                    helper.assertTrue(a.jobs().size() == 1, "offline CPU's job disappeared: " + a.jobs());
+                    Asserts.isTrue(helper, !a.powered(), "network should be unpowered");
+                    Asserts.isTrue(helper, a.jobs().size() == 1, "offline CPU's job disappeared: " + a.jobs());
                     JobView job = a.jobs().get(0);
-                    helper.assertTrue(job.reason() == BlockReason.CPU_OFFLINE, "job reason " + job.reason());
-                    helper.assertTrue(job.state() == JobState.BLOCKED, "job state " + job.state());
-                    helper.assertTrue(tracker.historySince(-1).isEmpty(),
+                    Asserts.isTrue(helper, job.reason() == BlockReason.CPU_OFFLINE, "job reason " + job.reason());
+                    Asserts.isTrue(helper, job.state() == JobState.BLOCKED, "job state " + job.state());
+                    Asserts.isTrue(helper, tracker.historySince(-1).isEmpty(),
                             "job was logged as finished: " + tracker.historySince(-1));
                 })
                 .thenSucceed();
@@ -326,7 +326,7 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(2))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 1, "first push missing"))
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 1, "first push missing"))
                 .thenExecute(() -> net.insert(TestNetwork.GRAVEL, 1)) // the gravel half comes back
                 .thenIdle(5)
                 .thenExecute(() -> analyze(net, tracker))
@@ -334,11 +334,11 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> {
                     JobView job = analyze(net, tracker).jobs().get(0);
                     StepView gravel = step(helper, job, TestNetwork.GRAVEL);
-                    helper.assertTrue(gravel.active() == 0 && gravel.pending() == 1, "gravel step " + gravel);
-                    helper.assertTrue(gravel.reason() == BlockReason.MACHINE_BUSY, "gravel reason " + gravel.reason());
-                    helper.assertTrue(gravel.state() != JobState.BLOCKED, "gravel step reported blocked");
+                    Asserts.isTrue(helper, gravel.active() == 0 && gravel.pending() == 1, "gravel step " + gravel);
+                    Asserts.isTrue(helper, gravel.reason() == BlockReason.MACHINE_BUSY, "gravel reason " + gravel.reason());
+                    Asserts.isTrue(helper, gravel.state() != JobState.BLOCKED, "gravel step reported blocked");
                     StepView stone = step(helper, job, TestNetwork.STONE);
-                    helper.assertTrue(stone.active() == 1, "stone still out: " + stone);
+                    Asserts.isTrue(helper, stone.active() == 1, "stone still out: " + stone);
                 })
                 .thenSucceed();
     }
@@ -355,14 +355,14 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(3))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 3, "not pushed yet"))
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 3, "not pushed yet"))
                 .thenExecute(() -> analyze(net, tracker))
-                .thenExecute(() -> net.cpu().cancelJob())
-                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenExecute(() -> Asserts.cancel(net.cpu()))
+                .thenWaitUntil(() -> Asserts.isFalse(helper, net.cpu().isBusy(), "job still running"))
                 .thenExecute(() -> {
-                    helper.assertTrue(analyze(net, tracker).jobs().isEmpty(), "cancelled job still listed");
+                    Asserts.isTrue(helper, analyze(net, tracker).jobs().isEmpty(), "cancelled job still listed");
                     List<HistoryEntry> history = tracker.historySince(-1);
-                    helper.assertTrue(history.size() == 1 && !history.get(0).completed(),
+                    Asserts.isTrue(helper, history.size() == 1 && !history.get(0).completed(),
                             "cancelled job should be recorded as cancelled: " + history);
                 })
                 .thenSucceed();
@@ -395,7 +395,7 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(4))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 4,
                         "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
                 .thenExecute(() -> addon.set(new FakeAddonCpu((CraftingCPUCluster) net.cpu())))
                 // Both trackers take a first look, then the add-on CPU's job must be seen to stall on its own.
@@ -407,7 +407,7 @@ public final class DecloggerGameTests {
                 .thenWaitUntil(() -> {
                     JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(),
                             System.currentTimeMillis(), FAST, LIMITS);
-                    helper.assertTrue(read.state() == JobState.STALLED, "waiting for the add-on CPU job to stall, have "
+                    Asserts.isTrue(helper, read.state() == JobState.STALLED, "waiting for the add-on CPU job to stall, have "
                             + read.state());
                 })
                 .thenExecute(() -> {
@@ -420,34 +420,34 @@ public final class DecloggerGameTests {
                             FAST, LIMITS);
                     StepView realStone = step(helper, real, TestNetwork.STONE);
                     StepView readStone = step(helper, read, TestNetwork.STONE);
-                    helper.assertTrue(readStone.active() == realStone.active() && readStone.active() == 4
+                    Asserts.isTrue(helper, readStone.active() == realStone.active() && readStone.active() == 4
                             && readStone.stored() == realStone.stored() && readStone.pending() == realStone.pending(),
                             "add-on CPU amounts differ: " + readStone + " vs " + realStone);
-                    helper.assertTrue(readStone.machines().stream()
+                    Asserts.isTrue(helper, readStone.machines().stream()
                             .anyMatch(m -> m.pos().equals(net.abs(TestNetwork.CHEST))),
                             "add-on CPU step does not point at the chest: " + readStone.machines());
-                    helper.assertTrue(read.state() == real.state() && readStone.reason() == realStone.reason(),
+                    Asserts.isTrue(helper, read.state() == real.state() && readStone.reason() == realStone.reason(),
                             "add-on CPU " + read.state() + "/" + readStone.reason() + " vs AE2 CPU " + real.state()
                                     + "/" + realStone.reason());
-                    helper.assertTrue(read.progress() == real.progress(),
+                    Asserts.isTrue(helper, read.progress() == real.progress(),
                             "progress " + read.progress() + " vs " + real.progress());
-                    helper.assertTrue(addonTracker.cpuNumber(addon2) == addonTracker.cpuNumber(cluster),
+                    Asserts.isTrue(helper, addonTracker.cpuNumber(addon2) == addonTracker.cpuNumber(cluster),
                             "add-on CPU should share its multiblock's number");
                 })
                 .thenExecute(() -> {
                     if (cancel) {
-                        net.cpu().cancelJob();
+                        Asserts.cancel(net.cpu());
                     } else {
                         net.insert(TestNetwork.STONE, 4);
                     }
                 })
-                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenWaitUntil(() -> Asserts.isFalse(helper, net.cpu().isBusy(), "job still running"))
                 .thenExecute(() -> {
                     // The add-on CPU object is gone after its job, as Advanced AE removes its thread CPUs.
                     addonTracker.retainCpus(Set.<ICraftingCPU>of(), System.currentTimeMillis());
                     List<HistoryEntry> history = addonTracker.historySince(-1);
-                    helper.assertTrue(history.size() == 1, "expected one history entry: " + history);
-                    helper.assertTrue(history.get(0).completed() == !cancel, (cancel
+                    Asserts.isTrue(helper, history.size() == 1, "expected one history entry: " + history);
+                    Asserts.isTrue(helper, history.get(0).completed() == !cancel, (cancel
                             ? "cancelled job on a vanished add-on CPU must count as cancelled: "
                             : "finished job on a vanished add-on CPU must count as done: ") + history);
                 })
@@ -462,11 +462,11 @@ public final class DecloggerGameTests {
                 .thenWaitUntil(net::assertReady)
                 .thenExecute(() -> {
                     var ok = GridSource.resolveAt(net.level(), net.abs(TestNetwork.DRIVE), Direction.UP);
-                    helper.assertTrue(ok.grid() != null && ok.error() == null, "drive did not resolve");
+                    Asserts.isTrue(helper, ok.grid() != null && ok.error() == null, "drive did not resolve");
                     var chest = GridSource.resolveAt(net.level(), net.abs(TestNetwork.CHEST), null);
-                    helper.assertTrue(chest.grid() == null && chest.error() != null, "chest resolved to a grid");
+                    Asserts.isTrue(helper, chest.grid() == null && chest.error() != null, "chest resolved to a grid");
                     var air = GridSource.resolveAt(net.level(), net.abs(new BlockPos(7, 4, 7)), null);
-                    helper.assertTrue(air.grid() == null && air.error() != null, "air resolved to a grid");
+                    Asserts.isTrue(helper, air.grid() == null && air.error() != null, "air resolved to a grid");
                 })
                 .thenSucceed();
     }
@@ -482,25 +482,25 @@ public final class DecloggerGameTests {
                 .thenWaitUntil(net::assertReady)
                 .thenExecute(() -> {
                     Player player = mockPlayer(helper);
-                    helper.assertTrue(NetworkMemory.last(player) == null && NetworkMemory.alerts(player) == null,
+                    Asserts.isTrue(helper, NetworkMemory.last(player) == null && NetworkMemory.alerts(player) == null,
                             "a new player already has a remembered network");
                     GlobalPos pos = NetworkMemory.positionOf(net.grid(), null);
-                    helper.assertTrue(pos != null, "no position found for the network");
+                    Asserts.isTrue(helper, pos != null, "no position found for the network");
                     var back = GridSource.resolveAt(net.level(), pos.pos(), null);
-                    helper.assertTrue(back.grid() == net.grid(), "remembered position resolves to another network");
+                    Asserts.isTrue(helper, back.grid() == net.grid(), "remembered position resolves to another network");
 
                     NetworkMemory.rememberLast(player, pos);
                     NetworkMemory.setAlerts(player, pos);
-                    helper.assertTrue(pos.equals(NetworkMemory.last(player)), "last network did not round-trip");
-                    helper.assertTrue(pos.equals(NetworkMemory.alerts(player)), "alert network did not round-trip");
+                    Asserts.isTrue(helper, pos.equals(NetworkMemory.last(player)), "last network did not round-trip");
+                    Asserts.isTrue(helper, pos.equals(NetworkMemory.alerts(player)), "alert network did not round-trip");
 
                     Player respawned = mockPlayer(helper);
                     NetworkMemory.copy(player, respawned);
-                    helper.assertTrue(pos.equals(NetworkMemory.last(respawned)), "memory lost on respawn");
+                    Asserts.isTrue(helper, pos.equals(NetworkMemory.last(respawned)), "memory lost on respawn");
 
                     NetworkMemory.setAlerts(player, null);
-                    helper.assertTrue(NetworkMemory.alerts(player) == null, "alerts did not switch off");
-                    helper.assertTrue(pos.equals(NetworkMemory.last(player)), "switching alerts off cleared last");
+                    Asserts.isTrue(helper, NetworkMemory.alerts(player) == null, "alerts did not switch off");
+                    Asserts.isTrue(helper, pos.equals(NetworkMemory.last(player)), "switching alerts off cleared last");
                 })
                 .thenSucceed();
     }
@@ -511,25 +511,25 @@ public final class DecloggerGameTests {
         var open = new DeclogNetwork.OpenMonitor(true);
         FriendlyByteBuf buf = buffer(helper);
         open.write(buf);
-        helper.assertTrue(DeclogNetwork.OpenMonitor.read(buf).equals(open) && buf.readableBytes() == 0, "OpenMonitor");
+        Asserts.isTrue(helper, DeclogNetwork.OpenMonitor.read(buf).equals(open) && buf.readableBytes() == 0, "OpenMonitor");
 
         var req = new DeclogNetwork.RequestMachine(helper.getLevel().dimension(), new BlockPos(1, -60, 300000), true);
         buf = buffer(helper);
         req.write(buf);
-        helper.assertTrue(DeclogNetwork.RequestMachine.read(buf).equals(req) && buf.readableBytes() == 0,
+        Asserts.isTrue(helper, DeclogNetwork.RequestMachine.read(buf).equals(req) && buf.readableBytes() == 0,
                 "RequestMachine");
 
         var watch = new DeclogNetwork.WatchCraftingScreen(true);
         buf = buffer(helper);
         watch.write(buf);
-        helper.assertTrue(DeclogNetwork.WatchCraftingScreen.read(buf).equals(watch) && buf.readableBytes() == 0,
+        Asserts.isTrue(helper, DeclogNetwork.WatchCraftingScreen.read(buf).equals(watch) && buf.readableBytes() == 0,
                 "WatchCraftingScreen");
 
         var alert = new DeclogNetwork.Alert(TestNetwork.STONE, 64, JobState.STALLED,
                 BlockReason.MACHINE_NO_POWER, net.minecraft.network.chat.Component.literal("x"), null);
         buf = buffer(helper);
         alert.write(buf);
-        helper.assertTrue(alert.equals(DeclogNetwork.Alert.read(buf)) && buf.readableBytes() == 0, "Alert");
+        Asserts.isTrue(helper, alert.equals(DeclogNetwork.Alert.read(buf)) && buf.readableBytes() == 0, "Alert");
         helper.succeed();
     }
 
@@ -549,31 +549,31 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> net.startCalculation(3))
                 .thenWaitUntil(net::assertPlanReady)
                 .thenExecute(net::submit)
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.GRAVEL) == 3,
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.GRAVEL) == 3,
                         "expected 3 gravel pushed, got " + net.chestCount(Items.GRAVEL)))
                 .thenExecute(() -> record(net, tracker))
                 .thenIdle(10)
                 .thenExecute(() -> net.insert(TestNetwork.COBBLE, 3)) // the "machine" made the cobblestone
-                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 3,
+                .thenWaitUntil(() -> Asserts.isTrue(helper, net.chestCount(Items.COBBLESTONE) == 3,
                         "expected 3 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
                 .thenExecute(() -> {
                     record(net, tracker);
                     List<HistoryEntry> history = tracker.historySince(-1);
-                    helper.assertTrue(history.size() == 1, "cobblestone step should be recorded: " + history);
+                    Asserts.isTrue(helper, history.size() == 1, "cobblestone step should be recorded: " + history);
                     HistoryEntry step = history.get(0);
-                    helper.assertTrue(step.isStep() && step.output().equals(TestNetwork.COBBLE)
+                    Asserts.isTrue(helper, step.isStep() && step.output().equals(TestNetwork.COBBLE)
                             && step.amount() == 3 && TestNetwork.STONE.equals(step.partOf()) && step.completed(),
                             "step entry " + step);
-                    helper.assertTrue(step.durationMs() > 0, "step duration " + step.durationMs());
+                    Asserts.isTrue(helper, step.durationMs() > 0, "step duration " + step.durationMs());
                 })
                 .thenExecute(() -> net.insert(TestNetwork.STONE, 3))
-                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenWaitUntil(() -> Asserts.isFalse(helper, net.cpu().isBusy(), "job still running"))
                 .thenExecute(() -> {
                     record(net, tracker);
                     List<HistoryEntry> history = tracker.historySince(-1);
-                    helper.assertTrue(history.size() == 2, "expected the step and the job: " + history);
+                    Asserts.isTrue(helper, history.size() == 2, "expected the step and the job: " + history);
                     HistoryEntry job = history.get(1);
-                    helper.assertTrue(!job.isStep() && job.output().equals(TestNetwork.STONE) && job.amount() == 3
+                    Asserts.isTrue(helper, !job.isStep() && job.output().equals(TestNetwork.STONE) && job.amount() == 3
                             && job.completed(), "job entry " + job);
                 })
                 .thenSucceed();
@@ -607,7 +607,7 @@ public final class DecloggerGameTests {
                     GridTracker again = new GridTracker(10);
                     again.attach(loaded.storeFor(net.requireGrid()));
                     List<HistoryEntry> back = again.historySince(-1);
-                    helper.assertTrue(back.equals(List.of(step, job)), "history after save and load: " + back);
+                    Asserts.isTrue(helper, back.equals(List.of(step, job)), "history after save and load: " + back);
                 })
                 .thenSucceed();
     }
@@ -637,11 +637,11 @@ public final class DecloggerGameTests {
                 .thenIdle(20)
                 .thenExecute(() -> {
                     ICraftingCPU cpu = net.cpu();
-                    helper.assertTrue(cpu.isBusy(), "job should be waiting with its cobblestone in the CPU");
+                    Asserts.isTrue(helper, cpu.isBusy(), "job should be waiting with its cobblestone in the CPU");
                     AEKey accepted = GridAnalyzer.firstMissingInputForTests(cpu, pattern(listed, true), net.level());
-                    helper.assertTrue(accepted == null, "accepted ingredient reported missing: " + accepted);
+                    Asserts.isTrue(helper, accepted == null, "accepted ingredient reported missing: " + accepted);
                     AEKey refused = GridAnalyzer.firstMissingInputForTests(cpu, pattern(listed, false), net.level());
-                    helper.assertTrue(listed.equals(refused), "refused ingredient should be missing, got " + refused);
+                    Asserts.isTrue(helper, listed.equals(refused), "refused ingredient should be missing, got " + refused);
                 })
                 .thenSucceed();
     }
@@ -725,10 +725,10 @@ public final class DecloggerGameTests {
                 .thenExecute(() -> {
                     var provider = (appeng.api.networking.crafting.ICraftingProvider) net.providerLogic();
                     String read = GridAnalyzer.describeAddonProviderForTests(new FakeAddonProviderHost(), provider);
-                    helper.assertTrue(read.equals("sides=[north, up] blocking=true lock=LOCK_UNTIL_PULSE"),
+                    Asserts.isTrue(helper, read.equals("sides=[north, up] blocking=true lock=LOCK_UNTIL_PULSE"),
                             "add-on provider read as " + read);
                     String bare = GridAnalyzer.describeAddonProviderForTests(new Object(), provider);
-                    helper.assertTrue(bare.startsWith("sides=[down, east, north, south, up, west]"),
+                    Asserts.isTrue(helper, bare.startsWith("sides=[down, east, north, south, up, west]"),
                             "provider without a target list read as " + bare);
                 })
                 .thenSucceed();

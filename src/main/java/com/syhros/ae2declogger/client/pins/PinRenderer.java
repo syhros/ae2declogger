@@ -1,6 +1,10 @@
 package com.syhros.ae2declogger.client.pins;
 
+//#if MC >= 1.19.3
 import org.joml.Matrix4f;
+//#else
+//$$ import com.mojang.math.Matrix4f;
+//#endif
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -12,10 +16,11 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.logic.Formatting;
 
+import com.syhros.ae2declogger.client.screen.Gfx;
+
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -96,8 +101,13 @@ public final class PinRenderer {
             float scale = (float) (0.025 * Math.max(1.0, distance / 10.0));
             pose.scale(-scale, -scale, scale);
             float x = -font.width(text) / 2f;
+            //#if MC >= 1.19.4
             font.drawInBatch(text, x, 0, 0xFF000000 | pin.color, false, pose.last().pose(), buffers,
                     Font.DisplayMode.SEE_THROUGH, 0x66000000, LightTexture.FULL_BRIGHT);
+            //#else
+            //$$ font.drawInBatch(text, x, 0, 0xFF000000 | pin.color, false, pose.last().pose(), buffers, true,
+            //$$         0x66000000, LightTexture.FULL_BRIGHT);
+            //#endif
             pose.popPose();
         }
         buffers.endBatch();
@@ -179,7 +189,7 @@ public final class PinRenderer {
     }
 
     /** HUD line: "Pin: Label  x y z  ↑ 42m ▲3". Called by the loader's HUD overlay (see ClientEvents). */
-    public static void renderHud(GuiGraphics graphics, float partialTick, int width, int height) {
+    public static void renderHud(Gfx graphics, float partialTick, int width, int height) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.player == null || mc.level == null || !DeclogConfig.CLIENT.pinsHud.get()) {
             return;

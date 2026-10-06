@@ -16,13 +16,13 @@ import org.jetbrains.annotations.Nullable;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.logic.Formatting;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
@@ -57,7 +57,7 @@ public final class PinManager {
         @Nullable
         public ResourceKey<Level> dimensionKey() {
             ResourceLocation rl = ResourceLocation.tryParse(dimension == null ? "" : dimension);
-            return rl == null ? null : ResourceKey.create(Registries.DIMENSION, rl);
+            return rl == null ? null : ResourceKey.create(Mc.DIMENSIONS, rl);
         }
     }
 
@@ -127,7 +127,7 @@ public final class PinManager {
         if (target == null || player == null) {
             return;
         }
-        boolean sameDim = player.level().dimension().location().toString().equals(target.dimension);
+        boolean sameDim = Mc.level(player).dimension().location().toString().equals(target.dimension);
         boolean near = sameDim && player.blockPosition().distSqr(target.pos()) <= 5 * 5;
         long now = System.currentTimeMillis();
         if (near && targetReachedAtMs < 0) {

@@ -249,12 +249,22 @@ final class CpuAccess {
 
         @Override
         public long lastModifiedTick() {
+            //#if MC >= 1.20
             return logic.getLastModifiedOnTick();
+            //#else
+            //$$ return -1; // AE2 12 and older do not record it
+            //#endif
         }
 
         @Override
         public float progress() {
+            //#if MC >= 1.20
             return logic.getElapsedTimeTracker().getProgress();
+            //#else
+            //$$ var t = logic.getElapsedTimeTracker();
+            //$$ return t.getStartItemCount() <= 0 ? Float.NaN
+            //$$         : 1f - (float) t.getRemainingItemCount() / t.getStartItemCount();
+            //#endif
         }
 
         @Override

@@ -16,10 +16,11 @@ import com.syhros.ae2declogger.logic.Formatting;
 import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
+import com.syhros.ae2declogger.client.screen.Gfx;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
@@ -85,12 +86,12 @@ public final class CraftingScreenOverlay {
     }
 
     /** After the screen has drawn itself. */
-    public static void onRender(Screen screen, GuiGraphics g, int mouseX, int mouseY) {
+    public static void onRender(Screen screen, Gfx g, int mouseX, int mouseY) {
         if (screen != watched) {
             return;
         }
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 350);
+        g.push();
+        g.translate(0, 0, 350);
         try {
             JobView job = focusedJob(null);
             if (job != null) {
@@ -108,7 +109,7 @@ public final class CraftingScreenOverlay {
         } catch (RuntimeException e) {
             Ae2Declogger.LOG.debug("Crafting screen overlay failed", e);
         } finally {
-            g.pose().popPose();
+            g.pop();
         }
     }
 
@@ -161,7 +162,7 @@ public final class CraftingScreenOverlay {
 
     // ---------------------------------------------------------------- popup
 
-    private static void renderPopup(GuiGraphics g, Screen screen, int mouseX, int mouseY) {
+    private static void renderPopup(Gfx g, Screen screen, int mouseX, int mouseY) {
         Font font = Minecraft.getInstance().font;
         List<Component> lines = new ArrayList<>();
         int stateColor = 0xFFAAAAAA;
@@ -248,7 +249,7 @@ public final class CraftingScreenOverlay {
         g.drawString(font, label, bx + (bw - font.width(label)) / 2, by + 3, 0xFFFFFFFF, false);
     }
 
-    private static void frame(GuiGraphics g, Rect2i r, int color) {
+    private static void frame(Gfx g, Rect2i r, int color) {
         int x0 = r.getX(), y0 = r.getY(), x1 = x0 + r.getWidth(), y1 = y0 + r.getHeight();
         g.fill(x0, y0, x1, y0 + 1, color);
         g.fill(x0, y1 - 1, x1, y1, color);
@@ -318,10 +319,16 @@ public final class CraftingScreenOverlay {
         }
         if (layoutBroken && screen instanceof CraftingCPUScreen<?> cpuScreen) {
             var hovered = cpuScreen.getStackUnderMouse(x, y);
+            //#if MC >= 1.20
             if (hovered != null && hovered.stack() != null) {
                 var b = hovered.bounds();
                 return new Cell(hovered.stack().what(), new Rect2i(b.getX(), b.getY(), b.getWidth(), b.getHeight()));
             }
+            //#else
+            //$$ if (hovered != null) {
+            //$$     return new Cell(hovered.what(), new Rect2i((int) x - 8, (int) y - 8, 16, 16));
+            //$$ }
+            //#endif
         }
         return null;
     }
@@ -354,7 +361,13 @@ public final class CraftingScreenOverlay {
             Object table = tableField.get(cpuScreen);
             int tx = instanceInt(table, "x");
             int ty = instanceInt(table, "y");
-            int rows = instanceInt(table, "rows");
+            // AE2 15 sizes the table to the screen ("rows"); AE2 12 and older use a fixed ROWS.
+            int rows;
+            try {
+                rows = instanceInt(table, "rows");
+            } catch (NoSuchFieldException e) {
+                rows = staticInt(table.getClass(), "ROWS", 6);
+            }
             List<CraftingStatusEntry> entries = status.getEntries();
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < cols; col++) {

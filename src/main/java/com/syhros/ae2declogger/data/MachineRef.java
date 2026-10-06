@@ -2,12 +2,12 @@ package com.syhros.ae2declogger.data;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.logic.BlockReason;
 
 import com.syhros.ae2declogger.network.Bufs;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -46,7 +46,7 @@ public record MachineRef(ResourceKey<Level> dimension, BlockPos pos, Component n
     }
 
     public static MachineRef read(FriendlyByteBuf buf) {
-        ResourceKey<Level> dim = buf.readResourceKey(Registries.DIMENSION);
+        ResourceKey<Level> dim = buf.readResourceKey(Mc.DIMENSIONS);
         BlockPos pos = buf.readBlockPos();
         Component name = Bufs.readComponent(buf);
         Kind kind = buf.readEnum(Kind.class);

@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.data.GridSummary;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
@@ -15,7 +16,6 @@ import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.server.DecloggerServer;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -88,7 +88,7 @@ public final class DeclogNetwork {
         }
 
         public static RequestMachine read(FriendlyByteBuf buf) {
-            return new RequestMachine(buf.readResourceKey(Registries.DIMENSION), buf.readBlockPos(),
+            return new RequestMachine(buf.readResourceKey(Mc.DIMENSIONS), buf.readBlockPos(),
                     buf.readBoolean());
         }
     }

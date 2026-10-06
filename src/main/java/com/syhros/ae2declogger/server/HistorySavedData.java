@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.HistoryEntry;
 
@@ -15,7 +16,6 @@ import net.minecraft.core.GlobalPos;
 //#if MC >= 1.20.5
 //$$ import net.minecraft.core.HolderLookup;
 //#endif
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -218,6 +218,6 @@ public final class HistorySavedData extends SavedData {
         if (dim == null) {
             return null;
         }
-        return GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), BlockPos.of(t.getLong("pos")));
+        return GlobalPos.of(ResourceKey.create(Mc.DIMENSIONS, dim), BlockPos.of(t.getLong("pos")));
     }
 }

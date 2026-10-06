@@ -117,22 +117,22 @@ final class TestNetwork {
 
     IGrid requireGrid() {
         IGrid grid = grid();
-        helper.assertTrue(grid != null, "network not formed yet");
+        Asserts.isTrue(helper, grid != null, "network not formed yet");
         return grid;
     }
 
     /** Throws until the network is powered, has a CPU and knows the pattern. */
     void assertReady() {
         IGrid grid = requireGrid();
-        helper.assertTrue(grid.getEnergyService().isNetworkPowered(), "network not powered yet");
-        helper.assertTrue(!grid.getCraftingService().getCpus().isEmpty(), "no crafting CPU yet");
-        helper.assertTrue(grid.getCraftingService().isCraftable(STONE), "pattern not registered yet");
+        Asserts.isTrue(helper, grid.getEnergyService().isNetworkPowered(), "network not powered yet");
+        Asserts.isTrue(helper, !grid.getCraftingService().getCpus().isEmpty(), "no crafting CPU yet");
+        Asserts.isTrue(helper, grid.getCraftingService().isCraftable(STONE), "pattern not registered yet");
     }
 
     void insert(AEItemKey key, long amount) {
         long inserted = requireGrid().getStorageService().getInventory().insert(key, amount, Actionable.MODULATE,
                 IActionSource.empty());
-        helper.assertTrue(inserted == amount, "could only insert " + inserted + " of " + amount + " " + key);
+        Asserts.isTrue(helper, inserted == amount, "could only insert " + inserted + " of " + amount + " " + key);
     }
 
     void startCalculation(long amount) {
@@ -144,18 +144,18 @@ final class TestNetwork {
     }
 
     void assertPlanReady() {
-        helper.assertTrue(plan != null && plan.isDone(), "crafting calculation still running");
+        Asserts.isTrue(helper, plan != null && plan.isDone(), "crafting calculation still running");
     }
 
     void submit() {
         try {
             ICraftingPlan p = plan.get();
-            helper.assertTrue(!p.simulation(), "plan is missing " + describe(p.missingItems()) + "; used "
+            Asserts.isTrue(helper, !p.simulation(), "plan is missing " + describe(p.missingItems()) + "; used "
                     + describe(p.usedItems()) + "; network has " + describe(requireGrid().getStorageService()
                             .getCachedInventory()) + "; craftable stone=" + requireGrid().getCraftingService()
                                     .isCraftable(STONE));
             var result = requireGrid().getCraftingService().submitJob(p, null, null, false, IActionSource.empty());
-            helper.assertTrue(result.successful(), "job was not accepted: " + result.errorCode());
+            Asserts.isTrue(helper, result.successful(), "job was not accepted: " + result.errorCode());
         } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
             throw new IllegalStateException(e);
         }

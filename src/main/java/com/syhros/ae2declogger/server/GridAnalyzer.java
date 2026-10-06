@@ -46,7 +46,11 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+//#if MC >= 1.20
 import appeng.helpers.patternprovider.PatternProviderLogic;
+//#else
+//$$ import appeng.helpers.iface.PatternProviderLogic;
+//#endif
 import appeng.blockentity.crafting.CraftingBlockEntity;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 
