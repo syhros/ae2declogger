@@ -7,7 +7,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 /**
  * Two config files:
  * <ul>
- * <li>{@code config/ae2declogger-common.toml}: detection timings, update rates, limits, teleport rules. Read by the
+ * <li>{@code config/ae2declogger-common.toml}: detection timings, update rates, limits. Read by the
  * server (or the integrated server in single player).</li>
  * <li>{@code config/ae2declogger-client.toml}: what this player sees and hears.</li>
  * </ul>
@@ -50,10 +50,6 @@ public final class DeclogConfig {
         public final ForgeConfigSpec.BooleanValue allowCrossDimension;
         public final ForgeConfigSpec.IntValue maxLinkDistance;
 
-        public final ForgeConfigSpec.BooleanValue teleportEnabled;
-        public final ForgeConfigSpec.IntValue teleportPermissionLevel;
-        public final ForgeConfigSpec.BooleanValue teleportInCreative;
-
         Common(ForgeConfigSpec.Builder b) {
             b.comment("How often the server collects crafting data and how much it sends.").push("updates");
             updateIntervalTicks = b
@@ -88,8 +84,9 @@ public final class DeclogConfig {
             b.pop();
 
             b.push("history");
-            historySize = b.comment("Finished jobs remembered per network for the History and Stats tabs.")
-                    .defineInRange("historySize", 50, 1, 1000);
+            historySize = b.comment("Finished jobs and job steps remembered per network for the History and Stats tabs.",
+                    "Saved with the world. Each job adds one entry per intermediate item it made.")
+                    .defineInRange("historyEntries", 1000, 1, 2000);
             b.pop();
 
             b.comment("Read-only machine viewer.").push("machineViewer");
@@ -102,14 +99,6 @@ public final class DeclogConfig {
                     .define("allowCrossDimension", true);
             maxLinkDistance = b.comment("Most blocks away from the remembered network the hotkey still opens the monitor. 0 = no limit.")
                     .defineInRange("maxLinkDistance", 0, 0, 1_000_000);
-            b.pop();
-
-            b.comment("Teleport button in the monitor and pin list.").push("teleport");
-            teleportEnabled = b.comment("Show and allow the Teleport button.").define("enabled", true);
-            teleportPermissionLevel = b.comment("Permission level needed to teleport (2 = operators / cheats on).")
-                    .defineInRange("permissionLevel", 2, 0, 4);
-            teleportInCreative = b.comment("Players in creative mode may always teleport.")
-                    .define("allowInCreative", true);
             b.pop();
         }
 

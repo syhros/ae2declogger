@@ -201,10 +201,26 @@ public final class CraftingScreenOverlay {
                         machine.pos().getX(), machine.pos().getY(), machine.pos().getZ())
                         .withStyle(ChatFormatting.GRAY));
             }
+        } else if (job != null && job.steps().isEmpty() && job.state() != JobState.IN_PROGRESS) {
+            // No per-step details for this CPU: show what is known about the whole job.
+            stateColor = 0xFF000000 | job.state().color();
+            long idle = Math.max(0, ClientState.serverNow() - job.lastActivityAtMs());
+            lines.add(Component.translatable("ae2declogger.overlay.job_state_for",
+                    Component.translatable(job.state().translationKey()), Formatting.duration(idle))
+                    .withStyle(s -> s.withColor(0xFFFFFF & job.state().color())));
+            if (job.reason() != BlockReason.NONE) {
+                Component reason = Component.translatable(job.reason().translationKey());
+                if (job.detail() != null) {
+                    reason = reason.copy().append(": ").append(job.detail());
+                }
+                lines.add(reason.copy().withStyle(ChatFormatting.GRAY));
+            }
         } else if (job != null) {
             lines.add(Component.translatable("ae2declogger.overlay.no_problem").withStyle(ChatFormatting.GRAY));
-        } else {
+        } else if (ClientState.summary == null) {
             lines.add(Component.translatable("ae2declogger.overlay.loading").withStyle(ChatFormatting.GRAY));
+        } else {
+            lines.add(Component.translatable("ae2declogger.overlay.no_data").withStyle(ChatFormatting.GRAY));
         }
 
         List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
@@ -266,6 +282,11 @@ public final class CraftingScreenOverlay {
         }
         for (JobView j : ClientState.JOBS.values()) {
             if (step(j, key) != null) {
+                return j;
+            }
+        }
+        for (JobView j : ClientState.JOBS.values()) {
+            if (j.output().equals(key)) {
                 return j;
             }
         }

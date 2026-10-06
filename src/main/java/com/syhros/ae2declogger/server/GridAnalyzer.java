@@ -23,16 +23,20 @@ import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.logic.JobStats;
 import com.syhros.ae2declogger.logic.StallClassifier;
+import com.syhros.ae2declogger.logic.StepClock;
 import com.syhros.ae2declogger.logic.Thresholds;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 
+import appeng.api.config.FuzzyMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.CraftingJobStatus;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -92,12 +96,91 @@ public final class GridAnalyzer {
         return new GridAnalyzer(grid, tracker, nowMs, thresholds, limits).run();
     }
 
+    /** Visible for game tests: analyses one CPU the way a network scan would. */
+    public static JobView analyzeCpuForTests(IGrid grid, GridTracker tracker, ICraftingCPU cpu, long nowMs,
+            Thresholds thresholds, Limits limits) {
+        CraftingJobStatus status = cpu.getJobStatus();
+        if (status == null) {
+            throw new IllegalStateException("CPU has no job");
+        }
+        return new GridAnalyzer(grid, tracker, nowMs, thresholds, limits).analyzeJob(cpu, tracker.cpuNumber(cpu),
+                status);
+    }
+
+    /**
+     * The light pass for networks nobody is watching: follows each job and times its steps for the History and Stats
+     * tabs, without diagnosing anything. Jobs that finish are recorded exactly as by a full analysis.
+     */
+    public static void record(IGrid grid, GridTracker tracker, long nowMs) {
+        Set<ICraftingCPU> present = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (ICraftingCPU cpu : allCpus(grid)) {
+            present.add(cpu);
+            int number = tracker.cpuNumber(cpu);
+            if (!cpu.isBusy()) {
+                tracker.cpuIdle(cpu, nowMs);
+                continue;
+            }
+            CraftingJobStatus status = cpu.getJobStatus();
+            if (status == null) {
+                continue;
+            }
+            try {
+                CpuAccess access = CpuAccess.of(cpu);
+                ICraftingLink link = access.link();
+                Component cpuName = cpu.getName() != null ? cpu.getName()
+                        : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
+                long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
+                GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
+                        status.crafting(), cpuName, nowMs - elapsedMs, link, nowMs);
+                track.lastProgress = access.progress(status);
+                if (access.hasDetails()) {
+                    observeSteps(tracker, track, access, access.tasks(), nowMs);
+                }
+            } catch (RuntimeException | LinkageError e) {
+                Ae2Declogger.LOG.debug("Could not follow crafting CPU {}", number, e);
+            }
+        }
+        tracker.retainCpus(present, nowMs);
+    }
+
+    /** Visible for game tests: the ingredient check the Missing ingredient reason comes from. */
+    @Nullable
+    public static AEKey firstMissingInputForTests(ICraftingCPU cpu, IPatternDetails pattern, @Nullable Level level) {
+        return firstMissingInput(CpuAccess.of(cpu), pattern, level);
+    }
+
+    /**
+     * One look at a job: records the steps that finished since the last look. Steps are counted per item: items still
+     * to be made (crafts left x items per craft) plus items out at machines. AE2 drops a pattern from its task list
+     * once every craft is pushed, so items out at machines are what keeps a step visible until it comes back.
+     */
+    private static void observeSteps(GridTracker tracker, GridTracker.CpuTrack track, CpuAccess access,
+            @Nullable Map<IPatternDetails, Long> tasks, long nowMs) {
+        if (tasks == null) {
+            return;
+        }
+        Map<AEKey, Long> remaining = new LinkedHashMap<>();
+        for (Map.Entry<IPatternDetails, Long> e : tasks.entrySet()) {
+            GenericStack out = e.getKey().getPrimaryOutput();
+            remaining.merge(out.what(), e.getValue() * Math.max(1, out.amount()), Long::sum);
+        }
+        KeyCounter all = new KeyCounter();
+        access.allItems(all);
+        for (var e : all) {
+            if (!remaining.containsKey(e.getKey()) && access.active(e.getKey()) > 0) {
+                remaining.put(e.getKey(), 0L);
+            }
+        }
+        List<StepClock.Done<AEKey>> done = track.steps.observe(remaining, k -> k, k -> 1, access::active, nowMs);
+        tracker.recordSteps(track, done);
+    }
+
     private GridAnalysis run() {
         int cpus = 0;
         int busy = 0;
         List<JobView> jobs = new ArrayList<>();
         Set<ICraftingCPU> present = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (ICraftingCPU cpu : allCpus()) {
+        for (ICraftingCPU cpu : allCpus(grid)) {
             cpus++;
             present.add(cpu);
             int number = tracker.cpuNumber(cpu);
@@ -133,8 +216,8 @@ public final class GridAnalyzer {
      * The CPUs AE2 reports plus crafting clusters it leaves out because they are offline, so a CPU that loses power
      * mid-job stays visible (as CPU offline) instead of looking cancelled.
      */
-    private List<ICraftingCPU> allCpus() {
-        List<ICraftingCPU> result = new ArrayList<>(crafting.getCpus());
+    static List<ICraftingCPU> allCpus(IGrid grid) {
+        List<ICraftingCPU> result = new ArrayList<>(grid.getCraftingService().getCpus());
         Set<ICraftingCPU> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         seen.addAll(result);
         try {
@@ -194,6 +277,7 @@ public final class GridAnalyzer {
             }
             // Forget timers for keys that dropped to zero, so a value that comes back is seen as a change.
             track.retainKeys(analysed);
+            observeSteps(tracker, track, access, tasks, now);
         }
         track.observeActivity(access.lastModifiedTick(), CpuAccess.currentTick(),
                 new GridTracker.Fingerprint(progress, totalActive, totalPending, amounts.size()), now);
@@ -349,7 +433,7 @@ public final class GridAnalyzer {
     }
 
     private Diagnosis diagnosePattern(CpuAccess access, IPatternDetails pattern) {
-        AEKey missing = firstMissingInput(access, pattern);
+        AEKey missing = firstMissingInput(access, pattern, level());
         if (missing != null) {
             boolean coming = access.active(missing) > 0 || access.pending(missing) > 0;
             return new Diagnosis(coming ? BlockReason.WAITING_INGREDIENTS : BlockReason.MISSING_INGREDIENT,
@@ -439,9 +523,17 @@ public final class GridAnalyzer {
         return new Diagnosis(providerReason == null ? BlockReason.UNKNOWN : providerReason, providerDetail, machines);
     }
 
-    /** First pattern input the CPU does not hold enough of, or null if all inputs are there. */
+    /**
+     * First pattern input the CPU does not hold enough of, or null if all inputs are there.
+     *
+     * <p>
+     * Matched the way AE2 does when it pushes a pattern: any stored item the input accepts counts, not only the exact
+     * one written in the pattern. A GregTech file or hammer that has been used once has different damage data than
+     * the pattern's, but it is the same ingredient.
+     */
     @Nullable
-    private static AEKey firstMissingInput(CpuAccess access, IPatternDetails pattern) {
+    static AEKey firstMissingInput(CpuAccess access, IPatternDetails pattern, @Nullable Level level) {
+        KeyCounter held = null;
         for (IPatternDetails.IInput input : pattern.getInputs()) {
             GenericStack[] options = input.getPossibleInputs();
             if (options.length == 0) {
@@ -456,10 +548,52 @@ public final class GridAnalyzer {
                 }
             }
             if (!satisfied) {
+                if (held == null) {
+                    held = new KeyCounter();
+                    access.allItems(held);
+                }
+                satisfied = heldLikeAe2(access, held, input, options, multiplier, level);
+            }
+            if (!satisfied) {
                 return options[0].what();
             }
         }
         return null;
+    }
+
+    /** AE2's own test (CraftingCpuHelper): fuzzy matches the input accepts, added up over all of them. */
+    private static boolean heldLikeAe2(CpuAccess access, KeyCounter held, IPatternDetails.IInput input,
+            GenericStack[] options, long multiplier, @Nullable Level level) {
+        Set<AEKey> counted = new HashSet<>();
+        long crafts = 0;
+        for (GenericStack option : options) {
+            long per = Math.max(1, option.amount());
+            for (var e : held.findFuzzy(option.what(), FuzzyMode.IGNORE_ALL)) {
+                AEKey key = e.getKey();
+                if (!counted.add(key)) {
+                    continue;
+                }
+                boolean valid;
+                try {
+                    valid = level == null || input.isValid(key, level);
+                } catch (RuntimeException ex) {
+                    valid = false;
+                }
+                if (valid) {
+                    crafts += access.stored(key) / per;
+                    if (crafts >= multiplier) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    private Level level() {
+        IGridNode pivot = grid.getPivot();
+        return pivot != null ? pivot.getLevel() : null;
     }
 
     private List<IPatternDetails> patternsFor(AEKey key, @Nullable Map<IPatternDetails, Long> tasks,

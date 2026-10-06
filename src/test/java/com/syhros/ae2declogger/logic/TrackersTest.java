@@ -126,6 +126,33 @@ class TrackersTest {
     }
 
     @Test
+    void stepsAreCountedApartFromJobs() {
+        var entries = List.of(
+                new JobStats.Entry<>("rod", 4, 40_000, true, false),
+                new JobStats.Entry<>("rod", 8, 20_000, true, true),
+                new JobStats.Entry<>("rod", 2, 10_000, true, true),
+                new JobStats.Entry<>("plate", 16, 8_000, true, true));
+        var rows = JobStats.compute(entries);
+        var rod = rows.get(0);
+        assertEquals("rod", rod.key());
+        assertEquals(1, rod.jobs());
+        assertEquals(2, rod.steps());
+        assertEquals(40_000, rod.avgDurationMs(), "steps don't change the job average");
+        assertEquals(15_000, rod.stepAvgMs());
+        assertEquals(30_000.0 / 10, rod.stepMsPerUnit(), 1e-9);
+        assertEquals(14, rod.totalAmount());
+
+        var plate = rows.get(1);
+        assertEquals(0, plate.jobs());
+        assertEquals(-1, plate.avgDurationMs());
+        assertEquals(500.0, plate.stepMsPerUnit(), 1e-9);
+
+        // A job's expected time only uses whole jobs, not steps.
+        assertEquals(40_000, JobStats.expectedMs(entries, "rod", 4));
+        assertEquals(-1, JobStats.expectedMs(entries, "plate", 16));
+    }
+
+    @Test
     void statsForOnlyCancelledJobs() {
         var rows = JobStats.compute(List.of(new JobStats.Entry<>("x", 1, 100, false)));
         assertEquals(-1, rows.get(0).avgDurationMs());

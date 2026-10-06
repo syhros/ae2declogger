@@ -224,15 +224,26 @@ public final class ClientSelfTest {
             monitor().testSelectStep(0);
             monitor().testPress("goto");
         });
-        then("pin active, monitor closed", 40, () -> mc().screen == null, () -> {
-            check(PinManager.active() != null, "Go To created an active pin");
-            check(PinManager.active() != null && PinManager.active().pos().equals(SelfTestServer.chestB()),
-                    "pin is on chest B");
-            screenshot("09-world-pin-and-hud");
+        then("Go To outline shown, monitor closed", 40, () -> mc().screen == null, () -> {
+            PinManager.Pin target = PinManager.target();
+            check(target != null && target.pos().equals(SelfTestServer.chestB()), "Go To outlines chest B");
+            check(PinManager.active() == target, "Go To shows the way to chest B");
+            check(PinManager.pins().isEmpty(), "Go To does not save a pin");
+            screenshot("09-world-goto-outline-and-hud");
         });
         then("reopen monitor", 0, () -> true,
                 () -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(false)));
-        then("pins tab", 20, () -> monitor() != null, () -> monitor().testSwitchTab(3));
+        then("pin blocked machine", 20, () -> monitor() != null, () -> {
+            monitor().testSwitchTab(0);
+            monitor().testSelectJobNamed("Glass");
+            monitor().testSelectStep(0);
+            monitor().testPress("pin");
+            check(PinManager.pins().size() == 1 && PinManager.pins().get(0).pos().equals(SelfTestServer.chestB()),
+                    "Pin saves chest B");
+            check(!PinManager.pins().isEmpty() && PinManager.pins().get(0).color == PinManager.PIN_COLOR,
+                    "pins are red");
+        });
+        then("pins tab", 5, () -> monitor() != null, () -> monitor().testSwitchTab(3));
         then("pins shot", 5, () -> true, () -> screenshot("10-pins"));
         then("close", 5, () -> true, () -> mc().screen.onClose());
         then("unsubscribed", 20, () -> mc().screen == null, () -> {

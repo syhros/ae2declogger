@@ -37,7 +37,7 @@ public final class PinRenderer {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || PinManager.isHidden() || PinManager.pins().isEmpty()
+        if (mc.level == null || mc.player == null || PinManager.isHidden() || PinManager.visiblePins().isEmpty()
                 || !DeclogConfig.CLIENT.pinsInWorld.get()) {
             return;
         }
@@ -49,7 +49,7 @@ public final class PinRenderer {
         PinManager.Pin active = PinManager.active();
 
         java.util.List<PinManager.Pin> visible = new java.util.ArrayList<>();
-        for (PinManager.Pin pin : PinManager.pins()) {
+        for (PinManager.Pin pin : PinManager.visiblePins()) {
             if (dim.equals(pin.dimension) && !tooFar(pin.pos(), cam, maxDist)) {
                 visible.add(pin);
             }

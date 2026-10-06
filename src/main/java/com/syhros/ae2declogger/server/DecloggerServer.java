@@ -37,6 +37,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -46,16 +47,20 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.hooks.ticking.TickHandler;
+import appeng.me.Grid;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 
 /**
  * Server side of the mod: who is watching which network, sending them updates, background stall alerts, the machine
- * viewer and teleports. Everything runs on the server thread.
+ * viewer. Everything runs on the server thread.
  */
 public final class DecloggerServer {
 
     private static final int MAX_ALLOWED_POSITIONS = 4096;
+    /** How often jobs on networks nobody is watching are followed for the history (1 s). */
+    private static final int RECORD_INTERVAL_TICKS = 20;
 
     private static final Map<UUID, Subscription> MONITORS = new HashMap<>();
     private static final Map<IGrid, GridTracker> TRACKERS = new WeakHashMap<>();
@@ -182,27 +187,47 @@ public final class DecloggerServer {
     /** Job id of the CPU shown in an AE2 crafting CPU / status screen, or -1. */
     private static long focusedJob(Subscription sub, IGrid grid) {
         AbstractContainerMenu menu = sub.overlayMenu != null ? sub.overlayMenu.get() : null;
-        if (!(menu instanceof CraftingCPUMenu)) {
+        ICraftingCPU cpu = menu instanceof CraftingCPUMenu ? menuCpu(menu) : null;
+        if (cpu == null) {
             return -1;
         }
+        GridTracker.CpuTrack track = tracker(grid).track(cpu);
+        return track != null ? track.jobId : -1;
+    }
+
+    /**
+     * The CPU an AE2 crafting CPU menu shows. AE2 keeps its own CPUs in the field {@code cpu}; add-ons that show their
+     * CPUs in the same screen (Advanced AE's quantum computer) leave it empty and keep theirs in a field of their own,
+     * so any other field holding a CPU is used next.
+     */
+    @Nullable
+    static ICraftingCPU menuCpu(AbstractContainerMenu menu) {
+        ICraftingCPU fallback = null;
         try {
-            if (CPU_FIELD == null) {
-                CPU_FIELD = CraftingCPUMenu.class.getDeclaredField("cpu");
-                CPU_FIELD.setAccessible(true);
-            }
-            Object cpu = CPU_FIELD.get(menu);
-            if (cpu instanceof ICraftingCPU craftingCpu) {
-                GridTracker.CpuTrack track = tracker(grid).track(craftingCpu);
-                return track != null ? track.jobId : -1;
+            for (Class<?> c = menu.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) {
+                        continue;
+                    }
+                    if (!ICraftingCPU.class.isAssignableFrom(f.getType()) && f.getType() != Object.class) {
+                        continue;
+                    }
+                    f.setAccessible(true);
+                    if (f.get(menu) instanceof ICraftingCPU cpu) {
+                        if (f.getName().equals("cpu")) {
+                            return cpu;
+                        }
+                        if (fallback == null) {
+                            fallback = cpu;
+                        }
+                    }
+                }
             }
         } catch (ReflectiveOperationException | RuntimeException e) {
             Ae2Declogger.LOG.debug("Could not read the CPU of the crafting screen", e);
         }
-        return -1;
+        return fallback;
     }
-
-    @Nullable
-    private static java.lang.reflect.Field CPU_FIELD;
 
     public static void openMonitor(ServerPlayer player, GridSource source) {
         GridSource.Resolved resolved = source.resolve(player);
@@ -262,6 +287,47 @@ public final class DecloggerServer {
         if (ticks % DeclogConfig.COMMON.alertIntervalTicks.get() == 0) {
             runAlerts(server);
         }
+        if (ticks % RECORD_INTERVAL_TICKS == 0) {
+            recordAll(server);
+        }
+    }
+
+    /**
+     * Follows the jobs of every network with a busy crafting CPU (or one whose last job was still being followed), so
+     * jobs and their steps reach the history even when nobody has the monitor open.
+     */
+    private static void recordAll(MinecraftServer server) {
+        Iterable<Grid> grids;
+        try {
+            grids = TickHandler.instance().getGridList();
+        } catch (RuntimeException | LinkageError e) {
+            return;
+        }
+        long tick = server.getTickCount();
+        long now = System.currentTimeMillis();
+        for (Grid grid : grids) {
+            try {
+                GridTracker known = TRACKERS.get(grid);
+                if (known != null && known.cachedTick == tick) {
+                    continue; // fully analysed for a watcher this tick
+                }
+                if (!hasBusyCpu(grid) && (known == null || known.trackedJobs() == 0)) {
+                    continue;
+                }
+                GridAnalyzer.record(grid, tracker(grid), now);
+            } catch (RuntimeException | LinkageError e) {
+                Ae2Declogger.LOG.debug("Could not record the jobs of a network", e);
+            }
+        }
+    }
+
+    private static boolean hasBusyCpu(IGrid grid) {
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (cpu.isBusy()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void sendUpdate(ServerPlayer player, Subscription sub, @Nullable IGrid known, boolean full) {
@@ -311,8 +377,7 @@ public final class DecloggerServer {
         sub.allowed.addAll(analysis.machines());
 
         GridSummary summary = new GridSummary(sub.source.title(), analysis.cpus(), analysis.busyCpus(),
-                analysis.storedPower(), analysis.maxPower(), analysis.powered(), System.currentTimeMillis(),
-                canTeleport(player));
+                analysis.storedPower(), analysis.maxPower(), analysis.powered(), System.currentTimeMillis());
         boolean alerts = alertsOnFor(player, grid);
         long focus = focusedJob(sub, grid);
 
@@ -333,15 +398,28 @@ public final class DecloggerServer {
 
     private static boolean sameIgnoringTime(GridSummary a, GridSummary b) {
         return a.cpus() == b.cpus() && a.busyCpus() == b.busyCpus() && a.powered() == b.powered()
-                && a.canTeleport() == b.canTeleport() && Objects.equals(a.networkName(), b.networkName())
+                && Objects.equals(a.networkName(), b.networkName())
                 && Math.abs(a.storedPower() - b.storedPower()) < 1.0 && Math.abs(a.maxPower() - b.maxPower()) < 1.0;
     }
 
     static GridTracker tracker(IGrid grid) {
-        GridTracker tracker = TRACKERS.computeIfAbsent(grid,
-                g -> new GridTracker(DeclogConfig.COMMON.historySize.get()));
+        GridTracker tracker = TRACKERS.computeIfAbsent(grid, DecloggerServer::newTracker);
         tracker.setHistorySize(DeclogConfig.COMMON.historySize.get());
         tracker.lastUsedMs = System.currentTimeMillis();
+        return tracker;
+    }
+
+    /** A tracker for a network seen for the first time, with its history saved in the world (if any). */
+    private static GridTracker newTracker(IGrid grid) {
+        GridTracker tracker = new GridTracker(DeclogConfig.COMMON.historySize.get());
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            try {
+                tracker.attach(HistorySavedData.get(server).storeFor(grid));
+            } catch (RuntimeException e) {
+                Ae2Declogger.LOG.warn("Could not load the saved crafting history of a network", e);
+            }
+        }
         return tracker;
     }
 
@@ -508,43 +586,6 @@ public final class DecloggerServer {
             Ae2Declogger.LOG.debug("Could not collect pattern inputs", e);
         }
         return result;
-    }
-
-    // ---------------------------------------------------------------- teleport
-
-    public static boolean canTeleport(ServerPlayer player) {
-        var cfg = DeclogConfig.COMMON;
-        if (!cfg.teleportEnabled.get()) {
-            return false;
-        }
-        return player.hasPermissions(cfg.teleportPermissionLevel.get())
-                || (cfg.teleportInCreative.get() && player.isCreative());
-    }
-
-    /**
-     * Players with the permission level may teleport anywhere (they could use /tp anyway). Creative players without
-     * it may only teleport to machines their open monitor lists, so a modified client cannot jump to arbitrary
-     * coordinates or make the server generate far-away chunks.
-     */
-    public static void teleport(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos) {
-        var cfg = DeclogConfig.COMMON;
-        boolean privileged = cfg.teleportEnabled.get() && player.hasPermissions(cfg.teleportPermissionLevel.get());
-        Subscription sub = MONITORS.get(player.getUUID());
-        boolean listed = sub != null && sub.allowed.contains(GlobalPos.of(dimension, pos));
-        if (!canTeleport(player) || (!privileged && !listed)) {
-            player.displayClientMessage(Component.translatable("ae2declogger.error.teleport_denied")
-                    .withStyle(ChatFormatting.RED), true);
-            return;
-        }
-        ServerLevel level = player.server.getLevel(dimension);
-        if (level == null || !level.getWorldBorder().isWithinBounds(pos)) {
-            return;
-        }
-        BlockPos spot = SafeSpot.find(level, pos);
-        player.teleportTo(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, player.getYRot(),
-                player.getXRot());
-        player.displayClientMessage(Component.translatable("ae2declogger.teleported", pos.getX(), pos.getY(),
-                pos.getZ()), true);
     }
 
     /** Visible for game tests. */

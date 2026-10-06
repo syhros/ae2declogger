@@ -19,6 +19,7 @@ import com.syhros.ae2declogger.server.GridAnalyzer;
 import com.syhros.ae2declogger.server.GridSource;
 import com.syhros.ae2declogger.server.NetworkMemory;
 import com.syhros.ae2declogger.server.GridTracker;
+import com.syhros.ae2declogger.server.HistorySavedData;
 import com.syhros.ae2declogger.server.MachineInspector;
 
 import io.netty.buffer.Unpooled;
@@ -28,7 +29,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -36,6 +39,14 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.core.definitions.AEItems;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 
 /**
  * Runs inside a real (headless) server with AE2 loaded: builds small ME networks, starts crafting jobs and checks what
@@ -343,6 +354,92 @@ public final class DecloggerGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * An add-on CPU shaped like Advanced AE's quantum computer threads is read through reflection exactly like AE2's
+     * own CPU, gets its multiblock's number, and when it disappears after its job its crafting link decides whether
+     * the job counts as done or cancelled.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void addonCpuFinishedJobIsDone(GameTestHelper helper) {
+        addonCpuTest(helper, false);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void addonCpuCancelledJobIsCancelled(GameTestHelper helper) {
+        addonCpuTest(helper, true);
+    }
+
+    private static void addonCpuTest(GameTestHelper helper, boolean cancel) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        GridTracker nativeTracker = new GridTracker(10);
+        GridTracker addonTracker = new GridTracker(10);
+        AtomicReference<FakeAddonCpu> addon = new AtomicReference<>();
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(4))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4,
+                        "expected 4 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
+                .thenExecute(() -> addon.set(new FakeAddonCpu((CraftingCPUCluster) net.cpu())))
+                // Both trackers take a first look, then the add-on CPU's job must be seen to stall on its own.
+                .thenExecute(() -> {
+                    long now = System.currentTimeMillis();
+                    GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, net.cpu(), now, FAST, LIMITS);
+                    GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(), now, FAST, LIMITS);
+                })
+                .thenWaitUntil(() -> {
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(),
+                            System.currentTimeMillis(), FAST, LIMITS);
+                    helper.assertTrue(read.state() == JobState.STALLED, "waiting for the add-on CPU job to stall, have "
+                            + read.state());
+                })
+                .thenExecute(() -> {
+                    CraftingCPUCluster cluster = (CraftingCPUCluster) net.cpu();
+                    FakeAddonCpu addon2 = addon.get();
+                    long now = System.currentTimeMillis();
+                    JobView real = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, cluster, now,
+                            FAST, LIMITS);
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon2, now,
+                            FAST, LIMITS);
+                    StepView realStone = step(helper, real, TestNetwork.STONE);
+                    StepView readStone = step(helper, read, TestNetwork.STONE);
+                    helper.assertTrue(readStone.active() == realStone.active() && readStone.active() == 4
+                            && readStone.stored() == realStone.stored() && readStone.pending() == realStone.pending(),
+                            "add-on CPU amounts differ: " + readStone + " vs " + realStone);
+                    helper.assertTrue(readStone.machines().stream()
+                            .anyMatch(m -> m.pos().equals(net.abs(TestNetwork.CHEST))),
+                            "add-on CPU step does not point at the chest: " + readStone.machines());
+                    helper.assertTrue(read.state() == real.state() && readStone.reason() == realStone.reason(),
+                            "add-on CPU " + read.state() + "/" + readStone.reason() + " vs AE2 CPU " + real.state()
+                                    + "/" + realStone.reason());
+                    helper.assertTrue(read.progress() == real.progress(),
+                            "progress " + read.progress() + " vs " + real.progress());
+                    helper.assertTrue(addonTracker.cpuNumber(addon2) == addonTracker.cpuNumber(cluster),
+                            "add-on CPU should share its multiblock's number");
+                })
+                .thenExecute(() -> {
+                    if (cancel) {
+                        net.cpu().cancelJob();
+                    } else {
+                        net.insert(TestNetwork.STONE, 4);
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenExecute(() -> {
+                    // The add-on CPU object is gone after its job, as Advanced AE removes its thread CPUs.
+                    addonTracker.retainCpus(Set.<ICraftingCPU>of(), System.currentTimeMillis());
+                    List<HistoryEntry> history = addonTracker.historySince(-1);
+                    helper.assertTrue(history.size() == 1, "expected one history entry: " + history);
+                    helper.assertTrue(history.get(0).completed() == !cancel, (cancel
+                            ? "cancelled job on a vanished add-on CPU must count as cancelled: "
+                            : "finished job on a vanished add-on CPU must count as done: ") + history);
+                })
+                .thenSucceed();
+    }
+
     /** Resolving a network from a block position, and the error for a non-ME block. */
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void gridSourceResolves(GameTestHelper helper) {
@@ -420,5 +517,154 @@ public final class DecloggerGameTests {
         alert.write(buf);
         helper.assertTrue(alert.equals(DeclogNetwork.Alert.read(buf)) && buf.readableBytes() == 0, "Alert");
         helper.succeed();
+    }
+
+    /**
+     * A job with an intermediate step (gravel to cobblestone to stone), followed only by the light background pass
+     * that runs for networks nobody watches: the history gets the stone job and, as its own entry, the cobblestone
+     * step marked as part of it.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void stepsOfAJobAreRecorded(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true, false, true);
+        GridTracker tracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.GRAVEL, 16))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(3))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.GRAVEL) == 3,
+                        "expected 3 gravel pushed, got " + net.chestCount(Items.GRAVEL)))
+                .thenExecute(() -> record(net, tracker))
+                .thenIdle(10)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 3)) // the "machine" made the cobblestone
+                .thenWaitUntil(() -> helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 3,
+                        "expected 3 cobblestone pushed, got " + net.chestCount(Items.COBBLESTONE)))
+                .thenExecute(() -> {
+                    record(net, tracker);
+                    List<HistoryEntry> history = tracker.historySince(-1);
+                    helper.assertTrue(history.size() == 1, "cobblestone step should be recorded: " + history);
+                    HistoryEntry step = history.get(0);
+                    helper.assertTrue(step.isStep() && step.output().equals(TestNetwork.COBBLE)
+                            && step.amount() == 3 && TestNetwork.STONE.equals(step.partOf()) && step.completed(),
+                            "step entry " + step);
+                    helper.assertTrue(step.durationMs() > 0, "step duration " + step.durationMs());
+                })
+                .thenExecute(() -> net.insert(TestNetwork.STONE, 3))
+                .thenWaitUntil(() -> helper.assertFalse(net.cpu().isBusy(), "job still running"))
+                .thenExecute(() -> {
+                    record(net, tracker);
+                    List<HistoryEntry> history = tracker.historySince(-1);
+                    helper.assertTrue(history.size() == 2, "expected the step and the job: " + history);
+                    HistoryEntry job = history.get(1);
+                    helper.assertTrue(!job.isStep() && job.output().equals(TestNetwork.STONE) && job.amount() == 3
+                            && job.completed(), "job entry " + job);
+                })
+                .thenSucceed();
+    }
+
+    /** History is saved with the world and comes back for the same network, steps included. */
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void historyIsSavedWithTheWorld(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> {
+                    HistorySavedData data = new HistorySavedData();
+                    GridTracker tracker = new GridTracker(10);
+                    tracker.attach(data.storeFor(net.requireGrid()));
+                    HistoryEntry job = new HistoryEntry(TestNetwork.STONE, 4, 12_000, true, 1_000,
+                            Component.literal("CPU 1"));
+                    HistoryEntry step = new HistoryEntry(TestNetwork.COBBLE, 4, 3_000, true, 900,
+                            Component.literal("CPU 1"), TestNetwork.STONE);
+                    tracker.addHistory(step);
+                    tracker.addHistory(job);
+
+                    CompoundTag saved = data.save(new CompoundTag());
+                    HistorySavedData loaded = HistorySavedData.load(saved);
+                    GridTracker again = new GridTracker(10);
+                    again.attach(loaded.storeFor(net.requireGrid()));
+                    List<HistoryEntry> back = again.historySince(-1);
+                    helper.assertTrue(back.equals(List.of(step, job)), "history after save and load: " + back);
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * A pattern ingredient the CPU holds with different item data than the pattern lists (a used GregTech file or
+     * hammer has other damage data) is not missing when the pattern accepts it, as in AE2's own push. Here the CPU
+     * holds plain cobblestone (nowhere to push it) and the pattern lists cobblestone with a name.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1200)
+    public static void ingredientWithOtherDataIsNotMissing(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, false);
+        ItemStack named = new ItemStack(Items.COBBLESTONE);
+        named.setHoverName(Component.literal("Used tool"));
+        AEItemKey listed = AEItemKey.of(named);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> net.insert(TestNetwork.COBBLE, 4))
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(1))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenIdle(20)
+                .thenExecute(() -> {
+                    ICraftingCPU cpu = net.cpu();
+                    helper.assertTrue(cpu.isBusy(), "job should be waiting with its cobblestone in the CPU");
+                    AEKey accepted = GridAnalyzer.firstMissingInputForTests(cpu, pattern(listed, true), net.level());
+                    helper.assertTrue(accepted == null, "accepted ingredient reported missing: " + accepted);
+                    AEKey refused = GridAnalyzer.firstMissingInputForTests(cpu, pattern(listed, false), net.level());
+                    helper.assertTrue(listed.equals(refused), "refused ingredient should be missing, got " + refused);
+                })
+                .thenSucceed();
+    }
+
+    /** One input of {@code listed}; {@code acceptsAnyCobble} decides whether plain cobblestone fits it. */
+    private static IPatternDetails pattern(AEItemKey listed, boolean acceptsAnyCobble) {
+        IPatternDetails.IInput input = new IPatternDetails.IInput() {
+            @Override
+            public GenericStack[] getPossibleInputs() {
+                return new GenericStack[] { new GenericStack(listed, 1) };
+            }
+
+            @Override
+            public long getMultiplier() {
+                return 1;
+            }
+
+            @Override
+            public boolean isValid(AEKey key, net.minecraft.world.level.Level level) {
+                return acceptsAnyCobble ? key instanceof AEItemKey item && item.getItem() == Items.COBBLESTONE
+                        : key.equals(listed);
+            }
+
+            @Override
+            public AEKey getRemainingKey(AEKey template) {
+                return null;
+            }
+        };
+        return new IPatternDetails() {
+            @Override
+            public AEItemKey getDefinition() {
+                return AEItemKey.of(AEItems.PROCESSING_PATTERN.stack());
+            }
+
+            @Override
+            public IInput[] getInputs() {
+                return new IInput[] { input };
+            }
+
+            @Override
+            public GenericStack[] getOutputs() {
+                return new GenericStack[] { new GenericStack(TestNetwork.STONE, 1) };
+            }
+        };
+    }
+
+    private static void record(TestNetwork net, GridTracker tracker) {
+        GridAnalyzer.record(net.requireGrid(), tracker, System.currentTimeMillis());
     }
 }
