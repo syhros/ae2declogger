@@ -37,6 +37,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -46,6 +47,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.hooks.ticking.TickHandler;
+import appeng.me.Grid;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 
@@ -56,6 +59,8 @@ import appeng.menu.me.crafting.CraftingCPUMenu;
 public final class DecloggerServer {
 
     private static final int MAX_ALLOWED_POSITIONS = 4096;
+    /** How often jobs on networks nobody is watching are followed for the history (1 s). */
+    private static final int RECORD_INTERVAL_TICKS = 20;
 
     private static final Map<UUID, Subscription> MONITORS = new HashMap<>();
     private static final Map<IGrid, GridTracker> TRACKERS = new WeakHashMap<>();
@@ -282,6 +287,47 @@ public final class DecloggerServer {
         if (ticks % DeclogConfig.COMMON.alertIntervalTicks.get() == 0) {
             runAlerts(server);
         }
+        if (ticks % RECORD_INTERVAL_TICKS == 0) {
+            recordAll(server);
+        }
+    }
+
+    /**
+     * Follows the jobs of every network with a busy crafting CPU (or one whose last job was still being followed), so
+     * jobs and their steps reach the history even when nobody has the monitor open.
+     */
+    private static void recordAll(MinecraftServer server) {
+        Iterable<Grid> grids;
+        try {
+            grids = TickHandler.instance().getGridList();
+        } catch (RuntimeException | LinkageError e) {
+            return;
+        }
+        long tick = server.getTickCount();
+        long now = System.currentTimeMillis();
+        for (Grid grid : grids) {
+            try {
+                GridTracker known = TRACKERS.get(grid);
+                if (known != null && known.cachedTick == tick) {
+                    continue; // fully analysed for a watcher this tick
+                }
+                if (!hasBusyCpu(grid) && (known == null || known.trackedJobs() == 0)) {
+                    continue;
+                }
+                GridAnalyzer.record(grid, tracker(grid), now);
+            } catch (RuntimeException | LinkageError e) {
+                Ae2Declogger.LOG.debug("Could not record the jobs of a network", e);
+            }
+        }
+    }
+
+    private static boolean hasBusyCpu(IGrid grid) {
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (cpu.isBusy()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void sendUpdate(ServerPlayer player, Subscription sub, @Nullable IGrid known, boolean full) {
@@ -357,10 +403,23 @@ public final class DecloggerServer {
     }
 
     static GridTracker tracker(IGrid grid) {
-        GridTracker tracker = TRACKERS.computeIfAbsent(grid,
-                g -> new GridTracker(DeclogConfig.COMMON.historySize.get()));
+        GridTracker tracker = TRACKERS.computeIfAbsent(grid, DecloggerServer::newTracker);
         tracker.setHistorySize(DeclogConfig.COMMON.historySize.get());
         tracker.lastUsedMs = System.currentTimeMillis();
+        return tracker;
+    }
+
+    /** A tracker for a network seen for the first time, with its history saved in the world (if any). */
+    private static GridTracker newTracker(IGrid grid) {
+        GridTracker tracker = new GridTracker(DeclogConfig.COMMON.historySize.get());
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            try {
+                tracker.attach(HistorySavedData.get(server).storeFor(grid));
+            } catch (RuntimeException e) {
+                Ae2Declogger.LOG.warn("Could not load the saved crafting history of a network", e);
+            }
+        }
         return tracker;
     }
 

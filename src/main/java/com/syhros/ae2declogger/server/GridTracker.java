@@ -17,6 +17,7 @@ import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.logic.BoundedHistory;
 import com.syhros.ae2declogger.logic.ChangeTimer;
 import com.syhros.ae2declogger.logic.JobStats;
+import com.syhros.ae2declogger.logic.StepClock;
 
 import net.minecraft.network.chat.Component;
 
@@ -26,8 +27,9 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
 /**
- * Server-side memory for one ME network: timers per running job and the list of finished jobs. Lives as long as the
- * network object does (it is held weakly by {@link DecloggerServer}).
+ * Server-side memory for one ME network: timers per running job and the list of finished jobs and steps. Lives as long
+ * as the network object does (it is held weakly by {@link DecloggerServer}); the history is also kept in a
+ * {@link HistorySavedData.Store} when one is attached, so it survives the network being rebuilt and the world closing.
  */
 public final class GridTracker {
 
@@ -52,6 +54,8 @@ public final class GridTracker {
         final ChangeTimer<AEKey> activeTimer = new ChangeTimer<>();
         final ChangeTimer<AEKey> pendingTimer = new ChangeTimer<>();
         final Map<AEKey, Long> blockedSince = new HashMap<>();
+        /** Times each step (item made on the way) of the job for the History and Stats tabs. */
+        final StepClock<AEKey, AEKey> steps = new StepClock<>();
 
         CpuTrack(long jobId, @Nullable UUID craftId, GenericStack output, Component cpuName, long startedAtMs,
                 @Nullable ICraftingLink link, boolean perJobCpu) {
@@ -123,6 +127,8 @@ public final class GridTracker {
     /** Keyed by {@link CpuAccess#numberKey}, so per-job add-on CPUs share their multiblock's number. */
     private final Map<Object, Integer> cpuNumbers = new IdentityHashMap<>();
     private final BoundedHistory<Versioned> history;
+    @Nullable
+    private HistorySavedData.Store store;
     private long historyVersion;
     private int historyEpoch;
     private int nextCpuNumber = 1;
@@ -135,6 +141,18 @@ public final class GridTracker {
 
     public GridTracker(int historySize) {
         this.history = new BoundedHistory<>(historySize);
+    }
+
+    /** Keeps the history in the world's saved data from now on, starting with what was saved before. */
+    public synchronized void attach(HistorySavedData.Store saved) {
+        store = saved;
+        saved.trim(history.capacity());
+        history.clear();
+        for (HistoryEntry e : saved.entries()) {
+            historyVersion++;
+            history.add(new Versioned(historyVersion, e));
+        }
+        historyEpoch++;
     }
 
     public int cpuNumber(ICraftingCPU cpu) {
@@ -220,23 +238,48 @@ public final class GridTracker {
     }
 
     private void finish(CpuTrack track, long nowMs, boolean cpuGone, boolean completed) {
+        // A completed job finished every step still open; a cancelled one keeps only the steps that did finish.
+        recordSteps(track, track.steps.finish(completed, nowMs));
         addHistory(new HistoryEntry(track.output.what(), track.output.amount(),
                 Math.max(0, nowMs - track.startedAtMs), completed, nowMs, track.cpuName));
     }
 
-    synchronized void addHistory(HistoryEntry entry) {
+    /**
+     * Records finished steps of a running job. The step that makes the ordered item itself is left out: the job's own
+     * entry covers it.
+     */
+    void recordSteps(CpuTrack track, List<StepClock.Done<AEKey>> done) {
+        for (StepClock.Done<AEKey> d : done) {
+            if (d.key().equals(track.output.what()) || d.amount() <= 0) {
+                continue;
+            }
+            addHistory(new HistoryEntry(d.key(), d.amount(), d.durationMs(), true, d.finishedAtMs(), track.cpuName,
+                    track.output.what()));
+        }
+    }
+
+    public synchronized void addHistory(HistoryEntry entry) {
         historyVersion++;
         history.add(new Versioned(historyVersion, entry));
+        if (store != null) {
+            store.add(entry, history.capacity());
+        }
     }
 
     synchronized void clearHistory() {
         history.clear();
         historyEpoch++;
+        if (store != null) {
+            store.clear();
+        }
     }
 
     synchronized void setHistorySize(int size) {
         if (history.capacity() != size) {
             history.setCapacity(size);
+            if (store != null) {
+                store.trim(size);
+            }
         }
     }
 
@@ -264,7 +307,7 @@ public final class GridTracker {
         List<JobStats.Entry<AEKey>> result = new ArrayList<>();
         for (Versioned v : history.snapshot()) {
             HistoryEntry e = v.entry();
-            result.add(new JobStats.Entry<>(e.output(), e.amount(), e.durationMs(), e.completed()));
+            result.add(new JobStats.Entry<>(e.output(), e.amount(), e.durationMs(), e.completed(), e.isStep()));
         }
         return result;
     }

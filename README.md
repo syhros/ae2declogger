@@ -53,9 +53,9 @@ The header shows the network, how many crafting CPUs are busy and the stored AE 
 
 Click a job to see its steps below it. Each step shows the same three numbers as AE2's crafting status screen (stored in the CPU / out at machines / still to start), its own status, and the reason it is stuck.
 
-**History.** Finished and cancelled jobs, with how long they took. Jobs only show up here if they finish while someone has the monitor open or has alerts on for that network, because that is when the server is watching.
+**History.** Finished and cancelled jobs, with how long they took, and every step of each job: each item made on the way (a job for a coil block that first makes plates, rods and wire lists each of them, timed from its first craft to its last, marked **Step** with the job it was for). Jobs are followed on every loaded network, whether or not anyone has the monitor open. History is saved with the world, so it is still there after leaving the world or restarting the server, and it stays with a network as long as one of its ME controllers or crafting CPU blocks is still part of it.
 
-**Stats.** Per item: number of jobs, share that completed, average and best time, time per item.
+**Stats.** Per item: number of jobs, share that completed, average and best time, time per item, and the time per item when it was made as a step of another job.
 
 **Pins.** Your locator pins (see below).
 
@@ -76,7 +76,7 @@ History and Stats have **Export CSV**, which writes current jobs and history to 
 | Reason | What it means | Usual fix |
 |---|---|---|
 | Waiting for ingredients | An earlier step is still making the inputs | Nothing; this is normal |
-| Missing ingredient | An input is neither in the CPU nor being made | Something consumed it; cancel and restart the job |
+| Missing ingredient | An input is neither in the CPU nor being made. Tools count when the recipe accepts them, used or not (a GregTech file with any durability) | Something consumed it; cancel and restart the job |
 | No pattern provider has this pattern | The pattern was removed or its provider is offline | Re-insert the pattern, check channels |
 | Pattern providers busy | The provider still holds items it could not hand to the machine | The machine's input is full or wrong side |
 | Pattern provider offline | The provider with the pattern has no channel or power | Check channels and power at the provider |
@@ -145,7 +145,7 @@ Used by the server (in single player, by the built-in server).
 | detection | `minStallSeconds` | 15 | 1-86400 | Lower limit for the stall time of machines with a known recipe time |
 | detection | `recipeTimeMultiplier` | 6.0 | 1-1000 | With a known recipe time (GregTech), stall after recipe time × this, between `minStallSeconds` and `stallAfterSeconds` |
 | detection | `blockedAfterSeconds` | 5 | 0-3600 | How long a blocker must last before the step shows Blocked |
-| history | `historySize` | 50 | 1-1000 | Finished jobs kept per network |
+| history | `historyEntries` | 1000 | 1-2000 | Finished jobs and job steps kept per network (saved with the world) |
 | machineViewer | `maxSlots` | 108 | 9-512 | Most slots and tanks shown for one machine |
 | link | `allowCrossDimension` | true | | Let **K** open the last network from another dimension |
 | link | `maxLinkDistance` | 0 | 0-1000000 | Most blocks from the last network for **K**; 0 = no limit |
@@ -185,8 +185,7 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 ## Known limits
 
 - AE2 does not record which pattern provider took which push. When several providers hold the same pattern, all of their machines are listed and the one with a problem is shown first.
-- Items with NBT variants (damaged tools) that a pattern accepts by fuzzy match may show as "waiting for ingredients" a little longer than they should.
-- History is kept in memory and resets when the server restarts.
+- Jobs are looked at once a second when nobody has the monitor open. A step whose items are all made and back between two looks is still recorded (from the previous look), but one that never had items out at a machine during any look is not.
 - The mod does not load chunks. Opening the monitor with **K** and background alerts only work while that network is loaded (you are nearby, or it is chunk-loaded).
 
 ## Building from source
@@ -206,12 +205,15 @@ To publish a release, set `mod_version` in `gradle.properties`, then either push
 
 ## Tests
 
-- **Unit tests** for the stall/block rules, change timers, alert de-duplication, history stats, CSV escaping and formatting.
+- **Unit tests** for the stall/block rules, change timers, alert de-duplication, step timing, history stats, CSV escaping and formatting.
 - **Game tests** that build real AE2 networks on a headless server:
   - a job whose results never come back is reported Stalled with the chest as its machine, and lands in History as complete once the results are inserted;
   - blocking mode with leftover inputs is reported Blocked;
   - a provider with nothing to push into is reported, then reports "No pattern provider" once removed;
   - a CPU shaped like Advanced AE's quantum computer threads is read like AE2's own, and its job counts as done or cancelled correctly when the CPU disappears;
+  - a two-step job (gravel to cobblestone to stone) followed only by the background pass lands in History as the job plus its cobblestone step;
+  - history survives saving and loading with the world;
+  - an ingredient the CPU holds with other item data (a used tool) is not reported missing when the pattern accepts it;
   - network lookup errors, the remembered network and alert data, and every packet's encoding.
 - **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets (including AE2's crafting status screen and its Inspect popup), checks what they show and takes screenshots.
 - **Advanced AE check**: downloads Advanced AE 1.1, 1.2 and 1.3 releases and checks every class, field and method name the Declogger reads.

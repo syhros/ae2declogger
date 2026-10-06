@@ -21,7 +21,7 @@ import net.minecraft.network.chat.Component;
 /** What the client currently knows about the monitored network. Only touched on the render thread. */
 public final class ClientState {
 
-    private static final int MAX_HISTORY = 1000;
+    private static final int MAX_HISTORY = 2000;
 
     public static Component title = Component.empty();
     @Nullable

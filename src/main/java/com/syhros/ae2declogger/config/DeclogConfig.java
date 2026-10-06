@@ -84,8 +84,9 @@ public final class DeclogConfig {
             b.pop();
 
             b.push("history");
-            historySize = b.comment("Finished jobs remembered per network for the History and Stats tabs.")
-                    .defineInRange("historySize", 50, 1, 1000);
+            historySize = b.comment("Finished jobs and job steps remembered per network for the History and Stats tabs.",
+                    "Saved with the world. Each job adds one entry per intermediate item it made.")
+                    .defineInRange("historyEntries", 1000, 1, 2000);
             b.pop();
 
             b.comment("Read-only machine viewer.").push("machineViewer");

@@ -60,9 +60,12 @@ public final class Exporter {
                     w.write('\n');
                 }
                 for (HistoryEntry h : history) {
-                    w.write(Formatting.csvLine(List.of("history", h.output().getDisplayName().getString(),
+                    // A step's detail column names the job it was part of.
+                    w.write(Formatting.csvLine(List.of(h.isStep() ? "step" : "history",
+                            h.output().getDisplayName().getString(),
                             h.output().getId().toString(), Long.toString(h.amount()),
-                            h.completed() ? "COMPLETE" : "CANCELLED", "", seconds(h.durationMs()), "", "", "",
+                            h.completed() ? "COMPLETE" : "CANCELLED", "", seconds(h.durationMs()), "", "",
+                            h.isStep() ? "part of " + h.partOf().getDisplayName().getString() : "",
                             h.cpuName().getString(), "", "", "", "",
                             LocalDateTime.ofInstant(Instant.ofEpochMilli(h.finishedAtMs()), ZoneId.systemDefault())
                                     .format(CELL_TIME))));

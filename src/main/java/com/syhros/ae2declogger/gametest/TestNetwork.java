@@ -68,6 +68,14 @@ final class TestNetwork {
 
     /** @param multiOutput pattern makes stone and gravel from one cobblestone */
     static TestNetwork build(GameTestHelper helper, boolean withChest, boolean multiOutput) {
+        return build(helper, withChest, multiOutput, false);
+    }
+
+    /**
+     * @param multiOutput pattern makes stone and gravel from one cobblestone
+     * @param twoSteps    a second pattern makes the cobblestone from gravel, so a stone job has an intermediate step
+     */
+    static TestNetwork build(GameTestHelper helper, boolean withChest, boolean multiOutput, boolean twoSteps) {
         helper.setBlock(CELL, AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
         helper.setBlock(DRIVE, AEBlocks.DRIVE.block().defaultBlockState());
         helper.setBlock(CPU, AEBlocks.CRAFTING_STORAGE_1K.block().defaultBlockState());
@@ -86,6 +94,10 @@ final class TestNetwork {
         ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
                 new GenericStack[] { new GenericStack(COBBLE, 1) }, outputs);
         provider.getLogic().getPatternInv().addItems(pattern);
+        if (twoSteps) {
+            provider.getLogic().getPatternInv().addItems(PatternDetailsHelper.encodeProcessingPattern(
+                    new GenericStack[] { new GenericStack(GRAVEL, 1) }, new GenericStack[] { new GenericStack(COBBLE, 1) }));
+        }
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
         return new TestNetwork(helper);
     }

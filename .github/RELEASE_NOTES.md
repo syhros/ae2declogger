@@ -6,6 +6,14 @@ Download **`ae2declogger-forge-@MC_VERSION@-@VERSION@.jar`** below and put it in
 - Applied Energistics 2 15.x
 - GregTech CEu Modern is optional. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
 
+## What's new in 1.3
+
+- **Tools no longer show as a missing ingredient.** A GregTech file, hammer or other tool that has been used has different damage data than the one in the pattern. The Declogger now matches ingredients the way AE2 does when it pushes a pattern, so a used tool counts.
+- **Every step of a job goes into History and Stats.** A job that makes 50 intermediate items records each of them: how many, how long from its first craft to its last, and which job it was for. Stats shows the time per item for things made as a step, so you can see roughly how long any item takes, not only the one you ordered.
+- **History is saved with the world.** Leaving the world or restarting the server keeps it. It stays with a network as long as one of its ME controllers or crafting CPU blocks is still part of it.
+- **Jobs are recorded without the monitor open.** Every loaded network with a busy crafting CPU is followed once a second.
+- The history setting is now `historyEntries` (default 1000, up to 2000), because each job now adds an entry per step. The old `historySize` value is no longer used.
+
 ## What's new in 1.2
 
 - **Advanced AE Quantum Computer support.** Jobs on a quantum computer now show their steps, the machine and why they are stuck, so Go To, View Machine and Pin work for them. The crafting status popup finds them too (no more "Waiting for the Declogger...").

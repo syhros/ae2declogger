@@ -79,7 +79,7 @@ public final class NetworkMemory {
     }
 
     @Nullable
-    private static GlobalPos blockPos(IGridNode node) {
+    static GlobalPos blockPos(IGridNode node) {
         if (node.getOwner() instanceof BlockEntity be && be.getLevel() != null && !be.isRemoved()) {
             return GlobalPos.of(be.getLevel().dimension(), be.getBlockPos());
         }

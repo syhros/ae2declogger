@@ -309,7 +309,7 @@ public class DecloggerScreen extends Screen {
         List<HistoryEntry> h = new ArrayList<>();
         List<JobStats.Entry<AEKey>> entries = new ArrayList<>();
         for (HistoryEntry e : ClientState.HISTORY) {
-            entries.add(new JobStats.Entry<>(e.output(), e.amount(), e.durationMs(), e.completed()));
+            entries.add(new JobStats.Entry<>(e.output(), e.amount(), e.durationMs(), e.completed(), e.isStep()));
             if (problemsOnly && e.completed()) {
                 continue;
             }
@@ -739,15 +739,21 @@ public class DecloggerScreen extends Screen {
                 g.fill(x, y, x + w, y + ROW - 1, UiUtil.ROW_HOVER);
             }
             JobState state = e.completed() ? JobState.COMPLETE : JobState.CANCELLED;
-            g.fill(x, y, x + 2, y + ROW - 1, 0xFF000000 | state.color());
+            // Steps (intermediate items of a bigger job) get a dimmer bar and their own label.
+            g.fill(x, y, x + 2, y + ROW - 1, e.isStep() ? 0xFF3A6F78 : 0xFF000000 | state.color());
             UiUtil.key(g, e.output(), x + 5, y + 2);
-            Component label = UiUtil.stateLabel(state);
+            Component label = e.isStep()
+                    ? Component.translatable("ae2declogger.history.step").withStyle(s -> s.withColor(0x7FB8C2))
+                    : UiUtil.stateLabel(state);
             int lw = font.width(label);
             UiUtil.text(g, font, Component.translatable("ae2declogger.amount_of", e.output().getDisplayName(),
                     UiUtil.amount(e.output(), e.amount())), x + 24, y + 2, w - 30 - lw - 6, UiUtil.TEXT);
             g.drawString(font, label, x + w - 4 - lw, y + 2, 0xFFFFFFFF, false);
-            Component line2 = Component.translatable("ae2declogger.history.line", Formatting.duration(e.durationMs()),
-                    UiUtil.ago(now - e.finishedAtMs()), e.cpuName());
+            Component line2 = e.isStep()
+                    ? Component.translatable("ae2declogger.history.step_line", Formatting.duration(e.durationMs()),
+                            UiUtil.ago(now - e.finishedAtMs()), e.partOf().getDisplayName())
+                    : Component.translatable("ae2declogger.history.line", Formatting.duration(e.durationMs()),
+                            UiUtil.ago(now - e.finishedAtMs()), e.cpuName());
             UiUtil.text(g, font, line2, x + 24, y + 12, w - 30, UiUtil.TEXT_DIM);
             if (hover) {
                 tooltip = List.of(e.output().getDisplayName(), line2);
@@ -757,6 +763,14 @@ public class DecloggerScreen extends Screen {
         UiUtil.scrollbar(g, left + panelW - 6, contentTop, contentBottom - contentTop, listScroll,
                 history.size() * ROW);
         return tooltip;
+    }
+
+    /** Time per item: seconds with two decimals under a second, otherwise a duration; "-" when unknown. */
+    private static String perItem(double ms) {
+        if (ms <= 0) {
+            return "-";
+        }
+        return ms < 1000 ? String.format(Locale.ROOT, "%.2fs", ms / 1000.0) : Formatting.duration(Math.round(ms));
     }
 
     @Nullable
@@ -778,18 +792,28 @@ public class DecloggerScreen extends Screen {
             JobStats.Row<AEKey> row = stats.get(i);
             UiUtil.key(g, row.key(), x + 5, y + 2);
             int rate = (int) Math.round(row.successRate() * 100);
-            Component right = Component.translatable("ae2declogger.stats.jobs", row.jobs(), rate);
+            // Items only ever made as a step of another job have no runs of their own.
+            Component right = row.jobs() == 0 ? Component.translatable("ae2declogger.stats.steps", row.steps())
+                    : row.steps() > 0 ? Component.translatable("ae2declogger.stats.jobs_steps", row.jobs(), rate,
+                            row.steps())
+                    : Component.translatable("ae2declogger.stats.jobs", row.jobs(), rate);
             int rw = font.width(right);
             UiUtil.text(g, font, row.key().getDisplayName(), x + 24, y + 2, w - 30 - rw - 6, UiUtil.TEXT);
-            g.drawString(font, right, x + w - 4 - rw, y + 2, rate >= 90 ? 0xFF55FF55 : rate >= 50 ? 0xFFFFDD33
-                    : 0xFFFF5555, false);
-            String perUnit = row.msPerUnit() > 0 ? Formatting.duration(Math.round(row.msPerUnit()))
-                    : "-";
-            if (row.msPerUnit() > 0 && row.msPerUnit() < 1000) {
-                perUnit = String.format(Locale.ROOT, "%.2fs", row.msPerUnit() / 1000.0);
+            g.drawString(font, right, x + w - 4 - rw, y + 2, row.jobs() == 0 ? 0xFF7FB8C2 : rate >= 90 ? 0xFF55FF55
+                    : rate >= 50 ? 0xFFFFDD33 : 0xFFFF5555, false);
+            Component line2;
+            if (row.jobs() == 0) {
+                line2 = Component.translatable("ae2declogger.stats.step_line", Formatting.duration(row.stepAvgMs()),
+                        perItem(row.stepMsPerUnit()), Formatting.compactAmount(row.totalAmount()));
+            } else {
+                line2 = Component.translatable("ae2declogger.stats.line", Formatting.duration(row.avgDurationMs()),
+                        Formatting.duration(row.bestDurationMs()), perItem(row.msPerUnit()),
+                        Formatting.compactAmount(row.totalAmount()));
+                if (row.steps() > 0) {
+                    line2 = line2.copy().append(Component.translatable("ae2declogger.stats.step_suffix",
+                            perItem(row.stepMsPerUnit())));
+                }
             }
-            Component line2 = Component.translatable("ae2declogger.stats.line", Formatting.duration(row.avgDurationMs()),
-                    Formatting.duration(row.bestDurationMs()), perUnit, Formatting.compactAmount(row.totalAmount()));
             UiUtil.text(g, font, line2, x + 24, y + 12, w - 30, UiUtil.TEXT_DIM);
         }
         g.disableScissor();
