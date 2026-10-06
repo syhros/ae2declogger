@@ -4,6 +4,7 @@ import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
+import com.syhros.ae2declogger.client.screen.Gfx;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
@@ -47,7 +48,7 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiLayersEvent event) {
-            event.registerAboveAll(Ae2Declogger.id("navigation"), (g, delta) -> PinRenderer.renderHud(g,
+            event.registerAboveAll(Ae2Declogger.id("navigation"), (g, delta) -> PinRenderer.renderHud(new Gfx(g),
                     delta.getGameTimeDeltaPartialTick(false), g.guiWidth(), g.guiHeight()));
         }
     }
@@ -110,7 +111,7 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void screenRender(ScreenEvent.Render.Post event) {
-            CraftingScreenOverlay.onRender(event.getScreen(), event.getGuiGraphics(), event.getMouseX(),
+            CraftingScreenOverlay.onRender(event.getScreen(), new Gfx(event.getGuiGraphics()), event.getMouseX(),
                     event.getMouseY());
         }
 
