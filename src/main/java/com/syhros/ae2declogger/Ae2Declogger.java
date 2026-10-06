@@ -49,19 +49,27 @@ public final class Ae2Declogger {
 
     private void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
-            DecloggerServer.tick(event.getServer());
+            DecloggerServer.tick(net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer());
         }
     }
 
     private void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        //#if MC >= 1.19
         if (event.getEntity() instanceof ServerPlayer player) {
+        //#else
+        //$$ if (event.getPlayer() instanceof ServerPlayer player) {
+        //#endif
             DecloggerServer.onLogout(player);
         }
     }
 
     /** Keeps the remembered network and alert setting when a player respawns or changes dimension. */
     private void onPlayerClone(PlayerEvent.Clone event) {
+        //#if MC >= 1.19
         NetworkMemory.copy(event.getOriginal(), event.getEntity());
+        //#else
+        //$$ NetworkMemory.copy(event.getOriginal(), event.getPlayer());
+        //#endif
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
@@ -69,6 +77,10 @@ public final class Ae2Declogger {
     }
 
     public static ResourceLocation id(String path) {
+        //#if MC >= 1.21
+        //$$ return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+        //#else
         return new ResourceLocation(MOD_ID, path);
+        //#endif
     }
 }

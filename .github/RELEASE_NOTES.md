@@ -1,10 +1,23 @@
-Download **`ae2declogger-forge-@MC_VERSION@-@VERSION@.jar`** below and put it in your `mods` folder. On a server, put the same jar in the server's `mods` folder as well.
+Pick the jar for your Minecraft version below and put it in your `mods` folder. On a server, put the same jar in the server's `mods` folder as well.
+
+@JARS@
 
 ## Requirements
 
-- Minecraft 1.20.1 with Forge 47.1.3 or newer
-- Applied Energistics 2 15.x
-- GregTech CEu Modern is optional. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
+| Minecraft | Loader | Applied Energistics 2 | Packs |
+|---|---|---|---|
+| 1.18.2 | Forge 40.1 or newer | 11.x | All the Mods 7 |
+| 1.19.2 | Forge 43.2 or newer | 12.x | All the Mods 8 |
+| 1.20.1 | Forge 47.1.3 or newer | 15.x | All the Mods 9, Sky Greg |
+| 1.21.1 | NeoForge 21.1 or newer | 19.x | All the Mods 10 |
+| 26.1.2 | NeoForge 26.1.2 or newer | 26.1.x | All the Mods 11 |
+
+GregTech CEu Modern is optional on 1.20.1. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
+
+## What's new in 1.4
+
+- **More Minecraft versions.** The Declogger now runs on Forge 1.18.2, Forge 1.19.2, Forge 1.20.1, NeoForge 1.21.1 and NeoForge 26.1.2. Every version has the same features: the monitor, the crafting status overlay and Inspect, the machine viewer, pins, alerts, History and Stats.
+- **Add-on pattern providers are read correctly.** Advanced AE's advanced pattern providers, and other add-on providers that are not AE2's own class, were missed, so a job waiting on one had no machine to show. They are now read by name, like the quantum computer, so their machines, blocking mode and lock reasons show up. CI checks the names against Advanced AE releases for 1.20.1, 1.21.1 and 26.1.2.
 
 ## What's new in 1.3
 
@@ -43,4 +56,4 @@ The full guide, with every config option and every block reason, is in the [READ
 
 ## Tested with
 
-Forge 47.3.0, AE2 15.4.10 and GregTech CEu Modern 7.5.3. Every release passes the unit tests, the in-game tests on an AE2 server, a client test that drives the real screens, and a real Forge server started with and without GregTech.
+Every release is built and tested on each Minecraft version above with the AE2 version listed in the README. Each version passes the unit tests, the in-game tests on an AE2 server, a server test that runs a crafting job through a real network, a client test that drives the real screens, and real dedicated servers started with AE2 alone and with AE2 plus its popular add-ons (Advanced AE, Extended AE, MEGA Cells, AE2 Wireless Terminals, Applied Flux) where they exist for that version. On 1.20.1 a server with GregTech CEu Modern 7.5.3 is tested too.

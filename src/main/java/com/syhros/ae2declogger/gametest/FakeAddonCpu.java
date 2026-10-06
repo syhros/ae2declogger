@@ -42,10 +42,12 @@ final class FakeAddonCpu implements ICraftingCPU {
         return cluster.getJobStatus();
     }
 
+    //#if MC >= 1.20
     @Override
     public void cancelJob() {
         cluster.cancelJob();
     }
+    //#endif
 
     @Override
     public long getAvailableStorage() {
@@ -102,9 +104,11 @@ final class FakeAddonCpu implements ICraftingCPU {
             return real.getLastLink();
         }
 
+        //#if MC >= 1.20
         public long getLastModifiedOnTick() {
             return real.getLastModifiedOnTick();
         }
+        //#endif
 
         public ElapsedTimeTracker getElapsedTimeTracker() {
             return real.getElapsedTimeTracker();

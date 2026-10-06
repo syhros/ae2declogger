@@ -1,10 +1,16 @@
 package com.syhros.ae2declogger.server;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -14,8 +20,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
+import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.networking.GridHelper;
@@ -23,24 +29,68 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.GenericStack;
 import appeng.helpers.InterfaceLogicHost;
+//#if MC >= 1.20
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
+//#else
+//$$ import appeng.helpers.iface.PatternProviderLogic;
+//$$ import appeng.helpers.iface.PatternProviderLogicHost;
+//#endif
 import appeng.me.InWorldGridNode;
 import appeng.parts.AEBasePart;
 
 /**
  * Finds where each crafting provider on a network sits and which blocks it pushes into. Built lazily, at most once
  * per analysis.
+ *
+ * <p>
+ * AE2's own pattern providers are read directly. Add-on providers that copy AE2's design under their own classes
+ * (Advanced AE's advanced pattern providers, for one) are read through the same method names by reflection:
+ * {@code getTargets()} and {@code getLogic()} on the block or part, {@code isBlocking()},
+ * {@code getCraftingLockedReason()} and {@code getUnlockStack()} on the logic. A provider that offers none of these
+ * is assumed to push into every side (a part: the side it faces), as AE2's provider does by default.
  */
 final class ProviderIndex {
 
     /**
      * @param targets blocks this provider pushes into (adjacent machines, or the multiblock controller for a GT
      *                pattern buffer)
+     * @param state   blocking mode and crafting lock, when the provider exposes them
      */
     record ProviderInfo(ICraftingProvider provider, ServerLevel level, BlockPos pos, List<BlockPos> targets,
-            @Nullable PatternProviderLogic logic, boolean online) {
+            @Nullable ProviderState state, boolean online) {
+    }
+
+    /** Blocking mode and crafting lock of a pattern provider. */
+    interface ProviderState {
+        LockCraftingMode lockReason();
+
+        boolean blocking();
+
+        @Nullable
+        GenericStack unlockStack();
+
+        static ProviderState of(PatternProviderLogic logic) {
+            return new ProviderState() {
+                @Override
+                public LockCraftingMode lockReason() {
+                    return logic.getCraftingLockedReason();
+                }
+
+                @Override
+                public boolean blocking() {
+                    return logic.isBlocking();
+                }
+
+                @Override
+                @Nullable
+                public GenericStack unlockStack() {
+                    return logic.getUnlockStack();
+                }
+            };
+        }
     }
 
     private final Map<ICraftingProvider, ProviderInfo> byProvider = new IdentityHashMap<>();
@@ -67,18 +117,24 @@ final class ProviderIndex {
                 continue;
             }
             List<BlockPos> targets = new ArrayList<>();
-            PatternProviderLogic logic = null;
+            ProviderState state = null;
+            Collection<Direction> sides = List.of();
             Object owner = node.getOwner();
             if (owner instanceof PatternProviderLogicHost host) {
-                logic = host.getLogic();
-                for (Direction d : host.getTargets()) {
-                    BlockPos target = pos.relative(d);
-                    if (canReceive(grid, level, target, d.getOpposite())) {
-                        targets.add(target);
-                    }
-                }
+                state = ProviderState.of(host.getLogic());
+                sides = host.getTargets();
             } else if (provider instanceof PatternProviderLogic ppl) {
-                logic = ppl;
+                state = ProviderState.of(ppl);
+            } else {
+                AddonHost addon = AddonHost.of(owner, provider);
+                state = addon.state();
+                sides = addon.sides(owner);
+            }
+            for (Direction d : sides) {
+                BlockPos target = pos.relative(d);
+                if (canReceive(grid, level, target, d.getOpposite())) {
+                    targets.add(target);
+                }
             }
             if (targets.isEmpty()) {
                 // GregTech ME pattern buffers live inside the multiblock; the controller is the "machine".
@@ -90,7 +146,7 @@ final class ProviderIndex {
             } catch (RuntimeException e) {
                 online = true;
             }
-            index.byProvider.put(provider, new ProviderInfo(provider, level, pos, List.copyOf(targets), logic, online));
+            index.byProvider.put(provider, new ProviderInfo(provider, level, pos, List.copyOf(targets), state, online));
             try {
                 for (IPatternDetails pattern : provider.getAvailablePatterns()) {
                     if (pattern != null) {
@@ -140,8 +196,8 @@ final class ProviderIndex {
         } catch (RuntimeException ignored) {
             // fall through to the capability checks
         }
-        return be.getCapability(ForgeCapabilities.ITEM_HANDLER, side).isPresent()
-                || be.getCapability(ForgeCapabilities.FLUID_HANDLER, side).isPresent()
+        return Caps.items(be, side) != null
+                || Caps.fluids(be, side) != null
                 || GtCompat.inspect(level, target) != null;
     }
 
@@ -171,6 +227,128 @@ final class ProviderIndex {
     @Nullable
     ProviderInfo get(ICraftingProvider provider) {
         return byProvider.get(provider);
+    }
+
+    // ---------------------------------------------------------------- add-on providers
+
+    /** Visible for game tests: "sides=[...] blocking=... lock=..." for an add-on provider's block or part. */
+    static String describeAddon(Object owner, ICraftingProvider provider) {
+        AddonHost addon = AddonHost.of(owner, provider);
+        ProviderState state = addon.state();
+        List<String> sides = new ArrayList<>();
+        for (Direction d : addon.sides(owner)) {
+            sides.add(d.getName());
+        }
+        java.util.Collections.sort(sides);
+        return "sides=" + sides + " blocking=" + (state != null && state.blocking()) + " lock="
+                + (state != null ? state.lockReason() : "none");
+    }
+
+    private record Methods(@Nullable Method getTargets, @Nullable Method getLogic) {
+    }
+
+    private record StateMethods(@Nullable Method isBlocking, @Nullable Method lockReason, @Nullable Method unlock) {
+    }
+
+    private static final Map<Class<?>, Methods> HOST_METHODS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Optional<StateMethods>> STATE_METHODS = new ConcurrentHashMap<>();
+
+    /** An add-on pattern provider read through AE2's method names. */
+    private record AddonHost(@Nullable Set<Direction> targets, @Nullable ProviderState state) {
+
+        static AddonHost of(@Nullable Object owner, ICraftingProvider provider) {
+            Set<Direction> targets = null;
+            Object logic = null;
+            if (owner != null) {
+                Methods m = HOST_METHODS.computeIfAbsent(owner.getClass(), c -> new Methods(
+                        noArg(c, "getTargets", Set.class), noArg(c, "getLogic", Object.class)));
+                targets = call(m.getTargets(), owner) instanceof Set<?> set ? directions(set) : null;
+                logic = call(m.getLogic(), owner);
+            }
+            if (logic == null) {
+                logic = provider;
+            }
+            return new AddonHost(targets, stateOf(logic));
+        }
+
+        /** The sides it pushes into; without a target list, every side (a part: the side it faces). */
+        Collection<Direction> sides(@Nullable Object owner) {
+            if (targets != null) {
+                return targets;
+            }
+            if (owner instanceof AEBasePart part) {
+                return part.getSide() != null ? List.of(part.getSide()) : List.of();
+            }
+            return EnumSet.allOf(Direction.class);
+        }
+
+        private static Set<Direction> directions(Set<?> set) {
+            EnumSet<Direction> result = EnumSet.noneOf(Direction.class);
+            for (Object o : set) {
+                if (o instanceof Direction d) {
+                    result.add(d);
+                }
+            }
+            return result;
+        }
+
+        @Nullable
+        private static ProviderState stateOf(Object logic) {
+            Optional<StateMethods> found = STATE_METHODS.computeIfAbsent(logic.getClass(), c -> {
+                StateMethods m = new StateMethods(noArg(c, "isBlocking", boolean.class),
+                        noArg(c, "getCraftingLockedReason", LockCraftingMode.class),
+                        noArg(c, "getUnlockStack", GenericStack.class));
+                return m.isBlocking() == null && m.lockReason() == null ? Optional.empty() : Optional.of(m);
+            });
+            if (found.isEmpty()) {
+                return null;
+            }
+            StateMethods m = found.get();
+            return new ProviderState() {
+                @Override
+                public LockCraftingMode lockReason() {
+                    return call(m.lockReason(), logic) instanceof LockCraftingMode mode ? mode : LockCraftingMode.NONE;
+                }
+
+                @Override
+                public boolean blocking() {
+                    return call(m.isBlocking(), logic) instanceof Boolean b && b;
+                }
+
+                @Override
+                @Nullable
+                public GenericStack unlockStack() {
+                    return call(m.unlock(), logic) instanceof GenericStack stack ? stack : null;
+                }
+            };
+        }
+    }
+
+    /** A public no-argument method returning {@code type} (or a subtype), or null. */
+    @Nullable
+    private static Method noArg(Class<?> owner, String name, Class<?> type) {
+        try {
+            Method m = owner.getMethod(name);
+            if (!type.isAssignableFrom(m.getReturnType())) {
+                return null;
+            }
+            m.setAccessible(true);
+            return m;
+        } catch (NoSuchMethodException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static Object call(@Nullable Method m, Object target) {
+        if (m == null) {
+            return null;
+        }
+        try {
+            return m.invoke(target);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            return null;
+        }
     }
 
     int size() {

@@ -7,6 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.JobState;
 
+import com.syhros.ae2declogger.network.Bufs;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
@@ -29,13 +31,13 @@ public record StepView(AEKey key, long stored, long active, long pending, JobSta
     }
 
     public void write(FriendlyByteBuf buf) {
-        AEKey.writeKey(buf, key);
+        Bufs.writeKey(buf, key);
         buf.writeVarLong(stored);
         buf.writeVarLong(active);
         buf.writeVarLong(pending);
         buf.writeEnum(state);
         buf.writeEnum(reason);
-        buf.writeNullable(detail, FriendlyByteBuf::writeComponent);
+        Bufs.writeNullable(buf, detail, Bufs::writeComponent);
         buf.writeLong(sinceMs);
         buf.writeLong(recipeMs);
         buf.writeCollection(machines, (b, m) -> m.write(b));
@@ -43,13 +45,13 @@ public record StepView(AEKey key, long stored, long active, long pending, JobSta
 
     @Nullable
     public static StepView read(FriendlyByteBuf buf) {
-        AEKey key = AEKey.readKey(buf);
+        AEKey key = Bufs.readKey(buf);
         long stored = buf.readVarLong();
         long active = buf.readVarLong();
         long pending = buf.readVarLong();
         JobState state = buf.readEnum(JobState.class);
         BlockReason reason = buf.readEnum(BlockReason.class);
-        Component detail = buf.readNullable(FriendlyByteBuf::readComponent);
+        Component detail = Bufs.readNullable(buf, Bufs::readComponent);
         long since = buf.readLong();
         long recipeMs = buf.readLong();
         List<MachineRef> machines = buf.readList(MachineRef::read);

@@ -9,6 +9,8 @@ import org.jetbrains.annotations.Nullable;
 import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.JobState;
 
+import com.syhros.ae2declogger.network.Bufs;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
@@ -36,10 +38,10 @@ public record JobView(long id, Component cpuName, int coProcessors, long cpuStor
 
     public void write(FriendlyByteBuf buf) {
         buf.writeLong(id);
-        buf.writeComponent(cpuName);
+        Bufs.writeComponent(buf, cpuName);
         buf.writeVarInt(coProcessors);
         buf.writeVarLong(cpuStorage);
-        AEKey.writeKey(buf, output);
+        Bufs.writeKey(buf, output);
         buf.writeVarLong(amount);
         buf.writeFloat(progress);
         buf.writeLong(startedAtMs);
@@ -47,18 +49,18 @@ public record JobView(long id, Component cpuName, int coProcessors, long cpuStor
         buf.writeLong(expectedMs);
         buf.writeEnum(state);
         buf.writeEnum(reason);
-        buf.writeNullable(detail, FriendlyByteBuf::writeComponent);
-        buf.writeNullable(primaryMachine, (b, m) -> m.write(b));
+        Bufs.writeNullable(buf, detail, Bufs::writeComponent);
+        Bufs.writeNullable(buf, primaryMachine, (b, m) -> m.write(b));
         buf.writeCollection(steps, (b, s) -> s.write(b));
     }
 
     @Nullable
     public static JobView read(FriendlyByteBuf buf) {
         long id = buf.readLong();
-        Component cpuName = buf.readComponent();
+        Component cpuName = Bufs.readComponent(buf);
         int coProcessors = buf.readVarInt();
         long cpuStorage = buf.readVarLong();
-        AEKey output = AEKey.readKey(buf);
+        AEKey output = Bufs.readKey(buf);
         long amount = buf.readVarLong();
         float progress = buf.readFloat();
         long started = buf.readLong();
@@ -66,8 +68,8 @@ public record JobView(long id, Component cpuName, int coProcessors, long cpuStor
         long expected = buf.readLong();
         JobState state = buf.readEnum(JobState.class);
         BlockReason reason = buf.readEnum(BlockReason.class);
-        Component detail = buf.readNullable(FriendlyByteBuf::readComponent);
-        MachineRef primary = buf.readNullable(MachineRef::read);
+        Component detail = Bufs.readNullable(buf, Bufs::readComponent);
+        MachineRef primary = Bufs.readNullable(buf, MachineRef::read);
         List<StepView> rawSteps = buf.readList(StepView::read);
         List<StepView> steps = new ArrayList<>(rawSteps.size());
         for (StepView s : rawSteps) {

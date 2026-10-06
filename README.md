@@ -1,27 +1,30 @@
 # AE2 Declogger
 
-A Forge 1.20.1 mod that shows what your Applied Energistics 2 crafting CPUs are doing, which jobs are stuck, and why. It points you at the machine that is holding things up and lets you look inside it without opening it.
+A Minecraft mod for Forge and NeoForge that shows what your Applied Energistics 2 crafting CPUs are doing, which jobs are stuck, and why. It points you at the machine that is holding things up and lets you look inside it without opening it.
 
 It is read-only. It never moves, inserts or extracts items.
 
-Built for [Sky Greg](https://www.curseforge.com/minecraft/modpacks/sky-greg) (GregTech CEu Modern + AE2) and works in any pack with AE2 15.x.
+Built for [Sky Greg](https://www.curseforge.com/minecraft/modpacks/sky-greg) (GregTech CEu Modern + AE2) and works in any pack with AE2, including the All the Mods packs from ATM7 to ATM11.
 
 ## Requirements
 
-| | Version |
-|---|---|
-| Minecraft | 1.20.1 |
-| Forge | 47.1.3 or newer (built against 47.3.0) |
-| Applied Energistics 2 | 15.x (built against 15.4.10) |
-| GregTech CEu Modern | optional. Built against 7.5.3, the version in Sky Greg |
+| Minecraft | Loader | Applied Energistics 2 | Packs |
+|---|---|---|---|
+| 1.18.2 | Forge 40.1 or newer (built against 40.3.12) | 11.x (built against 11.7.6) | All the Mods 7 |
+| 1.19.2 | Forge 43.2 or newer (built against 43.5.2) | 12.x (built against 12.9.12) | All the Mods 8 |
+| 1.20.1 | Forge 47.1.3 or newer (built against 47.3.0) | 15.x (built against 15.4.10) | All the Mods 9, Sky Greg |
+| 1.21.1 | NeoForge 21.1 or newer (built against 21.1.256) | 19.x (built against 19.2.18) | All the Mods 10 |
+| 26.1.2 | NeoForge 26.1.2 or newer (built against 26.1.2.114) | 26.1.x (built against 26.1.13-beta) | All the Mods 11 |
+
+GregTech CEu Modern is optional on 1.20.1 (built against 7.5.3, the version in Sky Greg). Other versions show GT machines like any other block.
 
 Install the jar on both the client and the server. In single player, the client is enough.
 
 ## Download and install
 
 1. Get the jar:
-   - **From a release:** the [Releases page](https://github.com/syhros/ae2-debugger/releases), file `ae2declogger-forge-1.20.1-<version>.jar`.
-   - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `ae2declogger-jar` artifact (a zip), and take the jar out of it.
+   - **From a release:** the [Releases page](https://github.com/syhros/ae2-debugger/releases), file `ae2declogger-<loader>-<minecraft version>-<version>.jar`, for example `ae2declogger-neoforge-1.21.1-1.4.0.jar`.
+   - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `jar-<loader>-<minecraft version>` artifact (a zip), and take the jar out of it.
 2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
 3. On a server, copy the same jar into the server's `mods` folder too.
 4. Start the game. There is nothing to craft: the Declogger lives inside AE2's own screens.
@@ -176,10 +179,11 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 ## Compatibility
 
 - **Offline CPUs.** A crafting CPU that loses power or its channel mid-job stays in the list as "Crafting CPU offline" instead of disappearing.
-- **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail.
-- **Advanced AE.** Quantum Computer CPUs show full detail too: steps, machines and block reasons. They are read by name (Advanced AE 1.1 to 1.3 are checked in CI), and a job on one counts as done or cancelled from its crafting link, not from its CPU disappearing. A quantum computer keeps one CPU number for all its jobs. Other add-on CPUs show the job, progress and time only.
-- **GregTech CEu Modern.** Status, recipe progress, waiting and failure reasons, power, maintenance and formed state come from GT directly. If a different GT version has a different API, the GT part switches itself off with one log line and machines show generic info.
+- **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. Add-on providers with their own logic class, like Advanced AE's advanced pattern providers, are read by name: their machines, blocking mode and lock reasons show up. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail.
+- **Advanced AE.** Quantum Computer CPUs show full detail too: steps, machines and block reasons. They are read by name (CI checks Advanced AE 1.1 to 1.3 on 1.20.1 and the newest releases for 1.21.1 and 26.1.2), and a job on one counts as done or cancelled from its crafting link, not from its CPU disappearing. A quantum computer keeps one CPU number for all its jobs. Other add-on CPUs show the job, progress and time only.
+- **GregTech CEu Modern** (1.20.1). Status, recipe progress, waiting and failure reasons, power, maintenance and formed state come from GT directly. If a different GT version has a different API, the GT part switches itself off with one log line and machines show generic info.
 - **Without GregTech.** Everything works; machines show their block name, inventory, tanks and FE energy.
+- **Other mods.** CI starts a real server on every version with AE2 and its popular add-ons together (Advanced AE, Extended AE, MEGA Cells, AE2 Wireless Terminals, Applied Flux, where they exist for that version) to catch conflicts.
 - The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2, Advanced AE or GregTech. It even avoids AE2's own provider lookup, because walking it would shift which provider AE2 picks next.
 
 ## Known limits
@@ -190,22 +194,30 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 
 ## Building from source
 
+Each Minecraft version is its own Gradle project under `versions/`, named `<loader>-<minecraft version>`:
+
 ```
-./gradlew build                 # compile, unit tests, release jar in build/libs/
-./gradlew runGameTestServer     # in-game tests on a headless server with AE2
-./gradlew runClient             # dev client with AE2
-./gradlew runSelfTestClient     # scripted client run that saves screenshots (needs a display)
+./gradlew build                                   # every version: compile, release jars
+./gradlew :neoforge-1.21.1:build                  # one version
+./gradlew :neoforge-1.21.1:runGameTestServer      # in-game tests on a headless server with AE2
+./gradlew :neoforge-1.21.1:runSelfTestServer      # runs a crafting job through a network on a dedicated server
+./gradlew :neoforge-1.21.1:runClient              # dev client with AE2
+./gradlew :neoforge-1.21.1:runSelfTestClient      # scripted client run that saves screenshots (needs a display)
 ```
 
-The release jar is `build/libs/ae2declogger-forge-1.20.1-<version>.jar`. The `-dev` jar only works in this workspace.
+The release jar is `versions/<loader>-<minecraft version>/build/libs/ae2declogger-<loader>-<minecraft version>-<version>.jar`. Jars ending in `-dev` or `-gametest` only work in this workspace or in CI.
 
-The detection logic has its own Minecraft-free test build: `cd logic-tests && gradle test`.
+The code is shared. `src/main/java` holds it, `loaders/<forge|neoforge>` replaces whole files for one loader, and `versions/<name>/src/main/java` replaces whole files for one version. Lines that differ between versions sit in `//#if MC >= 1.20.5` / `//#else` / `//#endif` blocks; the build keeps the branch that fits each version (see `buildSrc/src/main/java/PreprocessTask.java`). Java needs 17, 21 and 25 installed (Gradle can download them).
+
+The detection logic has its own Minecraft-free unit tests: `./gradlew :logic-tests:test`.
 
 To publish a release, set `mod_version` in `gradle.properties`, then either push a tag `v<version>` or open **Actions → Build and test → Run workflow**, pick the branch and tick **release**. The jar is attached to the GitHub release only after every test job passes.
 
 ## Tests
 
 - **Unit tests** for the stall/block rules, change timers, alert de-duplication, step timing, history stats, CSV escaping and formatting.
+Every test below runs on every Minecraft version unless it says otherwise.
+
 - **Game tests** that build real AE2 networks on a headless server:
   - a job whose results never come back is reported Stalled with the chest as its machine, and lands in History as complete once the results are inserted;
   - blocking mode with leftover inputs is reported Blocked;
@@ -214,11 +226,13 @@ To publish a release, set `mod_version` in `gradle.properties`, then either push
   - a two-step job (gravel to cobblestone to stone) followed only by the background pass lands in History as the job plus its cobblestone step;
   - history survives saving and loading with the world;
   - an ingredient the CPU holds with other item data (a used tool) is not reported missing when the pattern accepts it;
+  - an add-on pattern provider with its own logic class is read by name;
   - network lookup errors, the remembered network and alert data, and every packet's encoding.
+- **Server self-test**: on a real dedicated server, builds a network next to spawn and runs a two-step job through it; the job must stall at the chest, show in the machine viewer, then finish and land in History from the background pass.
 - **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets (including AE2's crafting status screen and its Inspect popup), checks what they show and takes screenshots.
-- **Advanced AE check**: downloads Advanced AE 1.1, 1.2 and 1.3 releases and checks every class, field and method name the Declogger reads.
-- **Server smoke test**: boots a real Forge server with the release jar, with AE2 alone and with AE2 + GregTech CEu Modern 7.5.3.
-- **GregTech check on a real server**: with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
+- **Advanced AE check**: downloads Advanced AE 1.1, 1.2 and 1.3 for 1.20.1 and the newest releases for 1.21.1 and 26.1.2, and checks every class, field and method name the Declogger reads.
+- **Server smoke test**: boots a real dedicated server with the release jar, with AE2 alone, with AE2 and its popular add-ons, and on 1.20.1 with AE2 + GregTech CEu Modern 7.5.3.
+- **GregTech check on a real server** (1.20.1): with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
 
 All of these run in GitHub Actions on every pull request.
 

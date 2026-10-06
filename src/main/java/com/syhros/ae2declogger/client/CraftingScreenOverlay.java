@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.data.JobView;
@@ -16,18 +17,14 @@ import com.syhros.ae2declogger.logic.Formatting;
 import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
+import com.syhros.ae2declogger.client.screen.Gfx;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ScreenEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import appeng.api.stacks.AEKey;
 import appeng.client.gui.me.crafting.CraftingCPUScreen;
@@ -43,8 +40,10 @@ import appeng.menu.me.crafting.CraftingStatusEntry;
  * <p>
  * AE2 does not expose the table layout, so it is read by reflection. If that ever fails (a different AE2 version),
  * clicking still works through AE2's public "stack under the mouse"; only the frames are missing.
+ *
+ * <p>
+ * The loader's screen events call the methods below (see ClientEvents).
  */
-@Mod.EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class CraftingScreenOverlay {
 
     private static final int POPUP_WIDTH = 170;
@@ -66,40 +65,38 @@ public final class CraftingScreenOverlay {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onInit(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof CraftingCPUScreen<?>) || !DeclogConfig.CLIENT.craftingOverlay.get()) {
+    /** A screen finished opening (or was resized). */
+    public static void onInit(Screen screen) {
+        if (!(screen instanceof CraftingCPUScreen<?>) || !DeclogConfig.CLIENT.craftingOverlay.get()) {
             return;
         }
-        if (watched != event.getScreen()) {
-            watched = event.getScreen();
+        if (watched != screen) {
+            watched = screen;
             clearSelection();
             ClientState.focusJob = -1;
             DeclogNetwork.sendToServer(new DeclogNetwork.WatchCraftingScreen(true));
         }
     }
 
-    @SubscribeEvent
-    public static void onClosing(ScreenEvent.Closing event) {
-        if (event.getScreen() == watched) {
+    public static void onClosing(Screen screen) {
+        if (screen == watched) {
             watched = null;
             clearSelection();
             DeclogNetwork.sendToServer(new DeclogNetwork.WatchCraftingScreen(false));
         }
     }
 
-    @SubscribeEvent
-    public static void onRender(ScreenEvent.Render.Post event) {
-        if (event.getScreen() != watched) {
+    /** After the screen has drawn itself. */
+    public static void onRender(Screen screen, Gfx g, int mouseX, int mouseY) {
+        if (screen != watched) {
             return;
         }
-        GuiGraphics g = event.getGuiGraphics();
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 350);
+        g.push();
+        g.translate(0, 0, 350);
         try {
             JobView job = focusedJob(null);
             if (job != null) {
-                for (Cell cell : visibleCells(event.getScreen())) {
+                for (Cell cell : visibleCells(screen)) {
                     StepView step = step(job, cell.key);
                     if (step != null && step.state() != JobState.IN_PROGRESS && !step.state().isFinished()) {
                         frame(g, cell.rect, 0xFF000000 | step.state().color());
@@ -108,32 +105,28 @@ public final class CraftingScreenOverlay {
             }
             if (selected != null && selectedCell != null) {
                 frame(g, selectedCell, 0xFFFFFFFF);
-                renderPopup(g, event.getScreen(), event.getMouseX(), event.getMouseY());
+                renderPopup(g, screen, mouseX, mouseY);
             }
         } catch (RuntimeException e) {
             Ae2Declogger.LOG.debug("Crafting screen overlay failed", e);
         } finally {
-            g.pose().popPose();
+            g.pop();
         }
     }
 
-    @SubscribeEvent
-    public static void onClick(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (event.getScreen() != watched || event.getButton() != 0) {
-            return;
+    /** A mouse button went down; true when the click was used here and the screen must not see it. */
+    public static boolean onClick(Screen screen, double x, double y, int button) {
+        if (screen != watched || button != 0) {
+            return false;
         }
-        double x = event.getMouseX();
-        double y = event.getMouseY();
         if (inspectRect != null && contains(inspectRect, x, y)) {
             inspect();
-            event.setCanceled(true);
-            return;
+            return true;
         }
         if (popupRect != null && contains(popupRect, x, y)) {
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        Cell hit = cellAt(event.getScreen(), x, y);
+        Cell hit = cellAt(screen, x, y);
         if (hit != null) {
             if (hit.key.equals(selected)) {
                 clearSelection();
@@ -146,6 +139,7 @@ public final class CraftingScreenOverlay {
         } else {
             clearSelection();
         }
+        return false;
     }
 
     private static void clearSelection() {
@@ -169,7 +163,7 @@ public final class CraftingScreenOverlay {
 
     // ---------------------------------------------------------------- popup
 
-    private static void renderPopup(GuiGraphics g, Screen screen, int mouseX, int mouseY) {
+    private static void renderPopup(Gfx g, Screen screen, int mouseX, int mouseY) {
         Font font = Minecraft.getInstance().font;
         List<Component> lines = new ArrayList<>();
         int stateColor = 0xFFAAAAAA;
@@ -180,24 +174,24 @@ public final class CraftingScreenOverlay {
         if (step != null) {
             stateColor = 0xFF000000 | step.state().color();
             long stuckFor = Math.max(0, ClientState.serverNow() - step.sinceMs());
-            Component state = Component.translatable(step.state().translationKey());
+            Component state = Text.translatable(step.state().translationKey());
             if (step.state() != JobState.IN_PROGRESS) {
-                state = Component.translatable("ae2declogger.overlay.state_for", state, Formatting.duration(stuckFor));
+                state = Text.translatable("ae2declogger.overlay.state_for", state, Formatting.duration(stuckFor));
             }
             lines.add(state.copy().withStyle(s -> s.withColor(0xFFFFFF & step.state().color())));
             if (step.reason() != BlockReason.NONE) {
-                Component reason = Component.translatable(step.reason().translationKey());
+                Component reason = Text.translatable(step.reason().translationKey());
                 if (step.detail() != null) {
                     reason = reason.copy().append(": ").append(step.detail());
                 }
                 lines.add(reason.copy().withStyle(ChatFormatting.GRAY));
             }
-            lines.add(Component.translatable("ae2declogger.overlay.amounts", Formatting.compactAmount(step.stored()),
+            lines.add(Text.translatable("ae2declogger.overlay.amounts", Formatting.compactAmount(step.stored()),
                     Formatting.compactAmount(step.active()), Formatting.compactAmount(step.pending()))
                     .withStyle(ChatFormatting.DARK_GRAY));
             MachineRef machine = step.machines().isEmpty() ? null : step.machines().get(0);
             if (machine != null) {
-                lines.add(Component.translatable("ae2declogger.overlay.machine", machine.name(),
+                lines.add(Text.translatable("ae2declogger.overlay.machine", machine.name(),
                         machine.pos().getX(), machine.pos().getY(), machine.pos().getZ())
                         .withStyle(ChatFormatting.GRAY));
             }
@@ -205,22 +199,22 @@ public final class CraftingScreenOverlay {
             // No per-step details for this CPU: show what is known about the whole job.
             stateColor = 0xFF000000 | job.state().color();
             long idle = Math.max(0, ClientState.serverNow() - job.lastActivityAtMs());
-            lines.add(Component.translatable("ae2declogger.overlay.job_state_for",
-                    Component.translatable(job.state().translationKey()), Formatting.duration(idle))
+            lines.add(Text.translatable("ae2declogger.overlay.job_state_for",
+                    Text.translatable(job.state().translationKey()), Formatting.duration(idle))
                     .withStyle(s -> s.withColor(0xFFFFFF & job.state().color())));
             if (job.reason() != BlockReason.NONE) {
-                Component reason = Component.translatable(job.reason().translationKey());
+                Component reason = Text.translatable(job.reason().translationKey());
                 if (job.detail() != null) {
                     reason = reason.copy().append(": ").append(job.detail());
                 }
                 lines.add(reason.copy().withStyle(ChatFormatting.GRAY));
             }
         } else if (job != null) {
-            lines.add(Component.translatable("ae2declogger.overlay.no_problem").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.no_problem").withStyle(ChatFormatting.GRAY));
         } else if (ClientState.summary == null) {
-            lines.add(Component.translatable("ae2declogger.overlay.loading").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.loading").withStyle(ChatFormatting.GRAY));
         } else {
-            lines.add(Component.translatable("ae2declogger.overlay.no_data").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.no_data").withStyle(ChatFormatting.GRAY));
         }
 
         List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
@@ -252,11 +246,11 @@ public final class CraftingScreenOverlay {
         boolean hover = contains(inspectRect, mouseX, mouseY);
         g.fill(bx, by, bx + bw, by + buttonH, hover ? 0xFF5A7FD0 : 0xFF3A5280);
         g.fill(bx, by, bx + bw, by + 1, 0xFF8FA8E0);
-        Component label = Component.translatable("ae2declogger.overlay.inspect");
+        Component label = Text.translatable("ae2declogger.overlay.inspect");
         g.drawString(font, label, bx + (bw - font.width(label)) / 2, by + 3, 0xFFFFFFFF, false);
     }
 
-    private static void frame(GuiGraphics g, Rect2i r, int color) {
+    private static void frame(Gfx g, Rect2i r, int color) {
         int x0 = r.getX(), y0 = r.getY(), x1 = x0 + r.getWidth(), y1 = y0 + r.getHeight();
         g.fill(x0, y0, x1, y0 + 1, color);
         g.fill(x0, y1 - 1, x1, y1, color);
@@ -326,10 +320,16 @@ public final class CraftingScreenOverlay {
         }
         if (layoutBroken && screen instanceof CraftingCPUScreen<?> cpuScreen) {
             var hovered = cpuScreen.getStackUnderMouse(x, y);
+            //#if MC >= 1.20
             if (hovered != null && hovered.stack() != null) {
                 var b = hovered.bounds();
                 return new Cell(hovered.stack().what(), new Rect2i(b.getX(), b.getY(), b.getWidth(), b.getHeight()));
             }
+            //#else
+            //$$ if (hovered != null) {
+            //$$     return new Cell(hovered.what(), new Rect2i((int) x - 8, (int) y - 8, 16, 16));
+            //$$ }
+            //#endif
         }
         return null;
     }
@@ -362,7 +362,13 @@ public final class CraftingScreenOverlay {
             Object table = tableField.get(cpuScreen);
             int tx = instanceInt(table, "x");
             int ty = instanceInt(table, "y");
-            int rows = instanceInt(table, "rows");
+            // AE2 15 sizes the table to the screen ("rows"); AE2 12 and older use a fixed ROWS.
+            int rows;
+            try {
+                rows = instanceInt(table, "rows");
+            } catch (NoSuchFieldException e) {
+                rows = staticInt(table.getClass(), "ROWS", 6);
+            }
             List<CraftingStatusEntry> entries = status.getEntries();
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < cols; col++) {
@@ -455,6 +461,6 @@ public final class CraftingScreenOverlay {
     private static void click(Rect2i r) {
         double x = r.getX() + r.getWidth() / 2.0;
         double y = r.getY() + r.getHeight() / 2.0;
-        MinecraftForge.EVENT_BUS.post(new ScreenEvent.MouseButtonPressed.Pre(watched, x, y, 0));
+        onClick(watched, x, y, 0);
     }
 }

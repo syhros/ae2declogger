@@ -1,0 +1,90 @@
+// NeoForge (1.21.1 and newer), built with ModDevGradle. Applied by common.gradle.
+
+neoForge {
+    version = neoforge_version
+
+    if (project.hasProperty('parchment_mappings_version')) {
+        parchment {
+            minecraftVersion = parchment_minecraft_version
+            mappingsVersion = parchment_mappings_version
+        }
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        // Runs every game test in this mod on a headless server, then exits (non-zero on failure).
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = file('run/gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        // Opens the mod's screens with sample data, saves screenshots and quits. Needs a display (xvfb in CI).
+        selfTestClient {
+            client()
+            gameDirectory = file('run/selftest')
+            systemProperty 'ae2declogger.selfTest', 'true'
+            programArguments.addAll('--username', 'DecloggerTest', '--width', '1280', '--height', '720')
+        }
+        // Builds a network next to spawn on a real dedicated server, runs a job through it and logs PASS or FAIL
+        // (gametest/ServerSelfTest), then stops.
+        selfTestServer {
+            server()
+            programArgument '--nogui'
+            gameDirectory = file('run/selftest-server')
+            systemProperty 'ae2declogger.serverSelfTest', 'true'
+            systemProperty 'ae2declogger.selfTestExit', 'true'
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    implementation "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    if (project.hasProperty('gtceu_version')) {
+        compileOnly("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}") { transitive = false }
+        compileOnly("com.lowdragmc.ldlib:ldlib-neoforge-${minecraft_version}:${ldlib_version}") { transitive = false }
+    }
+}
+
+// NeoForge uses Mojang's names at runtime: the plain jar is the release jar.
+tasks.named('jar', Jar).configure {
+    exclude devOnly
+}
+
+// CI-only jar that keeps the test code, for a real NeoForge server.
+tasks.register('gametestJar', Jar) {
+    dependsOn 'classes'
+    archiveClassifier = 'gametest'
+    from sourceSets.main.output
+}
+tasks.named('assemble') {
+    dependsOn 'gametestJar'
+}
+
+// The self-test server needs the EULA accepted and a flat world, in its own run folder.
+tasks.matching { it.name == 'runSelfTestServer' }.configureEach {
+    doFirst {
+        def dir = file('run/selftest-server')
+        dir.mkdirs()
+        new File(dir, 'eula.txt').text = 'eula=true\n'
+        new File(dir, 'server.properties').text = ['online-mode=false', 'level-type=minecraft\\:flat',
+                'spawn-protection=0', 'max-tick-time=-1', 'pause-when-empty-seconds=0'].join('\n') + '\n'
+    }
+}

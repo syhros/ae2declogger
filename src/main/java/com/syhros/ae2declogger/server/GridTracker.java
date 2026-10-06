@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jetbrains.annotations.Nullable;
@@ -39,7 +38,7 @@ public final class GridTracker {
     static final class CpuTrack {
         final long jobId;
         @Nullable
-        final UUID craftId;
+        final Object craftId;
         final GenericStack output;
         final Component cpuName;
         final long startedAtMs;
@@ -57,7 +56,7 @@ public final class GridTracker {
         /** Times each step (item made on the way) of the job for the History and Stats tabs. */
         final StepClock<AEKey, AEKey> steps = new StepClock<>();
 
-        CpuTrack(long jobId, @Nullable UUID craftId, GenericStack output, Component cpuName, long startedAtMs,
+        CpuTrack(long jobId, @Nullable Object craftId, GenericStack output, Component cpuName, long startedAtMs,
                 @Nullable ICraftingLink link, boolean perJobCpu) {
             this.jobId = jobId;
             this.craftId = craftId;
@@ -69,7 +68,7 @@ public final class GridTracker {
             this.lastActivityAtMs = startedAtMs;
         }
 
-        boolean sameJob(@Nullable UUID otherId, GenericStack otherOutput) {
+        boolean sameJob(@Nullable Object otherId, GenericStack otherOutput) {
             if (craftId != null || otherId != null) {
                 return Objects.equals(craftId, otherId);
             }
@@ -165,7 +164,7 @@ public final class GridTracker {
     }
 
     /** Returns the track for the CPU's current job, finishing the previous job if the CPU moved on. */
-    CpuTrack trackFor(ICraftingCPU cpu, @Nullable UUID craftId, GenericStack output, Component cpuName,
+    CpuTrack trackFor(ICraftingCPU cpu, @Nullable Object craftId, GenericStack output, Component cpuName,
             long startedAtMs, @Nullable ICraftingLink link, long nowMs) {
         CpuTrack existing = tracks.get(cpu);
         if (existing != null && existing.sameJob(craftId, output)) {

@@ -5,8 +5,9 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.network.Bufs;
+
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -60,23 +61,23 @@ public record MachineSnapshot(ResourceKey<Level> dimension, BlockPos pos, Compon
     }
 
     public void write(FriendlyByteBuf buf) {
-        buf.writeResourceKey(dimension);
+        Bufs.writeDimension(buf, dimension);
         buf.writeBlockPos(pos);
-        buf.writeComponent(name);
+        Bufs.writeComponent(buf, name);
         buf.writeEnum(status);
-        buf.writeNullable(statusText, FriendlyByteBuf::writeComponent);
+        Bufs.writeNullable(buf, statusText, Bufs::writeComponent);
         buf.writeVarInt(progress + 1);
         buf.writeVarInt(duration + 1);
         buf.writeVarLong(Math.max(0, energyStored));
         buf.writeVarLong(Math.max(0, energyCapacity));
         buf.writeUtf(energyUnit, 8);
         buf.writeUtf(tier, 16);
-        buf.writeCollection(errors, FriendlyByteBuf::writeComponent);
+        buf.writeCollection(errors, Bufs::writeComponent);
         buf.writeCollection(sections, (b, s) -> {
             b.writeEnum(s.kind());
-            b.writeComponent(s.title());
+            Bufs.writeComponent(b, s.title());
             b.writeCollection(s.slots(), (bb, slot) -> {
-                GenericStack.writeBuffer(slot.stack(), bb);
+                Bufs.writeStack(bb, slot.stack());
                 bb.writeVarLong(Math.max(0, slot.capacity()));
                 bb.writeByte(slot.flags());
             });
@@ -85,22 +86,22 @@ public record MachineSnapshot(ResourceKey<Level> dimension, BlockPos pos, Compon
     }
 
     public static MachineSnapshot read(FriendlyByteBuf buf) {
-        ResourceKey<Level> dim = buf.readResourceKey(Registries.DIMENSION);
+        ResourceKey<Level> dim = Bufs.readDimension(buf);
         BlockPos pos = buf.readBlockPos();
-        Component name = buf.readComponent();
+        Component name = Bufs.readComponent(buf);
         MachineStatus status = buf.readEnum(MachineStatus.class);
-        Component statusText = buf.readNullable(FriendlyByteBuf::readComponent);
+        Component statusText = Bufs.readNullable(buf, Bufs::readComponent);
         int progress = buf.readVarInt() - 1;
         int duration = buf.readVarInt() - 1;
         long stored = buf.readVarLong();
         long capacity = buf.readVarLong();
         String unit = buf.readUtf(8);
         String tier = buf.readUtf(16);
-        List<Component> errors = buf.readList(FriendlyByteBuf::readComponent);
+        List<Component> errors = buf.readList(Bufs::readComponent);
         List<Section> sections = buf.readList(b -> {
             SectionKind kind = b.readEnum(SectionKind.class);
-            Component title = b.readComponent();
-            List<Slot> slots = new ArrayList<>(b.readList(bb -> new Slot(GenericStack.readBuffer(bb),
+            Component title = Bufs.readComponent(b);
+            List<Slot> slots = new ArrayList<>(b.readList(bb -> new Slot(Bufs.readStack(bb),
                     bb.readVarLong(), bb.readByte())));
             return new Section(kind, title, slots);
         });

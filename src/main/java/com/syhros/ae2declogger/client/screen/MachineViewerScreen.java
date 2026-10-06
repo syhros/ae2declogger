@@ -6,6 +6,8 @@ import java.util.Locale;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.data.MachineSnapshot;
@@ -13,7 +15,15 @@ import com.syhros.ae2declogger.logic.Formatting;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.ChatFormatting;
+//#if MC >= 26.1
+//$$ import net.minecraft.client.gui.GuiGraphicsExtractor;
+//$$ import net.minecraft.client.input.KeyEvent;
+//$$ import net.minecraft.client.input.MouseButtonEvent;
+//#elseif MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
+//#else
+//$$ import com.mojang.blaze3d.vertex.PoseStack;
+//#endif
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -21,7 +31,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
-import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 
@@ -48,7 +57,7 @@ public class MachineViewerScreen extends Screen {
     private boolean goingBack;
 
     public MachineViewerScreen(@Nullable Screen parent, ResourceKey<Level> dimension, BlockPos pos) {
-        super(Component.translatable("ae2declogger.viewer.title"));
+        super(Text.translatable("ae2declogger.viewer.title"));
         this.parent = parent;
         this.dimension = dimension;
         this.pos = pos.immutable();
@@ -77,13 +86,13 @@ public class MachineViewerScreen extends Screen {
         int by = top + panelH - 20;
         int bw = (panelW - 12 - 9) / 4;
         int bx = left + 6;
-        addRenderableWidget(Button.builder(Component.translatable(parent != null ? "ae2declogger.button.back"
+        addRenderableWidget(Widgets.builder(Text.translatable(parent != null ? "ae2declogger.button.back"
                 : "ae2declogger.button.close"), b -> onClose()).bounds(bx, by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.refresh"),
+        addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.refresh"),
                 b -> refresh()).bounds(bx + bw + 3, by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.pin"), b -> pin(false))
+        addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.pin"), b -> pin(false))
                 .bounds(bx + 2 * (bw + 3), by, bw, 16).build());
-        addRenderableWidget(Button.builder(Component.translatable("ae2declogger.button.goto"), b -> pin(true))
+        addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.goto"), b -> pin(true))
                 .bounds(bx + 3 * (bw + 3), by, bw, 16).build());
     }
 
@@ -102,7 +111,7 @@ public class MachineViewerScreen extends Screen {
                 minecraft.setScreen(null);
             }
         } else if (minecraft != null && minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.translatable("ae2declogger.pin.added", label,
+            Mc.message(minecraft.player, Text.translatable("ae2declogger.pin.added", label,
                     pos.getX() + " " + pos.getY() + " " + pos.getZ()), true);
         }
     }
@@ -148,34 +157,82 @@ public class MachineViewerScreen extends Screen {
     }
 
     @Override
+    //#if MC >= 1.20.2
+    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double delta) {
+    //#else
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    //#endif
         scroll -= delta * 12;
         return true;
     }
 
+    /**
+     * The darkened (or blurred) world behind the panel. From 1.20.2 Screen.render() draws it too, and drawing it twice
+     * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
+     */
+    private void drawBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 26.1
+        //$$ // 26.1 draws the background before extractRenderState on its own
+        //#elseif MC >= 1.20.2
+        //$$ super.renderBackground(g.raw(), mouseX, mouseY, partialTick);
+        //#else
+        renderBackground(g.raw());
+        //#endif
+    }
+
+    /** The screen's buttons and other widgets. */
+    private void renderWidgets(Gfx g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 26.1
+        //$$ super.extractRenderState(g.raw(), mouseX, mouseY, partialTick);
+        //#else
+        super.render(g.raw(), mouseX, mouseY, partialTick);
+        //#endif
+    }
+
+    //#if MC >= 1.20.2 && MC < 26.1
+    //$$ @Override
+    //$$ public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    //$$     // drawn by drawBackground() at the start of render()
+    //$$ }
+    //#endif
+
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    //#if MC >= 26.1
+    //$$ public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(graphics);
+    //#elseif MC >= 1.20
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        Gfx g = new Gfx(graphics);
+    //#else
+    //$$ public void render(PoseStack pose, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(pose, this);
+    //#endif
         if (targetPanelHeight() != panelH) {
+            //#if MC >= 1.19
             rebuildWidgets();
+            //#else
+            //$$ clearWidgets();
+            //$$ init();
+            //#endif
         }
-        renderBackground(g);
+        drawBackground(g, mouseX, mouseY, partialTick);
         UiUtil.panel(g, left, top, panelW, panelH);
         MachineSnapshot snap = snapshot();
         int x = left + 6;
         int w = panelW - 12;
         if (snap == null) {
-            g.drawCenteredString(font, Component.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
+            g.drawCenteredString(font, Text.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
                     top + 40, UiUtil.TEXT_DIM);
-            super.render(g, mouseX, mouseY, partialTick);
+            renderWidgets(g, mouseX, mouseY, partialTick);
             return;
         }
 
         UiUtil.text(g, font, snap.name(), x, top + 6, w, UiUtil.TEXT);
-        String where = pos.getX() + " " + pos.getY() + " " + pos.getZ() + "  " + dimension.location();
+        String where = pos.getX() + " " + pos.getY() + " " + pos.getZ() + "  " + Mc.dimensionId(dimension);
         if (!snap.tier().isEmpty()) {
             where = snap.tier() + "  " + where;
         }
-        UiUtil.text(g, font, Component.literal(where), x, top + 17, w, UiUtil.TEXT_FAINT);
+        UiUtil.text(g, font, Text.literal(where), x, top + 17, w, UiUtil.TEXT_FAINT);
 
         List<Component> tooltip = null;
         // Body is scrollable: status, bars, errors, then slot sections.
@@ -185,11 +242,11 @@ public class MachineViewerScreen extends Screen {
         int y = bodyTop - (int) scroll;
 
         if (hasStatusLine(snap)) {
-            Component status = Component.translatable(snap.status().translationKey())
+            Component status = Text.translatable(snap.status().translationKey())
                     .withStyle(s -> s.withColor(snap.status().color()));
             Component statusLine = snap.statusText() != null
-                    ? Component.translatable("ae2declogger.viewer.status_detail", status, snap.statusText())
-                    : Component.translatable("ae2declogger.viewer.status", status);
+                    ? Text.translatable("ae2declogger.viewer.status_detail", status, snap.statusText())
+                    : Text.translatable("ae2declogger.viewer.status", status);
             UiUtil.text(g, font, statusLine, x, y, w, UiUtil.TEXT);
             y += 11;
         }
@@ -210,7 +267,7 @@ public class MachineViewerScreen extends Screen {
             y += 10;
         }
         for (Component error : snap.errors()) {
-            UiUtil.text(g, font, Component.literal("⚠ ").append(error), x, y, w, 0xFFFF6B6B);
+            UiUtil.text(g, font, Text.literal("⚠ ").append(error), x, y, w, 0xFFFF6B6B);
             y += 10;
         }
         y += 3;
@@ -231,22 +288,24 @@ public class MachineViewerScreen extends Screen {
             y += ((slots.size() + perRow - 1) / perRow) * SLOT + 4;
         }
         if (snap.sections().isEmpty()) {
-            g.drawString(font, Component.translatable("ae2declogger.viewer.no_slots"), x, y, UiUtil.TEXT_FAINT, false);
+            g.drawString(font, Text.translatable("ae2declogger.viewer.no_slots"), x, y, UiUtil.TEXT_FAINT, false);
             y += 10;
         }
         if (snap.truncated()) {
-            g.drawString(font, Component.translatable("ae2declogger.viewer.truncated"), x, y, UiUtil.TEXT_FAINT,
+            g.drawString(font, Text.translatable("ae2declogger.viewer.truncated"), x, y, UiUtil.TEXT_FAINT,
                     false);
         }
         g.disableScissor();
         UiUtil.scrollbar(g, left + panelW - 5, bodyTop, bodyBottom - bodyTop, scroll, contentHeight);
 
-        g.drawString(font, Component.translatable("ae2declogger.viewer.read_only").withStyle(ChatFormatting.ITALIC),
+        g.drawString(font, Text.translatable("ae2declogger.viewer.read_only").withStyle(ChatFormatting.ITALIC),
                 x, bodyBottom + 3, UiUtil.TEXT_FAINT, false);
 
-        super.render(g, mouseX, mouseY, partialTick);
+        renderWidgets(g, mouseX, mouseY, partialTick);
         if (tooltip != null) {
             g.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        } else {
+            Widgets.renderTooltips(g, font, children(), mouseX, mouseY);
         }
     }
 
@@ -272,7 +331,7 @@ public class MachineViewerScreen extends Screen {
     }
 
     @Nullable
-    private List<Component> drawSlot(GuiGraphics g, MachineSnapshot.Slot slot, int x, int y, int mouseX,
+    private List<Component> drawSlot(Gfx g, MachineSnapshot.Slot slot, int x, int y, int mouseX,
             int mouseY) {
         g.fill(x, y, x + SLOT - 1, y + SLOT - 1, 0xFF373B44);
         g.fill(x + 1, y + 1, x + SLOT - 2, y + SLOT - 2, 0xFF1C1F25);
@@ -287,15 +346,15 @@ public class MachineViewerScreen extends Screen {
         }
         GenericStack stack = slot.stack();
         if (stack != null) {
-            AEKeyRendering.drawInGui(minecraft, g, x + 1, y + 1, stack.what());
+            g.key(stack.what(), x + 1, y + 1);
             String amount = UiUtil.amount(stack.what(), stack.amount());
             if (stack.what() instanceof AEFluidKey || stack.amount() > 1) {
-                g.pose().pushPose();
-                g.pose().translate(0, 0, 200);
-                g.pose().scale(0.5f, 0.5f, 1f);
+                g.push();
+                g.translate(0, 0, 200);
+                g.scale(0.5f, 0.5f);
                 int tw = font.width(amount);
                 g.drawString(font, amount, (x + SLOT - 2) * 2 - tw, (y + SLOT - 6) * 2, 0xFFFFFFFF, true);
-                g.pose().popPose();
+                g.pop();
             }
         }
         boolean hover = mouseX >= x && mouseX < x + SLOT - 1 && mouseY >= y && mouseY < y + SLOT - 1;
@@ -305,18 +364,18 @@ public class MachineViewerScreen extends Screen {
         g.fill(x + 1, y + 1, x + SLOT - 2, y + SLOT - 2, 0x40FFFFFF);
         List<Component> lines = new ArrayList<>();
         if (stack == null) {
-            lines.add(Component.translatable("ae2declogger.viewer.empty_slot").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.viewer.empty_slot").withStyle(ChatFormatting.GRAY));
         } else {
             lines.add(stack.what().getDisplayName());
             String cap = slot.capacity() > 0 ? " / " + UiUtil.amount(stack.what(), slot.capacity()) : "";
-            lines.add(Component.literal(UiUtil.amount(stack.what(), stack.amount()) + cap)
+            lines.add(Text.literal(UiUtil.amount(stack.what(), stack.amount()) + cap)
                     .withStyle(ChatFormatting.GRAY));
         }
         if (slot.has(MachineSnapshot.FLAG_FULL)) {
-            lines.add(Component.translatable("ae2declogger.viewer.slot_full").withStyle(ChatFormatting.RED));
+            lines.add(Text.translatable("ae2declogger.viewer.slot_full").withStyle(ChatFormatting.RED));
         }
         if (slot.has(MachineSnapshot.FLAG_PATTERN_INPUT)) {
-            lines.add(Component.translatable("ae2declogger.viewer.slot_pattern_input")
+            lines.add(Text.translatable("ae2declogger.viewer.slot_pattern_input")
                     .withStyle(ChatFormatting.GOLD));
         }
         return lines;

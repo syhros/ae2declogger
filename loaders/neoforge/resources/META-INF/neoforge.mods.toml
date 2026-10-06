@@ -13,29 +13,29 @@ Real-time autocrafting diagnostics for AE2. Spot bottlenecks, view machine statu
 '''
 
 [[dependencies.${mod_id}]]
-    modId="forge"
-    mandatory=true
-    versionRange="${forge_version_range}"
+    modId="neoforge"
+    type="required"
+    versionRange="${loader_dependency_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="minecraft"
-    mandatory=true
+    type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="ae2"
-    mandatory=true
+    type="required"
     versionRange="${ae2_version_range}"
     ordering="AFTER"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="gtceu"
-    mandatory=false
+    type="optional"
     versionRange="[1.0.0,)"
     ordering="AFTER"
     side="BOTH"

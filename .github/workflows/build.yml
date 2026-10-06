@@ -21,98 +21,142 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MC_VERSION: 1.20.1
-  FORGE_VERSION: 47.3.0
-  AE2_VERSION: 15.4.10
-  GUIDEME_VERSION: 20.1.7
-  GTCEU_VERSION: 7.5.3
+  # Gradle runs on Java 17; each Minecraft version compiles with its own Java (toolchains found through these).
+  GRADLE_ARGS: --no-daemon -Porg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
 
 jobs:
-  build:
-    name: Compile, unit tests, game tests
+  plan:
+    name: Versions
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    outputs:
+      versions: ${{ steps.m.outputs.versions }}
+      smoke: ${{ steps.m.outputs.smoke }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: python3 .github/scripts/versions_matrix.py
+
+  unit:
+    name: Unit tests (Minecraft-free logic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :logic-tests:test $GRADLE_ARGS
+
+  build:
+    name: Build and game tests (${{ matrix.v.name }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        v: ${{ fromJSON(needs.plan.outputs.versions) }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: |
+            ${{ matrix.v.java }}
+            17
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
 
-      - name: Build (compile, unit tests, reobfuscated jar)
+      - name: Build (compile, release jar)
         run: |
           set -o pipefail
-          ./gradlew build --no-daemon 2>&1 | tee build.log || {
-            echo "===== compiler and test errors ====="
-            grep -E "error:|warning: \[|FAILED|What went wrong|Could not|expected:|Exception" -A 3 build.log | grep -v "^\s*at " | head -400
+          ./gradlew :${{ matrix.v.name }}:build $GRADLE_ARGS 2>&1 | tee build.log || {
+            echo "===== compiler errors ====="
+            grep -E "error:|warning: \[|FAILED|What went wrong|Could not|Exception" -A 3 build.log | grep -v "^\s*at " | head -400
             exit 1
           }
 
       - name: Game tests (headless server with AE2)
         run: |
           set -o pipefail
-          ./gradlew runGameTestServer --no-daemon 2>&1 | tee gametest.log || {
+          ./gradlew :${{ matrix.v.name }}:runGameTestServer $GRADLE_ARGS 2>&1 | tee gametest.log || {
             echo "===== game test failures ====="
             grep -E "GameTest|gametest|failed|FAILED|Exception|Error|error" gametest.log | grep -v "^\s*at " | tail -200
             exit 1
           }
-          grep -E "All [0-9]+ required tests passed|tests passed|GameTest" gametest.log | tail -20
+          grep -E "All [0-9]+ required tests passed" gametest.log
+
+      - name: Server self-test (development server)
+        run: |
+          ./gradlew :${{ matrix.v.name }}:runSelfTestServer $GRADLE_ARGS 2>&1 | tee selftest-server.log || true
+          grep -E "AE2 DECLOGGER SERVER SELFTEST" selftest-server.log
+          grep -q "AE2 DECLOGGER SERVER SELFTEST PASS" selftest-server.log
 
       - name: Check the jar
         run: |
-          ls -la build/libs
-          JAR=build/libs/ae2declogger-forge-${MC_VERSION}-$(grep '^mod_version=' gradle.properties | cut -d= -f2).jar
+          D=versions/${{ matrix.v.name }}/build/libs
+          ls -la $D
+          VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          JAR=$D/ae2declogger-${{ matrix.v.loader }}-${{ matrix.v.mc }}-${VERSION}.jar
           test -f "$JAR"
           echo "JAR=$JAR" >> "$GITHUB_ENV"
           unzip -l "$JAR"
-          echo "--- mods.toml"
-          unzip -p "$JAR" META-INF/mods.toml
           if unzip -l "$JAR" | grep -q 'gametest/'; then echo "::error::test classes leaked into the release jar"; exit 1; fi
-          if unzip -l "$JAR" | grep -q 'structures/'; then echo "::error::test structures leaked into the release jar"; exit 1; fi
-          echo "--- reobfuscation check (expect SRG names like m_xxxx_ in the monitor screen)"
-          mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/$JAR")
-          javap -p /tmp/jarcheck/com/syhros/ae2declogger/client/screen/DecloggerScreen.class | tee /tmp/javap.txt
-          grep -q 'm_[0-9]*_' /tmp/javap.txt || { echo "::error::jar does not look reobfuscated"; exit 1; }
+          if unzip -l "$JAR" | grep -qE 'structures?/'; then echo "::error::test structures leaked into the release jar"; exit 1; fi
+          if [ "${{ matrix.v.loader }}" = "forge" ]; then
+            unzip -p "$JAR" META-INF/mods.toml
+            mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/$JAR")
+            javap -p /tmp/jarcheck/com/syhros/ae2declogger/client/screen/DecloggerScreen.class > /tmp/javap.txt
+            grep -q 'm_[0-9]*_' /tmp/javap.txt || { echo "::error::jar does not look reobfuscated"; exit 1; }
+          else
+            unzip -p "$JAR" META-INF/neoforge.mods.toml
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ae2declogger-jar
+          name: jar-${{ matrix.v.name }}
           path: ${{ env.JAR }}
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ci-gametest-jar
-          path: build/libs/*-gametest.jar
+          name: gametest-jar-${{ matrix.v.name }}
+          path: versions/${{ matrix.v.name }}/build/libs/*-gametest.jar
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gametest-logs
+          name: logs-${{ matrix.v.name }}
           path: |
-            run/gametest/logs/
-            build/reports/tests/
+            *.log
+            versions/${{ matrix.v.name }}/run/gametest/logs/
+            versions/${{ matrix.v.name }}/run/selftest-server/logs/
           if-no-files-found: ignore
 
   client-selftest:
-    name: Client self-test (real screens, screenshots)
+    name: Client self-test (${{ matrix.v.name }})
+    needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: write
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        v: ${{ fromJSON(needs.plan.outputs.versions) }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: |
+            ${{ matrix.v.java }}
+            17
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -127,20 +171,47 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
-          xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runSelfTestClient --no-daemon --stacktrace || echo "client exited with $?"
+          xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew :${{ matrix.v.name }}:runSelfTestClient $GRADLE_ARGS --stacktrace || echo "client exited with $?"
+          R=versions/${{ matrix.v.name }}/run/selftest
           echo "--- result"
-          cat run/selftest/selftest-result.txt
-          head -1 run/selftest/selftest-result.txt | grep -qx PASS
+          cat $R/selftest-result.txt
+          head -1 $R/selftest-result.txt | grep -qx PASS
 
-      - name: Publish screenshots to the ci-screenshots branch
-        if: always() && github.event_name != 'pull_request' || always() && github.event.pull_request.head.repo.full_name == github.repository
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-${{ matrix.v.name }}
+          path: |
+            versions/${{ matrix.v.name }}/run/selftest/screenshots/
+            versions/${{ matrix.v.name }}/run/selftest/selftest-result.txt
+            versions/${{ matrix.v.name }}/run/selftest/logs/
+            versions/${{ matrix.v.name }}/run/selftest/crash-reports/
+          if-no-files-found: ignore
+
+  screenshots:
+    name: Publish screenshots
+    needs: client-selftest
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: screenshots-*
+          path: shots
+      - name: Push to the ci-screenshots branch (one folder per version)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p /tmp/shots
-          cp run/selftest/screenshots/*.png /tmp/shots/ 2>/dev/null || true
-          cp run/selftest/selftest-result.txt /tmp/shots/ 2>/dev/null || echo "no result file" > /tmp/shots/selftest-result.txt
-          cd /tmp/shots
+          mkdir -p /tmp/out
+          for d in shots/screenshots-*; do
+            v=${d#shots/screenshots-}
+            mkdir -p /tmp/out/$v
+            find $d -name '*.png' -exec cp {} /tmp/out/$v/ \;
+            find $d -name 'selftest-result.txt' -exec cp {} /tmp/out/$v/ \;
+          done
+          cd /tmp/out
           git init -q -b ci-screenshots
           git config user.name "github-actions"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -148,101 +219,108 @@ jobs:
           git commit -q -m "Self-test screenshots for ${GITHUB_SHA}"
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: selftest-screenshots
-          path: |
-            run/selftest/screenshots/
-            run/selftest/selftest-result.txt
-            run/selftest/logs/
-            run/selftest/crash-reports/
-          if-no-files-found: ignore
-
   smoke:
-    name: Server smoke test (${{ matrix.pack }})
-    needs: build
+    # A real dedicated server per version, with AE2 alone, with popular AE2 add-ons, and with GregTech where it is
+    # built. The test jar runs the server self-test (gametest/ServerSelfTest) next to spawn: a two-step job, a stall,
+    # the machine viewer and the history, with the add-ons loaded.
+    name: Server (${{ matrix.s.name }}, ${{ matrix.s.pack }})
+    needs: [plan, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        pack: [ae2-only, ae2-gtceu, gtceu-selftest]
+        s: ${{ fromJSON(needs.plan.outputs.smoke) }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: ${{ matrix.s.java }}
 
       - uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.pack == 'gtceu-selftest' && 'ci-gametest-jar' || 'ae2declogger-jar' }}
+          name: gametest-jar-${{ matrix.s.name }}
           path: jars
 
-      - name: Install Forge server and mods
+      - name: Install the server and mods
         run: |
           mkdir -p server/mods
           cd server
-          curl -fsSL --retry 4 --retry-all-errors -o installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-installer.jar"
+          if [ "${{ matrix.s.loader }}" = "forge" ]; then
+            URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${{ matrix.s.mc }}-${{ matrix.s.loaderVersion }}/forge-${{ matrix.s.mc }}-${{ matrix.s.loaderVersion }}-installer.jar"
+          else
+            URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${{ matrix.s.loaderVersion }}/neoforge-${{ matrix.s.loaderVersion }}-installer.jar"
+          fi
+          curl -fsSL --retry 4 --retry-all-errors -o installer.jar "$URL"
           java -jar installer.jar --installServer > install.log 2>&1 || { tail -50 install.log; exit 1; }
           echo "eula=true" > eula.txt
           printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\nmax-tick-time=-1\n' > server.properties
           echo "-Xmx3G" > user_jvm_args.txt
-          # Official release jars (the Maven artifacts are development builds and do not run on a real server).
-          curl -fsSL --retry 4 --retry-all-errors -o mods/ae2.jar "https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge%2Fv${AE2_VERSION}/appliedenergistics2-forge-${AE2_VERSION}.jar"
-          curl -fsSL --retry 4 --retry-all-errors -o mods/guideme.jar "https://github.com/AppliedEnergistics/GuideME/releases/download/v${GUIDEME_VERSION}/guideme-${GUIDEME_VERSION}.jar"
-          if [ "${{ matrix.pack }}" != "ae2-only" ]; then
-            curl -fsSL --retry 4 --retry-all-errors -o mods/gtceu.jar "https://github.com/GregTechCEu/GregTech-Modern/releases/download/v${GTCEU_VERSION}-${MC_VERSION}/gtceu-${MC_VERSION}-${GTCEU_VERSION}.jar"
-          fi
-          cp $(ls ../jars/*.jar | grep -v -- '-dev.jar' | grep -v -- '-sources.jar') mods/
-          if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
+          echo "-Dae2declogger.serverSelfTest=true" >> user_jvm_args.txt
+          if [ "${{ matrix.s.pack }}" = "gtceu" ]; then echo "-Dae2declogger.gtSelfTest=true" >> user_jvm_args.txt; fi
+          python3 ../.github/scripts/fetch_mods.py "${{ matrix.s.mc }}" "${{ matrix.s.loader }}" "${{ matrix.s.pack }}" mods
+          cp ../jars/*-gametest.jar mods/
           ls -la mods
 
-      - name: Start, check, stop
+      - name: Start, self-test, stop
         run: |
-          if [ "${{ matrix.pack }}" = "ae2-only" ]; then GT="GregTech integration: off"; else GT="GregTech integration: on"; fi
-          if [ "${{ matrix.pack }}" = "gtceu-selftest" ]; then
-            export WAIT_FOR="AE2 DECLOGGER GT SELFTEST (PASS|FAIL)"
-            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "$GT" "AE2 DECLOGGER GT SELFTEST PASS"
+          if [ "${{ matrix.s.pack }}" = "gtceu" ]; then
+            export WAIT_FOR="AE2 DECLOGGER SERVER SELFTEST (PASS|FAIL) && AE2 DECLOGGER GT SELFTEST (PASS|FAIL)"
+            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "GregTech integration: on" \
+              "AE2 DECLOGGER SERVER SELFTEST PASS" "AE2 DECLOGGER GT SELFTEST PASS"
           else
-            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "$GT"
+            export WAIT_FOR="AE2 DECLOGGER SERVER SELFTEST (PASS|FAIL)"
+            python3 .github/scripts/server_smoke.py server 900 "AE2 Declogger ready" "GregTech integration: off" \
+              "AE2 DECLOGGER SERVER SELFTEST PASS"
           fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: smoke-logs-${{ matrix.pack }}
+          name: server-logs-${{ matrix.s.name }}-${{ matrix.s.pack }}
           path: |
             server/logs/
             server/crash-reports/
           if-no-files-found: ignore
 
   advanced-ae:
-    # The Declogger reads Advanced AE's quantum computer CPUs by reflection (class, field and method names). This checks
-    # that every name it relies on exists in real Advanced AE releases.
-    name: Advanced AE compatibility (${{ matrix.aae }})
+    # The Declogger reads Advanced AE's quantum computer CPUs and advanced pattern providers by reflection (class,
+    # field and method names). This checks that every name it relies on exists in real releases for each version.
+    name: Advanced AE names (${{ matrix.aae.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        aae: ['1.1.0-1.20.1-forge', '1.2.0-1.20.1-forge', '1.3.6-1.20.1-forge']
+        aae:
+          - { label: '1.20.1 AAE 1.1.0', github: '1.1.0-1.20.1-forge' }
+          - { label: '1.20.1 AAE 1.2.0', github: '1.2.0-1.20.1-forge' }
+          - { label: '1.20.1 AAE 1.3.6', github: '1.3.6-1.20.1-forge' }
+          - { label: '1.21.1 newest', mc: '1.21.1', loader: 'neoforge' }
+          - { label: '26.1.2 newest', mc: '26.1.2', loader: 'neoforge' }
     steps:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 25
 
       - name: Download the Advanced AE release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for i in 1 2 3 4; do
-            gh release download "${{ matrix.aae }}" -R pedroksl/AdvancedAE -p '*.jar' -D aae --clobber && break
-            sleep $((i * 5))
-          done
+          mkdir -p aae
+          if [ -n "${{ matrix.aae.github }}" ]; then
+            for i in 1 2 3 4; do
+              gh release download "${{ matrix.aae.github }}" -R pedroksl/AdvancedAE -p '*.jar' -D aae --clobber && break
+              sleep $((i * 5))
+            done
+          else
+            URL=$(curl -fsSL "https://api.modrinth.com/v2/project/advancedae/version?game_versions=%5B%22${{ matrix.aae.mc }}%22%5D&loaders=%5B%22${{ matrix.aae.loader }}%22%5D" \
+              | python3 -c "import json,sys; v=json.load(sys.stdin)[0]; print([f['url'] for f in v['files'] if f['primary']][0])")
+            curl -fsSL -o aae/aae.jar "$URL"
+          fi
           ls -la aae
 
       - name: Check the names the Declogger reads
@@ -273,13 +351,21 @@ jobs:
           check $P/common/logic/ExecutingCraftingJob.class ' tasks;' "ExecutingCraftingJob.tasks"
           check "$P/common/logic/ExecutingCraftingJob\$TaskProgress.class" 'long value;' "TaskProgress.value"
           check $P/mixins/cpu/MixinCraftingCPUMenu.class 'AdvCraftingCPU [A-Za-z_$]+;' "crafting screen menu keeps the quantum CPU in a field"
+          # Advanced pattern providers are read by method name (server/ProviderIndex): getTargets() and getLogic()
+          # on the host, isBlocking() and getCraftingLockedReason() on the logic.
+          if [ -f $P/common/logic/AdvPatternProviderLogicHost.class ]; then
+            check $P/common/logic/AdvPatternProviderLogicHost.class 'getTargets\(\);' "advanced pattern provider host getTargets()"
+            check $P/common/logic/AdvPatternProviderLogicHost.class 'getLogic\(\);' "advanced pattern provider host getLogic()"
+            check $P/common/logic/AdvPatternProviderLogic.class 'public boolean isBlocking\(\);' "advanced pattern provider isBlocking()"
+            check $P/common/logic/AdvPatternProviderLogic.class 'getCraftingLockedReason\(\);' "advanced pattern provider getCraftingLockedReason()"
+          fi
           exit $fail
 
   release:
     name: Publish release
     # Runs for a pushed v* tag, or from Actions > Run workflow with "release" ticked.
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
-    needs: [build, smoke, client-selftest, advanced-ae]
+    needs: [unit, build, smoke, client-selftest, advanced-ae]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -288,10 +374,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: ae2declogger-jar
+          pattern: jar-*
           path: jars
+          merge-multiple: true
 
-      - name: Create the GitHub release with the jar
+      - name: Create the GitHub release with every version's jar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -301,10 +388,9 @@ jobs:
             echo "::error::tag ${GITHUB_REF_NAME} does not match mod_version ${VERSION} in gradle.properties"
             exit 1
           fi
-          JAR=jars/ae2declogger-forge-${MC_VERSION}-${VERSION}.jar
-          test -f "$JAR"
-          sed -e "s/@VERSION@/${VERSION}/g" -e "s/@MC_VERSION@/${MC_VERSION}/g" .github/RELEASE_NOTES.md > notes.md
+          ls -la jars
+          python3 .github/scripts/release_notes.py "$VERSION" jars > notes.md
+          cat notes.md
           # Creates the tag on this commit when it does not exist yet (manual runs).
-          gh release create "${TAG}" "$JAR" --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" \
-            --title "AE2 Declogger ${VERSION} (Forge ${MC_VERSION})" \
-            --notes-file notes.md
+          gh release create "${TAG}" jars/*.jar --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" \
+            --title "AE2 Declogger ${VERSION}" --notes-file notes.md

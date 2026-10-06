@@ -1,0 +1,111 @@
+// Shared by every Minecraft version under versions/. Each version folder has:
+//   build.gradle        the loader plugin (ModDevGradle for NeoForge, its legacy plugin for Forge) + this script
+//   version.properties  Minecraft, loader, AE2 and Java versions
+//   src/main/java       optional whole-file overrides of the shared sources
+// Sources are built from src/main/java (shared), loaders/<loader>/java, then the version folder, with //#if blocks
+// resolved for that version (see buildSrc/src/main/java/PreprocessTask.java).
+
+def vp = new Properties()
+file('version.properties').withInputStream { vp.load(it) }
+vp.each { k, v -> project.ext.set(k as String, v) }
+
+version = mod_version
+group = mod_group_id
+base {
+    archivesName = "${mod_id}-${loader}-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'ModMaven (AE2)'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'appeng' }
+    }
+    maven {
+        name = 'NeoForged (AE2 for NeoForge, GuideME)'
+        url = 'https://maven.neoforged.net/releases'
+        content { includeGroup 'org.appliedenergistics' }
+    }
+    maven {
+        name = 'GregTechCEu'
+        url = 'https://maven.gtceu.com'
+        content { includeGroup 'com.gregtechceu.gtceu' }
+    }
+    maven {
+        name = 'FirstDarkDev (LDLib)'
+        url = 'https://maven.firstdark.dev/snapshots'
+        content { includeGroup 'com.lowdragmc.ldlib' }
+    }
+}
+
+def preprocessVars = [MC: minecraft_version as String, LOADER: loader as String]
+def preprocessJava = tasks.register('preprocessJava', PreprocessTask) {
+    sources.from(rootProject.file('src/main/java'), rootProject.file("loaders/${loader}/java"), file('src/main/java'))
+    output = layout.buildDirectory.dir('preprocessed/java')
+    vars.putAll(preprocessVars)
+}
+def preprocessResources = tasks.register('preprocessResources', PreprocessTask) {
+    sources.from(rootProject.file('src/main/resources'), rootProject.file("loaders/${loader}/resources"),
+            file('src/main/resources'))
+    output = layout.buildDirectory.dir('preprocessed/resources')
+    vars.putAll(preprocessVars)
+}
+sourceSets {
+    main {
+        java.srcDirs = []
+        java.srcDir(preprocessJava.flatMap { it.output })
+        resources.srcDirs = []
+        resources.srcDir(preprocessResources.flatMap { it.output })
+    }
+}
+
+// Code under these paths only runs in the development game-test and self-test runs.
+ext.devOnly = ['com/syhros/ae2declogger/gametest/**', 'data/ae2declogger/structures/**', 'data/ae2declogger/structure/**']
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:deprecation', '-Xmaxerrs', '1000']
+}
+
+def replaceProperties = [
+        minecraft_version      : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        loader_version_range   : loader_version_range,
+        loader_dependency_range: loader_dependency_range,
+        mod_id                 : mod_id,
+        mod_name               : mod_name,
+        mod_license            : mod_license,
+        mod_version            : mod_version,
+        mod_authors            : mod_authors,
+        ae2_version_range      : ae2_version_range,
+        pack_format            : pack_format,
+]
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest.attributes([
+            'Specification-Title'     : mod_id,
+            'Specification-Vendor'    : mod_authors,
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : project.name,
+            'Implementation-Version'  : project.version,
+            'Implementation-Vendor'   : mod_authors,
+    ])
+}
+
+apply from: rootProject.file("gradle/mod/${loader}.gradle")

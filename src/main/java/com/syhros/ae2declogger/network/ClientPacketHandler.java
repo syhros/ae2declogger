@@ -1,5 +1,6 @@
 package com.syhros.ae2declogger.network;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.client.AlertHandler;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
@@ -30,7 +31,7 @@ public final class ClientPacketHandler {
         } else if (message instanceof DeclogNetwork.MonitorClosed closed) {
             ClientState.closed(closed.reason());
             if (!(mc.screen instanceof DecloggerScreen) && !(mc.screen instanceof MachineViewerScreen)) {
-                mc.player.displayClientMessage(closed.reason().copy().withStyle(ChatFormatting.RED), true);
+                Mc.message(mc.player, closed.reason().copy().withStyle(ChatFormatting.RED), true);
             }
         } else if (message instanceof DeclogNetwork.MachineData data) {
             ClientState.machine = data.snapshot();

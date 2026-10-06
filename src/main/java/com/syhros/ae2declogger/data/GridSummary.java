@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger.data;
 
+import com.syhros.ae2declogger.network.Bufs;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
@@ -12,7 +14,7 @@ public record GridSummary(Component networkName, int cpus, int busyCpus, double 
         boolean powered, long serverTimeMs) {
 
     public void write(FriendlyByteBuf buf) {
-        buf.writeComponent(networkName);
+        Bufs.writeComponent(buf, networkName);
         buf.writeVarInt(cpus);
         buf.writeVarInt(busyCpus);
         buf.writeDouble(storedPower);
@@ -22,7 +24,7 @@ public record GridSummary(Component networkName, int cpus, int busyCpus, double 
     }
 
     public static GridSummary read(FriendlyByteBuf buf) {
-        return new GridSummary(buf.readComponent(), buf.readVarInt(), buf.readVarInt(), buf.readDouble(),
+        return new GridSummary(Bufs.readComponent(buf), buf.readVarInt(), buf.readVarInt(), buf.readDouble(),
                 buf.readDouble(), buf.readBoolean(), buf.readLong());
     }
 }

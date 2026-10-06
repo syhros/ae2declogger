@@ -2,6 +2,8 @@ package com.syhros.ae2declogger.server;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.config.DeclogConfig;
 
 import net.minecraft.core.BlockPos;
@@ -29,7 +31,7 @@ public record GridSource(@Nullable GlobalPos link, @Nullable Direction side, @Nu
         }
 
         static Resolved fail(String key, Object... args) {
-            return new Resolved(null, Component.translatable(key, args));
+            return new Resolved(null, Text.translatable(key, args));
         }
     }
 
@@ -53,11 +55,11 @@ public record GridSource(@Nullable GlobalPos link, @Nullable Direction side, @Nu
         if (link == null) {
             return Resolved.fail("ae2declogger.error.not_linked");
         }
-        ServerLevel level = player.server.getLevel(link.dimension());
+        ServerLevel level = Mc.server(player).getLevel(link.dimension());
         if (level == null) {
-            return Resolved.fail("ae2declogger.error.dimension_missing", link.dimension().location().toString());
+            return Resolved.fail("ae2declogger.error.dimension_missing", Mc.dimensionId(link.dimension()));
         }
-        boolean sameDimension = player.level().dimension().equals(link.dimension());
+        boolean sameDimension = Mc.level(player).dimension().equals(link.dimension());
         if (!sameDimension && !DeclogConfig.COMMON.allowCrossDimension.get()) {
             return Resolved.fail("ae2declogger.error.other_dimension");
         }

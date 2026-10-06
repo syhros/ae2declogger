@@ -84,18 +84,18 @@ final class TestNetwork {
             helper.setBlock(CHEST, Blocks.CHEST.defaultBlockState());
         }
 
-        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(DRIVE);
+        DriveBlockEntity drive = blockEntity(helper, DRIVE, DriveBlockEntity.class);
         drive.getInternalInventory().addItems(AEItems.ITEM_CELL_1K.stack());
 
-        PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
+        PatternProviderBlockEntity provider = blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class);
         GenericStack[] outputs = multiOutput
                 ? new GenericStack[] { new GenericStack(STONE, 1), new GenericStack(GRAVEL, 1) }
                 : new GenericStack[] { new GenericStack(STONE, 1) };
-        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+        ItemStack pattern = processingPattern(
                 new GenericStack[] { new GenericStack(COBBLE, 1) }, outputs);
         provider.getLogic().getPatternInv().addItems(pattern);
         if (twoSteps) {
-            provider.getLogic().getPatternInv().addItems(PatternDetailsHelper.encodeProcessingPattern(
+            provider.getLogic().getPatternInv().addItems(processingPattern(
                     new GenericStack[] { new GenericStack(GRAVEL, 1) }, new GenericStack[] { new GenericStack(COBBLE, 1) }));
         }
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
@@ -117,22 +117,22 @@ final class TestNetwork {
 
     IGrid requireGrid() {
         IGrid grid = grid();
-        helper.assertTrue(grid != null, "network not formed yet");
+        Asserts.isTrue(helper, grid != null, "network not formed yet");
         return grid;
     }
 
     /** Throws until the network is powered, has a CPU and knows the pattern. */
     void assertReady() {
         IGrid grid = requireGrid();
-        helper.assertTrue(grid.getEnergyService().isNetworkPowered(), "network not powered yet");
-        helper.assertTrue(!grid.getCraftingService().getCpus().isEmpty(), "no crafting CPU yet");
-        helper.assertTrue(grid.getCraftingService().isCraftable(STONE), "pattern not registered yet");
+        Asserts.isTrue(helper, grid.getEnergyService().isNetworkPowered(), "network not powered yet");
+        Asserts.isTrue(helper, !grid.getCraftingService().getCpus().isEmpty(), "no crafting CPU yet");
+        Asserts.isTrue(helper, grid.getCraftingService().isCraftable(STONE), "pattern not registered yet");
     }
 
     void insert(AEItemKey key, long amount) {
         long inserted = requireGrid().getStorageService().getInventory().insert(key, amount, Actionable.MODULATE,
                 IActionSource.empty());
-        helper.assertTrue(inserted == amount, "could only insert " + inserted + " of " + amount + " " + key);
+        Asserts.isTrue(helper, inserted == amount, "could only insert " + inserted + " of " + amount + " " + key);
     }
 
     void startCalculation(long amount) {
@@ -144,21 +144,31 @@ final class TestNetwork {
     }
 
     void assertPlanReady() {
-        helper.assertTrue(plan != null && plan.isDone(), "crafting calculation still running");
+        Asserts.isTrue(helper, plan != null && plan.isDone(), "crafting calculation still running");
     }
 
     void submit() {
         try {
             ICraftingPlan p = plan.get();
-            helper.assertTrue(!p.simulation(), "plan is missing " + describe(p.missingItems()) + "; used "
+            Asserts.isTrue(helper, !p.simulation(), "plan is missing " + describe(p.missingItems()) + "; used "
                     + describe(p.usedItems()) + "; network has " + describe(requireGrid().getStorageService()
                             .getCachedInventory()) + "; craftable stone=" + requireGrid().getCraftingService()
                                     .isCraftable(STONE));
-            var result = requireGrid().getCraftingService().submitJob(p, null, null, false, IActionSource.empty());
-            helper.assertTrue(result.successful(), "job was not accepted: " + result.errorCode());
+            var result = submit(requireGrid().getCraftingService(), p);
+            Asserts.isTrue(helper, result.successful(), "job was not accepted: " + result.errorCode());
         } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** The block entity at a test-relative position (26.1 asks for the expected type). */
+    static <T extends net.minecraft.world.level.block.entity.BlockEntity> T blockEntity(GameTestHelper helper,
+            BlockPos pos, Class<T> type) {
+        //#if MC >= 26.1
+        //$$ return helper.getBlockEntity(pos, type);
+        //#else
+        return type.cast(helper.getBlockEntity(pos));
+        //#endif
     }
 
     static String describe(appeng.api.stacks.KeyCounter counter) {
@@ -177,7 +187,7 @@ final class TestNetwork {
     }
 
     int chestCount(net.minecraft.world.item.Item item) {
-        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(CHEST);
+        ChestBlockEntity chest = blockEntity(helper, CHEST, ChestBlockEntity.class);
         int count = 0;
         for (int i = 0; i < chest.getContainerSize(); i++) {
             ItemStack s = chest.getItem(i);
@@ -189,7 +199,32 @@ final class TestNetwork {
     }
 
     void blockingMode(boolean on) {
-        PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
+        PatternProviderBlockEntity provider = blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class);
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, on ? YesNo.YES : YesNo.NO);
+    }
+
+    /** Starts a planned job with no requester (AE2 11 names it trySubmitJob). */
+    static appeng.api.networking.crafting.ICraftingSubmitResult submit(
+            appeng.api.networking.crafting.ICraftingService crafting, ICraftingPlan plan) {
+        //#if MC >= 1.19
+        return crafting.submitJob(plan, null, null, false, IActionSource.empty());
+        //#else
+        //$$ return crafting.trySubmitJob(plan, null, null, false, IActionSource.empty());
+        //#endif
+    }
+
+    /** A processing pattern item (AE2 19 takes lists instead of arrays). */
+    static ItemStack processingPattern(GenericStack[] inputs, GenericStack[] outputs) {
+        //#if MC >= 1.21
+        //$$ return PatternDetailsHelper.encodeProcessingPattern(java.util.Arrays.asList(inputs),
+        //$$         java.util.Arrays.asList(outputs));
+        //#else
+        return PatternDetailsHelper.encodeProcessingPattern(inputs, outputs);
+        //#endif
+    }
+
+    /** The pattern provider's logic (an AE2 crafting provider). */
+    Object providerLogic() {
+        return (blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class)).getLogic();
     }
 }

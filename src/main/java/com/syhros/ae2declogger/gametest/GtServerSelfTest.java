@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger.gametest;
 
+//#if MC == 1.20.1
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -126,9 +128,14 @@ public final class GtServerSelfTest {
                     done(false, "block " + FURNACE_ID + " not registered");
                     return;
                 }
+                //#if MC >= 26.1
+                //$$ BlockPos spawn = level.getRespawnData().globalPos().pos();
+                //#else
                 BlockPos spawn = level.getSharedSpawnPos();
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 3);
-                origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 3);
+                //#endif
+                // Six blocks south of ServerSelfTest's network, which runs on the same server.
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 9);
+                origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 9);
                 level.setBlockAndUpdate(cell(), AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
                 level.setBlockAndUpdate(drive(), AEBlocks.DRIVE.block().defaultBlockState());
                 level.setBlockAndUpdate(origin.east(2), AEBlocks.CRAFTING_STORAGE_1K.block().defaultBlockState());
@@ -256,3 +263,4 @@ public final class GtServerSelfTest {
         Ae2Declogger.LOG.info("AE2 DECLOGGER GT SELFTEST {}: {}", pass ? "PASS" : "FAIL", message);
     }
 }
+//#endif

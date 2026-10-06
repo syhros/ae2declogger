@@ -2,13 +2,9 @@ package com.syhros.ae2declogger.network;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.GridSummary;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
@@ -19,95 +15,52 @@ import com.syhros.ae2declogger.logic.JobState;
 import com.syhros.ae2declogger.server.DecloggerServer;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
 
 import appeng.api.stacks.AEKey;
 
 /**
- * All packets. Client-bound handlers run through {@link ClientPacketHandler} so no client class is loaded on a
- * dedicated server.
+ * All packets. The loader's networking is in {@link Channel}; client-bound handlers run through
+ * {@link ClientPacketHandler} so no client class is loaded on a dedicated server.
  */
 public final class DeclogNetwork {
-
-    private static final String PROTOCOL = "3";
-    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(Ae2Declogger.id("main"),
-            () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
-
-    private static int nextId;
 
     private DeclogNetwork() {
     }
 
     public static void register() {
         // Client -> server
-        c2s(OpenMonitor.class, OpenMonitor::write, OpenMonitor::read,
+        Channel.c2s(OpenMonitor.class, "open_monitor", OpenMonitor::write, OpenMonitor::read,
                 (msg, player) -> DecloggerServer.openFromRequest(player, msg.fromTerminal()));
-        c2s(CloseMonitor.class, (m, b) -> {
+        Channel.c2s(CloseMonitor.class, "close_monitor", (m, b) -> {
         }, b -> new CloseMonitor(), (msg, player) -> DecloggerServer.closeMonitor(player));
-        c2s(RequestMachine.class, RequestMachine::write, RequestMachine::read,
+        Channel.c2s(RequestMachine.class, "request_machine", RequestMachine::write, RequestMachine::read,
                 (msg, player) -> DecloggerServer.requestMachine(player, msg.dimension(), msg.pos(), msg.open()));
-        c2s(ToggleAlerts.class, (m, b) -> {
+        Channel.c2s(ToggleAlerts.class, "toggle_alerts", (m, b) -> {
         }, b -> new ToggleAlerts(), (msg, player) -> DecloggerServer.toggleAlerts(player));
-        c2s(ClearHistory.class, (m, b) -> {
+        Channel.c2s(ClearHistory.class, "clear_history", (m, b) -> {
         }, b -> new ClearHistory(), (msg, player) -> DecloggerServer.clearHistory(player));
-        c2s(WatchCraftingScreen.class, WatchCraftingScreen::write, WatchCraftingScreen::read,
-                (msg, player) -> DecloggerServer.watchCraftingScreen(player, msg.watch()));
+        Channel.c2s(WatchCraftingScreen.class, "watch_crafting_screen", WatchCraftingScreen::write,
+                WatchCraftingScreen::read, (msg, player) -> DecloggerServer.watchCraftingScreen(player, msg.watch()));
 
         // Server -> client
-        s2c(OpenMonitorScreen.class, OpenMonitorScreen::write, OpenMonitorScreen::read);
-        s2c(MonitorUpdate.class, MonitorUpdate::write, MonitorUpdate::read);
-        s2c(MonitorClosed.class, MonitorClosed::write, MonitorClosed::read);
-        s2c(MachineData.class, MachineData::write, MachineData::read);
-        s2c(Alert.class, Alert::write, Alert::read);
-    }
-
-    private static <T> void c2s(Class<T> type, BiConsumer<T, FriendlyByteBuf> encoder,
-            Function<FriendlyByteBuf, T> decoder, BiConsumer<T, ServerPlayer> handler) {
-        CHANNEL.messageBuilder(type, nextId++, NetworkDirection.PLAY_TO_SERVER)
-                .encoder(encoder)
-                .decoder(decoder)
-                .consumerMainThread((T msg, Supplier<NetworkEvent.Context> ctx) -> {
-                    ServerPlayer player = ctx.get().getSender();
-                    if (player != null) {
-                        try {
-                            handler.accept(msg, player);
-                        } catch (RuntimeException | LinkageError e) {
-                            Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(),
-                                    player.getGameProfile().getName(), e);
-                        }
-                    }
-                })
-                .add();
-    }
-
-    private static <T> void s2c(Class<T> type, BiConsumer<T, FriendlyByteBuf> encoder,
-            Function<FriendlyByteBuf, T> decoder) {
-        CHANNEL.messageBuilder(type, nextId++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(encoder)
-                .decoder(decoder)
-                .consumerMainThread((T msg, Supplier<NetworkEvent.Context> ctx) -> DistExecutor.unsafeRunWhenOn(
-                        Dist.CLIENT, () -> () -> ClientPacketHandler.handle(msg)))
-                .add();
+        Channel.s2c(OpenMonitorScreen.class, "open_monitor_screen", OpenMonitorScreen::write, OpenMonitorScreen::read);
+        Channel.s2c(MonitorUpdate.class, "monitor_update", MonitorUpdate::write, MonitorUpdate::read);
+        Channel.s2c(MonitorClosed.class, "monitor_closed", MonitorClosed::write, MonitorClosed::read);
+        Channel.s2c(MachineData.class, "machine_data", MachineData::write, MachineData::read);
+        Channel.s2c(Alert.class, "alert", Alert::write, Alert::read);
     }
 
     public static void sendTo(ServerPlayer player, Object message) {
-        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), message);
+        Channel.sendTo(player, message);
     }
 
     public static void sendToServer(Object message) {
-        CHANNEL.sendToServer(message);
+        Channel.sendToServer(message);
     }
 
     // ---------------------------------------------------------------- client -> server
@@ -128,13 +81,13 @@ public final class DeclogNetwork {
 
     public record RequestMachine(ResourceKey<Level> dimension, BlockPos pos, boolean open) {
         public void write(FriendlyByteBuf buf) {
-            buf.writeResourceKey(dimension);
+            Bufs.writeDimension(buf, dimension);
             buf.writeBlockPos(pos);
             buf.writeBoolean(open);
         }
 
         public static RequestMachine read(FriendlyByteBuf buf) {
-            return new RequestMachine(buf.readResourceKey(Registries.DIMENSION), buf.readBlockPos(),
+            return new RequestMachine(Bufs.readDimension(buf), buf.readBlockPos(),
                     buf.readBoolean());
         }
     }
@@ -160,11 +113,11 @@ public final class DeclogNetwork {
 
     public record OpenMonitorScreen(Component title) {
         public void write(FriendlyByteBuf buf) {
-            buf.writeComponent(title);
+            Bufs.writeComponent(buf, title);
         }
 
         public static OpenMonitorScreen read(FriendlyByteBuf buf) {
-            return new OpenMonitorScreen(buf.readComponent());
+            return new OpenMonitorScreen(Bufs.readComponent(buf));
         }
     }
 
@@ -208,11 +161,11 @@ public final class DeclogNetwork {
 
     public record MonitorClosed(Component reason) {
         public void write(FriendlyByteBuf buf) {
-            buf.writeComponent(reason);
+            Bufs.writeComponent(buf, reason);
         }
 
         public static MonitorClosed read(FriendlyByteBuf buf) {
-            return new MonitorClosed(buf.readComponent());
+            return new MonitorClosed(Bufs.readComponent(buf));
         }
     }
 
@@ -231,22 +184,22 @@ public final class DeclogNetwork {
     public record Alert(AEKey output, long amount, JobState state, BlockReason reason, @Nullable Component detail,
             @Nullable MachineRef machine) {
         public void write(FriendlyByteBuf buf) {
-            AEKey.writeKey(buf, output);
+            Bufs.writeKey(buf, output);
             buf.writeVarLong(amount);
             buf.writeEnum(state);
             buf.writeEnum(reason);
-            buf.writeNullable(detail, FriendlyByteBuf::writeComponent);
-            buf.writeNullable(machine, (b, m) -> m.write(b));
+            Bufs.writeNullable(buf, detail, Bufs::writeComponent);
+            Bufs.writeNullable(buf, machine, (b, m) -> m.write(b));
         }
 
         @Nullable
         public static Alert read(FriendlyByteBuf buf) {
-            AEKey key = AEKey.readKey(buf);
+            AEKey key = Bufs.readKey(buf);
             long amount = buf.readVarLong();
             JobState state = buf.readEnum(JobState.class);
             BlockReason reason = buf.readEnum(BlockReason.class);
-            Component detail = buf.readNullable(FriendlyByteBuf::readComponent);
-            MachineRef machine = buf.readNullable(MachineRef::read);
+            Component detail = Bufs.readNullable(buf, Bufs::readComponent);
+            MachineRef machine = Bufs.readNullable(buf, MachineRef::read);
             return key == null ? null : new Alert(key, amount, state, reason, detail, machine);
         }
     }

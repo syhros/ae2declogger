@@ -1,13 +1,15 @@
 package com.syhros.ae2declogger.server;
 
+import com.syhros.ae2declogger.Nbt;
+import com.syhros.ae2declogger.Mc;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
@@ -49,7 +51,7 @@ public final class NetworkMemory {
 
     /** Keeps the data when the player respawns (Forge does not copy it on its own). */
     public static void copy(Player from, Player to) {
-        CompoundTag tag = from.getPersistentData().getCompound(TAG);
+        CompoundTag tag = Nbt.compound(from.getPersistentData(), TAG);
         if (!tag.isEmpty()) {
             to.getPersistentData().put(TAG, tag.copy());
         }
@@ -87,12 +89,12 @@ public final class NetworkMemory {
     }
 
     private static void write(Player player, String key, @Nullable GlobalPos pos) {
-        CompoundTag root = player.getPersistentData().getCompound(TAG);
+        CompoundTag root = Nbt.compound(player.getPersistentData(), TAG);
         if (pos == null) {
             root.remove(key);
         } else {
             CompoundTag t = new CompoundTag();
-            t.putString("dim", pos.dimension().location().toString());
+            t.putString("dim", Mc.dimensionId(pos.dimension()));
             t.putLong("pos", pos.pos().asLong());
             root.put(key, t);
         }
@@ -101,15 +103,15 @@ public final class NetworkMemory {
 
     @Nullable
     private static GlobalPos read(Player player, String key) {
-        CompoundTag root = player.getPersistentData().getCompound(TAG);
+        CompoundTag root = Nbt.compound(player.getPersistentData(), TAG);
         if (!root.contains(key)) {
             return null;
         }
-        CompoundTag t = root.getCompound(key);
-        ResourceLocation dim = ResourceLocation.tryParse(t.getString("dim"));
+        CompoundTag t = Nbt.compound(root, key);
+        ResourceKey<Level> dim = Mc.dimension(Nbt.getString(t, "dim"));
         if (dim == null) {
             return null;
         }
-        return GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), BlockPos.of(t.getLong("pos")));
+        return GlobalPos.of(dim, BlockPos.of(Nbt.getLong(t, "pos")));
     }
 }

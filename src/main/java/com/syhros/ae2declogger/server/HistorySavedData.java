@@ -7,17 +7,21 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Nbt;
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.HistoryEntry;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.registries.Registries;
+//#if MC >= 1.20.5
+//$$ import net.minecraft.core.HolderLookup;
+//#endif
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 
@@ -76,9 +80,24 @@ public final class HistorySavedData extends SavedData {
 
     private final List<Store> stores = new ArrayList<>();
 
+    //#if MC >= 26.1
+    //$$ /** 26.1 saves through a codec; the tag layout is the same as on older versions. */
+    //$$ private static final net.minecraft.world.level.saveddata.SavedDataType<HistorySavedData> TYPE =
+    //$$         new net.minecraft.world.level.saveddata.SavedDataType<>(Ae2Declogger.id(NAME), level -> new HistorySavedData(),
+    //$$                 level -> CompoundTag.CODEC.xmap(tag -> load(tag, level.registryAccess()),
+    //$$                         data -> data.save(new CompoundTag(), level.registryAccess())));
+    //#endif
+
     public static HistorySavedData get(MinecraftServer server) {
+        //#if MC >= 26.1
+        //$$ return server.overworld().getDataStorage().computeIfAbsent(TYPE);
+        //#elseif MC >= 1.20.5
+        //$$ return server.overworld().getDataStorage().computeIfAbsent(
+        //$$         new SavedData.Factory<>(HistorySavedData::new, HistorySavedData::load, null), NAME);
+        //#else
         return server.overworld().getDataStorage().computeIfAbsent(HistorySavedData::load, HistorySavedData::new,
                 NAME);
+        //#endif
     }
 
     /** The saved record of this network, or a new one. */
@@ -135,8 +154,15 @@ public final class HistorySavedData extends SavedData {
         return best;
     }
 
+    //#if MC >= 26.1
+    //$$ public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    //#elseif MC >= 1.20.5
+    //$$ @Override
+    //$$ public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    //#else
     @Override
     public CompoundTag save(CompoundTag tag) {
+    //#endif
         ListTag list = new ListTag();
         for (Store store : stores) {
             if (store.entries.isEmpty()) {
@@ -146,14 +172,18 @@ public final class HistorySavedData extends SavedData {
             ListTag anchors = new ListTag();
             for (GlobalPos pos : store.anchors) {
                 CompoundTag p = new CompoundTag();
-                p.putString("dim", pos.dimension().location().toString());
+                p.putString("dim", Mc.dimensionId(pos.dimension()));
                 p.putLong("pos", pos.pos().asLong());
                 anchors.add(p);
             }
             s.put("anchors", anchors);
             ListTag entries = new ListTag();
             for (HistoryEntry e : store.entries) {
+                //#if MC >= 1.20.5
+                //$$ entries.add(e.toTag(registries));
+                //#else
                 entries.add(e.toTag());
+                //#endif
             }
             s.put("entries", entries);
             list.add(s);
@@ -162,20 +192,28 @@ public final class HistorySavedData extends SavedData {
         return tag;
     }
 
+    //#if MC >= 1.20.5
+    //$$ public static HistorySavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+    //#else
     public static HistorySavedData load(CompoundTag tag) {
+    //#endif
         HistorySavedData data = new HistorySavedData();
-        for (Tag t : tag.getList("networks", Tag.TAG_COMPOUND)) {
+        for (Tag t : Nbt.compounds(tag, "networks")) {
             CompoundTag s = (CompoundTag) t;
             Store store = new Store(data);
-            for (Tag a : s.getList("anchors", Tag.TAG_COMPOUND)) {
+            for (Tag a : Nbt.compounds(s, "anchors")) {
                 GlobalPos pos = readPos((CompoundTag) a);
                 if (pos != null) {
                     store.anchors.add(pos);
                 }
             }
-            for (Tag e : s.getList("entries", Tag.TAG_COMPOUND)) {
+            for (Tag e : Nbt.compounds(s, "entries")) {
                 try {
+                    //#if MC >= 1.20.5
+                    //$$ HistoryEntry entry = HistoryEntry.fromTag((CompoundTag) e, registries);
+                    //#else
                     HistoryEntry entry = HistoryEntry.fromTag((CompoundTag) e);
+                    //#endif
                     if (entry != null) {
                         store.entries.add(entry);
                     }
@@ -190,10 +228,10 @@ public final class HistorySavedData extends SavedData {
 
     @Nullable
     private static GlobalPos readPos(CompoundTag t) {
-        ResourceLocation dim = ResourceLocation.tryParse(t.getString("dim"));
+        ResourceKey<Level> dim = Mc.dimension(Nbt.getString(t, "dim"));
         if (dim == null) {
             return null;
         }
-        return GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), BlockPos.of(t.getLong("pos")));
+        return GlobalPos.of(dim, BlockPos.of(Nbt.getLong(t, "pos")));
     }
 }

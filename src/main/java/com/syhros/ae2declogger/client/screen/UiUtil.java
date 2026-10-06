@@ -2,6 +2,7 @@ package com.syhros.ae2declogger.client.screen;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.data.MachineRef;
 import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.Formatting;
@@ -9,14 +10,12 @@ import com.syhros.ae2declogger.logic.JobState;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 
-import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 
@@ -34,12 +33,12 @@ public final class UiUtil {
     private UiUtil() {
     }
 
-    public static void panel(GuiGraphics g, int x, int y, int w, int h) {
+    public static void panel(Gfx g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, PANEL_BG);
         g.renderOutline(x, y, w, h, PANEL_BORDER);
     }
 
-    public static void progressBar(GuiGraphics g, int x, int y, int w, int h, float fraction, int rgb) {
+    public static void progressBar(Gfx g, int x, int y, int w, int h, float fraction, int rgb) {
         g.fill(x, y, x + w, y + h, 0xFF2A2E36);
         int filled = Math.round(Math.max(0, Math.min(1, fraction)) * w);
         if (filled > 0) {
@@ -48,7 +47,7 @@ public final class UiUtil {
     }
 
     /** Draws text cut to {@code maxWidth} with an ellipsis. Returns the width drawn. */
-    public static int text(GuiGraphics g, Font font, Component text, int x, int y, int maxWidth, int color) {
+    public static int text(Gfx g, Font font, Component text, int x, int y, int maxWidth, int color) {
         if (maxWidth <= 0) {
             return 0;
         }
@@ -58,7 +57,7 @@ public final class UiUtil {
     }
 
     /** Right-aligned version of {@link #text}. */
-    public static void textRight(GuiGraphics g, Font font, Component text, int right, int y, int maxWidth,
+    public static void textRight(Gfx g, Font font, Component text, int right, int y, int maxWidth,
             int color) {
         FormattedCharSequence seq = clip(font, text, maxWidth);
         g.drawString(font, seq, right - font.width(seq), y, color, false);
@@ -70,19 +69,19 @@ public final class UiUtil {
         }
         int ellipsis = font.width("...");
         FormattedText cut = font.substrByWidth(text, Math.max(0, maxWidth - ellipsis));
-        return Language.getInstance().getVisualOrder(FormattedText.composite(cut, Component.literal("...")));
+        return Language.getInstance().getVisualOrder(FormattedText.composite(cut, Text.literal("...")));
     }
 
-    public static void key(GuiGraphics g, AEKey key, int x, int y) {
-        AEKeyRendering.drawInGui(Minecraft.getInstance(), g, x, y, key);
+    public static void key(Gfx g, AEKey key, int x, int y) {
+        g.key(key, x, y);
     }
 
     public static MutableComponent stateLabel(JobState state) {
-        return Component.translatable(state.translationKey()).withStyle(s -> s.withColor(state.color()));
+        return Text.translatable(state.translationKey()).withStyle(s -> s.withColor(state.color()));
     }
 
     public static Component reasonText(BlockReason reason, @Nullable Component detail) {
-        MutableComponent text = Component.translatable(reason.translationKey());
+        MutableComponent text = Text.translatable(reason.translationKey());
         if (detail != null && !detail.getString().isEmpty()) {
             text = text.append(": ").append(detail);
         }
@@ -109,11 +108,11 @@ public final class UiUtil {
     }
 
     public static Component ago(long ms) {
-        return Component.translatable("ae2declogger.ago", Formatting.duration(ms));
+        return Text.translatable("ae2declogger.ago", Formatting.duration(ms));
     }
 
     /** Thin scrollbar on the right of a list area. */
-    public static void scrollbar(GuiGraphics g, int x, int top, int height, double scroll, int contentHeight) {
+    public static void scrollbar(Gfx g, int x, int top, int height, double scroll, int contentHeight) {
         if (contentHeight <= height) {
             return;
         }

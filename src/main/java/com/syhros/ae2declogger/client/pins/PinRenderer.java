@@ -1,6 +1,10 @@
 package com.syhros.ae2declogger.client.pins;
 
+//#if MC >= 1.19.3
 import org.joml.Matrix4f;
+//#else
+//$$ import com.mojang.math.Matrix4f;
+//#endif
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -9,43 +13,36 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.syhros.ae2declogger.Mc;
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.config.DeclogConfig;
-import com.syhros.ae2declogger.logic.Formatting;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.minecraftforge.client.gui.overlay.ForgeGui;
 
-/** Draws pins in the world (outline box + label, through walls) and the navigation line on the HUD. */
+/** Draws pins in the world: an outline box and a label, seen through walls. The HUD line is {@link PinHud}. */
 public final class PinRenderer {
 
     private PinRenderer() {
     }
 
-    public static void renderWorld(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
+    /** Called by the loader's level render event after translucent blocks (see ClientEvents). */
+    public static void renderWorld(PoseStack pose, Camera camera) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || PinManager.isHidden() || PinManager.visiblePins().isEmpty()
                 || !DeclogConfig.CLIENT.pinsInWorld.get()) {
             return;
         }
-        String dim = mc.level.dimension().location().toString();
-        Camera camera = event.getCamera();
+        String dim = Mc.dimensionId(mc.level.dimension());
         Vec3 cam = camera.getPosition();
         double maxDist = DeclogConfig.CLIENT.pinRenderDistance.get();
-        PoseStack pose = event.getPoseStack();
         PinManager.Pin active = PinManager.active();
 
         java.util.List<PinManager.Pin> visible = new java.util.ArrayList<>();
@@ -69,19 +66,17 @@ public final class PinRenderer {
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
 
-        BufferBuilder fill = tesselator.getBuilder();
-        fill.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder fill = begin(tesselator, VertexFormat.Mode.QUADS);
         for (PinManager.Pin pin : visible) {
             box(fill, matrix, pin.pos(), pin.color, pin == active ? 0.28f : 0.14f, true);
         }
-        BufferUploader.drawWithShader(fill.end());
+        draw(fill);
 
-        BufferBuilder lines = tesselator.getBuilder();
-        lines.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder lines = begin(tesselator, VertexFormat.Mode.DEBUG_LINES);
         for (PinManager.Pin pin : visible) {
             box(lines, matrix, pin.pos(), pin.color, 0.95f, false);
         }
-        BufferUploader.drawWithShader(lines.end());
+        draw(lines);
 
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
@@ -97,15 +92,26 @@ public final class PinRenderer {
             double dy = p.getY() + 1.4 - cam.y;
             double dz = p.getZ() + 0.5 - cam.z;
             double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            Component text = Component.literal(pin.label + " (" + Math.round(distance) + "m)");
+            Component text = Text.literal(pin.label + " (" + Math.round(distance) + "m)");
             pose.pushPose();
             pose.translate(dx, dy, dz);
             pose.mulPose(camera.rotation());
             float scale = (float) (0.025 * Math.max(1.0, distance / 10.0));
+            // 1.20.5 turned the camera rotation around (name tags flipped their x scale at the same time); with the
+            // old sign the label faces away and is culled.
+            //#if MC >= 1.20.5
+            //$$ pose.scale(scale, -scale, scale);
+            //#else
             pose.scale(-scale, -scale, scale);
+            //#endif
             float x = -font.width(text) / 2f;
+            //#if MC >= 1.19.4
             font.drawInBatch(text, x, 0, 0xFF000000 | pin.color, false, pose.last().pose(), buffers,
                     Font.DisplayMode.SEE_THROUGH, 0x66000000, LightTexture.FULL_BRIGHT);
+            //#else
+            //$$ font.drawInBatch(text, x, 0, 0xFF000000 | pin.color, false, pose.last().pose(), buffers, true,
+            //$$         0x66000000, LightTexture.FULL_BRIGHT);
+            //#endif
             pose.popPose();
         }
         buffers.endBatch();
@@ -145,51 +151,47 @@ public final class PinRenderer {
         for (int[] edge : edges) {
             float[] a = c[edge[0]];
             float[] d = c[edge[1]];
-            b.vertex(m, a[0], a[1], a[2]).color(r, g, bl, alpha).endVertex();
-            b.vertex(m, d[0], d[1], d[2]).color(r, g, bl, alpha).endVertex();
+            vertex(b, m, a[0], a[1], a[2], r, g, bl, alpha);
+            vertex(b, m, d[0], d[1], d[2], r, g, bl, alpha);
         }
     }
 
     private static void quad(BufferBuilder b, Matrix4f m, float r, float g, float bl, float a, float... v) {
         for (int i = 0; i < 12; i += 3) {
-            b.vertex(m, v[i], v[i + 1], v[i + 2]).color(r, g, bl, a).endVertex();
+            vertex(b, m, v[i], v[i + 1], v[i + 2], r, g, bl, a);
         }
     }
 
-    /** HUD line: "Pin: Label  x y z  ↑ 42m ▲3". */
-    public static void renderHud(ForgeGui gui, GuiGraphics graphics, float partialTick, int width, int height) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui || mc.player == null || mc.level == null || !DeclogConfig.CLIENT.pinsHud.get()) {
-            return;
-        }
-        PinManager.Pin pin = PinManager.active();
-        if (pin == null) {
-            return;
-        }
-        Player player = mc.player;
-        Component line;
-        int color = 0xFF000000 | pin.color;
-        if (!mc.level.dimension().location().toString().equals(pin.dimension)) {
-            line = Component.translatable("ae2declogger.hud.other_dimension", pin.label, pin.dimension);
-        } else {
-            BlockPos p = pin.pos();
-            double dx = p.getX() + 0.5 - player.getX();
-            double dz = p.getZ() + 0.5 - player.getZ();
-            int dy = p.getY() - player.blockPosition().getY();
-            double horizontal = Math.sqrt(dx * dx + dz * dz);
-            String arrow = Formatting.directionArrow(player.getYRot(), dx, dz);
-            String height3 = dy == 0 ? "" : (dy > 0 ? " ▲" + dy : " ▼" + (-dy));
-            if (horizontal < 2.5 && Math.abs(dy) < 3) {
-                line = Component.translatable("ae2declogger.hud.arrived", pin.label);
-            } else {
-                line = Component.translatable("ae2declogger.hud.navigate", pin.label, p.getX(), p.getY(), p.getZ(),
-                        arrow, Math.round(horizontal), height3);
-            }
-        }
-        int textWidth = mc.font.width(line);
-        int x = (width - textWidth) / 2;
-        int y = DeclogConfig.CLIENT.hudY.get();
-        graphics.fill(x - 3, y - 2, x + textWidth + 3, y + 10, 0x88000000);
-        graphics.drawString(mc.font, line, x, y, color, true);
+    private static BufferBuilder begin(Tesselator tesselator, VertexFormat.Mode mode) {
+        //#if MC >= 1.21
+        //$$ return tesselator.begin(mode, DefaultVertexFormat.POSITION_COLOR);
+        //#else
+        BufferBuilder b = tesselator.getBuilder();
+        b.begin(mode, DefaultVertexFormat.POSITION_COLOR);
+        return b;
+        //#endif
+    }
+
+    private static void draw(BufferBuilder b) {
+        //#if MC >= 1.21
+        //$$ var mesh = b.build();
+        //$$ if (mesh != null) {
+        //$$     BufferUploader.drawWithShader(mesh);
+        //$$ }
+        //#elseif MC >= 1.19
+        BufferUploader.drawWithShader(b.end());
+        //#else
+        //$$ b.end();
+        //$$ BufferUploader.end(b);
+        //#endif
+    }
+
+    private static void vertex(BufferBuilder b, Matrix4f m, float x, float y, float z, float r, float g, float bl,
+            float a) {
+        //#if MC >= 1.21
+        //$$ b.addVertex(m, x, y, z).setColor(r, g, bl, a);
+        //#else
+        b.vertex(m, x, y, z).color(r, g, bl, a).endVertex();
+        //#endif
     }
 }

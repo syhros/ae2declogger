@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineRef;
@@ -46,7 +47,11 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+//#if MC >= 1.20
 import appeng.helpers.patternprovider.PatternProviderLogic;
+//#else
+//$$ import appeng.helpers.iface.PatternProviderLogic;
+//#endif
 import appeng.blockentity.crafting.CraftingBlockEntity;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 
@@ -128,7 +133,7 @@ public final class GridAnalyzer {
                 CpuAccess access = CpuAccess.of(cpu);
                 ICraftingLink link = access.link();
                 Component cpuName = cpu.getName() != null ? cpu.getName()
-                        : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
+                        : Text.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
                 long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
                 GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
                         status.crafting(), cpuName, nowMs - elapsedMs, link, nowMs);
@@ -141,6 +146,11 @@ public final class GridAnalyzer {
             }
         }
         tracker.retainCpus(present, nowMs);
+    }
+
+    /** Visible for game tests: how an add-on pattern provider's block or part is read (see ProviderIndex). */
+    public static String describeAddonProviderForTests(Object owner, ICraftingProvider provider) {
+        return ProviderIndex.describeAddon(owner, provider);
     }
 
     /** Visible for game tests: the ingredient check the Missing ingredient reason comes from. */
@@ -242,7 +252,7 @@ public final class GridAnalyzer {
         CpuAccess access = CpuAccess.of(cpu);
         ICraftingLink link = access.link();
         Component cpuName = cpu.getName() != null ? cpu.getName()
-                : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
+                : Text.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
         long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
         GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
                 status.crafting(), cpuName, now - elapsedMs, link, now);
@@ -467,8 +477,8 @@ public final class GridAnalyzer {
 
         for (ICraftingProvider provider : providerList) {
             ProviderIndex.ProviderInfo info = providers().get(provider);
-            PatternProviderLogic logic = info != null ? info.logic()
-                    : provider instanceof PatternProviderLogic p ? p : null;
+            ProviderIndex.ProviderState logic = info != null ? info.state()
+                    : provider instanceof PatternProviderLogic p ? ProviderIndex.ProviderState.of(p) : null;
 
             BlockReason r = BlockReason.NONE;
             Component d = null;
@@ -476,10 +486,10 @@ public final class GridAnalyzer {
                 r = BlockReason.PROVIDER_OFFLINE;
             } else if (provider.isBusy()) {
                 r = BlockReason.PROVIDERS_BUSY;
-            } else if (logic != null && logic.getCraftingLockedReason() != LockCraftingMode.NONE) {
+            } else if (logic != null && logic.lockReason() != LockCraftingMode.NONE) {
                 r = BlockReason.PROVIDER_LOCKED;
                 d = lockText(logic);
-            } else if (logic != null && logic.isBlocking()) {
+            } else if (logic != null && logic.blocking()) {
                 r = BlockReason.PROVIDER_BLOCKING;
             }
 
@@ -734,19 +744,19 @@ public final class GridAnalyzer {
         return list;
     }
 
-    private static Component lockText(PatternProviderLogic logic) {
-        LockCraftingMode mode = logic.getCraftingLockedReason();
+    private static Component lockText(ProviderIndex.ProviderState logic) {
+        LockCraftingMode mode = logic.lockReason();
         return switch (mode) {
-            case LOCK_WHILE_LOW -> Component.translatable("ae2declogger.lock.while_low");
-            case LOCK_WHILE_HIGH -> Component.translatable("ae2declogger.lock.while_high");
-            case LOCK_UNTIL_PULSE -> Component.translatable("ae2declogger.lock.until_pulse");
+            case LOCK_WHILE_LOW -> Text.translatable("ae2declogger.lock.while_low");
+            case LOCK_WHILE_HIGH -> Text.translatable("ae2declogger.lock.while_high");
+            case LOCK_UNTIL_PULSE -> Text.translatable("ae2declogger.lock.until_pulse");
             case LOCK_UNTIL_RESULT -> {
-                GenericStack unlock = logic.getUnlockStack();
+                GenericStack unlock = logic.unlockStack();
                 yield unlock != null
-                        ? Component.translatable("ae2declogger.lock.until_result", unlock.what().getDisplayName())
-                        : Component.translatable("ae2declogger.lock.until_result_unknown");
+                        ? Text.translatable("ae2declogger.lock.until_result", unlock.what().getDisplayName())
+                        : Text.translatable("ae2declogger.lock.until_result_unknown");
             }
-            default -> Component.literal(mode.name());
+            default -> Text.literal(mode.name());
         };
     }
 }
