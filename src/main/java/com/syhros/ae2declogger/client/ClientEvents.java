@@ -47,7 +47,8 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
-            event.registerAboveAll("navigation", PinRenderer::renderHud);
+            event.registerAboveAll("navigation", (gui, g, partialTick, width, height) -> PinRenderer.renderHud(g,
+                    partialTick, width, height));
         }
     }
 
@@ -88,7 +89,9 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void renderLevel(RenderLevelStageEvent event) {
-            PinRenderer.renderWorld(event);
+            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+                PinRenderer.renderWorld(event.getPoseStack(), event.getCamera());
+            }
         }
 
         @SubscribeEvent
@@ -103,9 +106,29 @@ public final class ClientEvents {
             ClientState.machine = null;
         }
 
+        @SubscribeEvent
+        public static void screenClosing(ScreenEvent.Closing event) {
+            CraftingScreenOverlay.onClosing(event.getScreen());
+        }
+
+        @SubscribeEvent
+        public static void screenRender(ScreenEvent.Render.Post event) {
+            CraftingScreenOverlay.onRender(event.getScreen(), event.getGuiGraphics(), event.getMouseX(),
+                    event.getMouseY());
+        }
+
+        @SubscribeEvent
+        public static void screenClick(ScreenEvent.MouseButtonPressed.Pre event) {
+            if (CraftingScreenOverlay.onClick(event.getScreen(), event.getMouseX(), event.getMouseY(),
+                    event.getButton())) {
+                event.setCanceled(true);
+            }
+        }
+
         /** Adds a small Declogger button above AE2 terminals and crafting status screens. */
         @SubscribeEvent
         public static void screenInit(ScreenEvent.Init.Post event) {
+            CraftingScreenOverlay.onInit(event.getScreen());
             if (!DeclogConfig.CLIENT.terminalButton.get()) {
                 return;
             }

@@ -143,6 +143,11 @@ public final class GridAnalyzer {
         tracker.retainCpus(present, nowMs);
     }
 
+    /** Visible for game tests: how an add-on pattern provider's block or part is read (see ProviderIndex). */
+    public static String describeAddonProviderForTests(Object owner, ICraftingProvider provider) {
+        return ProviderIndex.describeAddon(owner, provider);
+    }
+
     /** Visible for game tests: the ingredient check the Missing ingredient reason comes from. */
     @Nullable
     public static AEKey firstMissingInputForTests(ICraftingCPU cpu, IPatternDetails pattern, @Nullable Level level) {
@@ -467,8 +472,8 @@ public final class GridAnalyzer {
 
         for (ICraftingProvider provider : providerList) {
             ProviderIndex.ProviderInfo info = providers().get(provider);
-            PatternProviderLogic logic = info != null ? info.logic()
-                    : provider instanceof PatternProviderLogic p ? p : null;
+            ProviderIndex.ProviderState logic = info != null ? info.state()
+                    : provider instanceof PatternProviderLogic p ? ProviderIndex.ProviderState.of(p) : null;
 
             BlockReason r = BlockReason.NONE;
             Component d = null;
@@ -476,10 +481,10 @@ public final class GridAnalyzer {
                 r = BlockReason.PROVIDER_OFFLINE;
             } else if (provider.isBusy()) {
                 r = BlockReason.PROVIDERS_BUSY;
-            } else if (logic != null && logic.getCraftingLockedReason() != LockCraftingMode.NONE) {
+            } else if (logic != null && logic.lockReason() != LockCraftingMode.NONE) {
                 r = BlockReason.PROVIDER_LOCKED;
                 d = lockText(logic);
-            } else if (logic != null && logic.isBlocking()) {
+            } else if (logic != null && logic.blocking()) {
                 r = BlockReason.PROVIDER_BLOCKING;
             }
 
@@ -734,14 +739,14 @@ public final class GridAnalyzer {
         return list;
     }
 
-    private static Component lockText(PatternProviderLogic logic) {
-        LockCraftingMode mode = logic.getCraftingLockedReason();
+    private static Component lockText(ProviderIndex.ProviderState logic) {
+        LockCraftingMode mode = logic.lockReason();
         return switch (mode) {
             case LOCK_WHILE_LOW -> Component.translatable("ae2declogger.lock.while_low");
             case LOCK_WHILE_HIGH -> Component.translatable("ae2declogger.lock.while_high");
             case LOCK_UNTIL_PULSE -> Component.translatable("ae2declogger.lock.until_pulse");
             case LOCK_UNTIL_RESULT -> {
-                GenericStack unlock = logic.getUnlockStack();
+                GenericStack unlock = logic.unlockStack();
                 yield unlock != null
                         ? Component.translatable("ae2declogger.lock.until_result", unlock.what().getDisplayName())
                         : Component.translatable("ae2declogger.lock.until_result_unknown");

@@ -34,10 +34,17 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
+//#if NEOFORGE
+//$$ import net.neoforged.api.distmarker.Dist;
+//$$ import net.neoforged.bus.api.SubscribeEvent;
+//$$ import net.neoforged.fml.common.EventBusSubscriber;
+//$$ import net.neoforged.neoforge.client.event.ClientTickEvent;
+//#else
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+//#endif
 
 import appeng.client.gui.me.crafting.CraftingCPUScreen;
 
@@ -49,7 +56,11 @@ import appeng.client.gui.me.crafting.CraftingCPUScreen;
  * <p>
  * Run with {@code xvfb-run ./gradlew runSelfTestClient} (or without xvfb on a desktop).
  */
+//#if NEOFORGE
+//$$ @EventBusSubscriber(modid = Ae2Declogger.MOD_ID, value = Dist.CLIENT)
+//#else
 @Mod.EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+//#endif
 public final class ClientSelfTest {
 
     private record Action(String name, BooleanSupplier ready, Runnable run, int timeoutTicks) {
@@ -122,7 +133,11 @@ public final class ClientSelfTest {
                     new GameRules(), WorldDataConfiguration.DEFAULT);
             mc().createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(1234L, false, false),
                     registries -> registries.registryOrThrow(Registries.WORLD_PRESET)
-                            .getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions());
+                            .getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions()
+                    //#if MC >= 1.20.5
+                    //$$ , null
+                    //#endif
+            );
         });
         then("in world", 60, () -> mc().level != null && mc().player != null && mc().screen == null
                 && mc().getSingleplayerServer() != null, () -> SelfTestServer.STAGE.set(SelfTestServer.BUILD_REQUESTED));
@@ -258,10 +273,17 @@ public final class ClientSelfTest {
     }
 
     @SubscribeEvent
+    //#if NEOFORGE
+    //$$ public static void onClientTick(ClientTickEvent.Post event) {
+    //$$     if (!SelfTestServer.ENABLED || finished) {
+    //$$         return;
+    //$$     }
+    //#else
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (!SelfTestServer.ENABLED || event.phase != TickEvent.Phase.END || finished) {
             return;
         }
+    //#endif
         if (ACTIONS.isEmpty()) {
             plan();
             LOG.add("self-test started");

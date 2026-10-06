@@ -25,6 +25,9 @@ import com.syhros.ae2declogger.server.MachineInspector;
 import io.netty.buffer.Unpooled;
 
 import net.minecraft.core.BlockPos;
+//#if MC >= 1.20.5
+//$$ import net.minecraft.core.component.DataComponents;
+//#endif
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -37,8 +40,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.gametest.GameTestHolder;
+//$$ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+//#else
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+//#endif
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -62,6 +70,12 @@ public final class DecloggerGameTests {
 
     private DecloggerGameTests() {
     }
+
+    /**
+     * Tick budget for tests that wait for wall-clock thresholds. The 1.21+ test server ticks as fast as it can (a few
+     * hundred ticks a second), so the budget is generous; the tests still end as soon as the state is reached.
+     */
+    private static final int TIMEOUT = 24000;
 
     private static GridAnalysis analyze(TestNetwork net, GridTracker tracker) {
         return GridAnalyzer.analyze(net.requireGrid(), tracker, System.currentTimeMillis(), FAST, LIMITS);
@@ -95,7 +109,7 @@ public final class DecloggerGameTests {
      * Items go out to a chest and never come back: the job must show as STALLED, waiting for stone, pointing at the
      * chest. Then the result is inserted and the job must land in the history as COMPLETE.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void stalledJobIsReportedAndCompletes(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true);
         GridTracker tracker = new GridTracker(10);
@@ -137,7 +151,7 @@ public final class DecloggerGameTests {
                     helper.assertTrue(again.jobs().equals(a.jobs()), "job row changed without any change in game");
 
                     // Wire format round trip.
-                    FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+                    FriendlyByteBuf buf = buffer(helper);
                     job.write(buf);
                     JobView back = JobView.read(buf);
                     helper.assertTrue(job.equals(back), "JobView did not survive encode/decode");
@@ -160,7 +174,7 @@ public final class DecloggerGameTests {
                     // The snapshot must not have touched the chest.
                     helper.assertTrue(net.chestCount(Items.COBBLESTONE) == 4, "viewer changed the chest");
 
-                    FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+                    FriendlyByteBuf buf = buffer(helper);
                     snap.write(buf);
                     MachineSnapshot back = MachineSnapshot.read(buf);
                     helper.assertTrue(back.equals(snap), "MachineSnapshot did not survive encode/decode");
@@ -185,7 +199,7 @@ public final class DecloggerGameTests {
      * Blocking mode with the previous inputs still in the chest: the provider refuses to push, the step must become
      * BLOCKED with PROVIDER_BLOCKING after the blocked delay.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void blockingModeIsReportedAsBlocked(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true);
         net.blockingMode(true);
@@ -228,7 +242,7 @@ public final class DecloggerGameTests {
      * A provider with nothing next to it accepts the pattern but cannot push anywhere (PUSH_REJECTED). Removing the
      * provider entirely must then give NO_PROVIDER.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void noTargetThenNoProvider(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, false);
         GridTracker tracker = new GridTracker(10);
@@ -267,7 +281,7 @@ public final class DecloggerGameTests {
      * The network loses power mid-job. AE2 then leaves the CPU out of its CPU list; the monitor must keep showing the
      * job as CPU offline instead of dropping it and logging it as cancelled.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void offlineCpuStaysListed(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true);
         GridTracker tracker = new GridTracker(10);
@@ -300,7 +314,7 @@ public final class DecloggerGameTests {
      * A pattern with two outputs: one came back, the other is still at the machine, and the provider is in blocking
      * mode. That is normal operation and must not be reported as blocked.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void multiOutputWaitsForMachine(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true, true);
         net.blockingMode(true);
@@ -330,7 +344,7 @@ public final class DecloggerGameTests {
     }
 
     /** A job the player cancels must show up in the history as cancelled, not complete. */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void cancelledJobIsRecordedAsCancelled(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true);
         GridTracker tracker = new GridTracker(10);
@@ -359,12 +373,12 @@ public final class DecloggerGameTests {
      * own CPU, gets its multiblock's number, and when it disappears after its job its crafting link decides whether
      * the job counts as done or cancelled.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void addonCpuFinishedJobIsDone(GameTestHelper helper) {
         addonCpuTest(helper, false);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void addonCpuCancelledJobIsCancelled(GameTestHelper helper) {
         addonCpuTest(helper, true);
     }
@@ -467,7 +481,7 @@ public final class DecloggerGameTests {
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
                 .thenExecute(() -> {
-                    Player player = helper.makeMockPlayer();
+                    Player player = mockPlayer(helper);
                     helper.assertTrue(NetworkMemory.last(player) == null && NetworkMemory.alerts(player) == null,
                             "a new player already has a remembered network");
                     GlobalPos pos = NetworkMemory.positionOf(net.grid(), null);
@@ -480,7 +494,7 @@ public final class DecloggerGameTests {
                     helper.assertTrue(pos.equals(NetworkMemory.last(player)), "last network did not round-trip");
                     helper.assertTrue(pos.equals(NetworkMemory.alerts(player)), "alert network did not round-trip");
 
-                    Player respawned = helper.makeMockPlayer();
+                    Player respawned = mockPlayer(helper);
                     NetworkMemory.copy(player, respawned);
                     helper.assertTrue(pos.equals(NetworkMemory.last(respawned)), "memory lost on respawn");
 
@@ -495,25 +509,25 @@ public final class DecloggerGameTests {
     @GameTest(template = "empty")
     public static void packetsRoundTrip(GameTestHelper helper) {
         var open = new DeclogNetwork.OpenMonitor(true);
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = buffer(helper);
         open.write(buf);
         helper.assertTrue(DeclogNetwork.OpenMonitor.read(buf).equals(open) && buf.readableBytes() == 0, "OpenMonitor");
 
         var req = new DeclogNetwork.RequestMachine(helper.getLevel().dimension(), new BlockPos(1, -60, 300000), true);
-        buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf = buffer(helper);
         req.write(buf);
         helper.assertTrue(DeclogNetwork.RequestMachine.read(buf).equals(req) && buf.readableBytes() == 0,
                 "RequestMachine");
 
         var watch = new DeclogNetwork.WatchCraftingScreen(true);
-        buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf = buffer(helper);
         watch.write(buf);
         helper.assertTrue(DeclogNetwork.WatchCraftingScreen.read(buf).equals(watch) && buf.readableBytes() == 0,
                 "WatchCraftingScreen");
 
         var alert = new DeclogNetwork.Alert(TestNetwork.STONE, 64, JobState.STALLED,
                 BlockReason.MACHINE_NO_POWER, net.minecraft.network.chat.Component.literal("x"), null);
-        buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf = buffer(helper);
         alert.write(buf);
         helper.assertTrue(alert.equals(DeclogNetwork.Alert.read(buf)) && buf.readableBytes() == 0, "Alert");
         helper.succeed();
@@ -524,7 +538,7 @@ public final class DecloggerGameTests {
      * that runs for networks nobody watches: the history gets the stone job and, as its own entry, the cobblestone
      * step marked as part of it.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void stepsOfAJobAreRecorded(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, true, false, true);
         GridTracker tracker = new GridTracker(10);
@@ -582,8 +596,14 @@ public final class DecloggerGameTests {
                     tracker.addHistory(step);
                     tracker.addHistory(job);
 
+                    //#if MC >= 1.20.5
+                    //$$ var registries = helper.getLevel().registryAccess();
+                    //$$ CompoundTag saved = data.save(new CompoundTag(), registries);
+                    //$$ HistorySavedData loaded = HistorySavedData.load(saved, registries);
+                    //#else
                     CompoundTag saved = data.save(new CompoundTag());
                     HistorySavedData loaded = HistorySavedData.load(saved);
+                    //#endif
                     GridTracker again = new GridTracker(10);
                     again.attach(loaded.storeFor(net.requireGrid()));
                     List<HistoryEntry> back = again.historySince(-1);
@@ -597,11 +617,15 @@ public final class DecloggerGameTests {
      * hammer has other damage data) is not missing when the pattern accepts it, as in AE2's own push. Here the CPU
      * holds plain cobblestone (nowhere to push it) and the pattern lists cobblestone with a name.
      */
-    @GameTest(template = "empty", timeoutTicks = 1200)
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
     public static void ingredientWithOtherDataIsNotMissing(GameTestHelper helper) {
         TestNetwork net = TestNetwork.build(helper, false);
         ItemStack named = new ItemStack(Items.COBBLESTONE);
+        //#if MC >= 1.20.5
+        //$$ named.set(DataComponents.CUSTOM_NAME, Component.literal("Used tool"));
+        //#else
         named.setHoverName(Component.literal("Used tool"));
+        //#endif
         AEItemKey listed = AEItemKey.of(named);
         helper.startSequence()
                 .thenWaitUntil(net::assertReady)
@@ -658,10 +682,82 @@ public final class DecloggerGameTests {
             }
 
             @Override
+            //#if MC >= 1.21
+            //$$ public List<GenericStack> getOutputs() {
+            //$$     return List.of(new GenericStack(TestNetwork.STONE, 1));
+            //$$ }
+            //#else
             public GenericStack[] getOutputs() {
                 return new GenericStack[] { new GenericStack(TestNetwork.STONE, 1) };
             }
+            //#endif
         };
+    }
+
+    /** A packet buffer like the game uses (registry-aware from 1.20.5). */
+    private static FriendlyByteBuf buffer(GameTestHelper helper) {
+        //#if MC >= 1.20.5
+        //$$ return new net.minecraft.network.RegistryFriendlyByteBuf(Unpooled.buffer(),
+        //$$         helper.getLevel().registryAccess());
+        //#else
+        return new FriendlyByteBuf(Unpooled.buffer());
+        //#endif
+    }
+
+    private static Player mockPlayer(GameTestHelper helper) {
+        //#if MC >= 1.20.5
+        //$$ return helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        //#else
+        return helper.makeMockPlayer();
+        //#endif
+    }
+
+    /**
+     * Add-on pattern providers that copy AE2's design under their own classes (Advanced AE's advanced pattern
+     * provider is not an AE2 PatternProviderLogic) are read by method name: which sides they push into, blocking mode
+     * and crafting lock. One without any of those methods is assumed to push into every side.
+     */
+    @GameTest(template = "empty")
+    public static void addonPatternProviderIsReadByName(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> {
+                    var provider = (appeng.api.networking.crafting.ICraftingProvider) net.providerLogic();
+                    String read = GridAnalyzer.describeAddonProviderForTests(new FakeAddonProviderHost(), provider);
+                    helper.assertTrue(read.equals("sides=[north, up] blocking=true lock=LOCK_UNTIL_PULSE"),
+                            "add-on provider read as " + read);
+                    String bare = GridAnalyzer.describeAddonProviderForTests(new Object(), provider);
+                    helper.assertTrue(bare.startsWith("sides=[down, east, north, south, up, west]"),
+                            "provider without a target list read as " + bare);
+                })
+                .thenSucceed();
+    }
+
+    /** Shaped like Advanced AE's AdvPatternProviderLogicHost: getTargets() and getLogic(), no AE2 interface. */
+    public static final class FakeAddonProviderHost {
+        public java.util.EnumSet<net.minecraft.core.Direction> getTargets() {
+            return java.util.EnumSet.of(net.minecraft.core.Direction.UP, net.minecraft.core.Direction.NORTH);
+        }
+
+        public FakeAddonProviderLogic getLogic() {
+            return new FakeAddonProviderLogic();
+        }
+    }
+
+    /** Shaped like Advanced AE's AdvPatternProviderLogic. */
+    public static final class FakeAddonProviderLogic {
+        public boolean isBlocking() {
+            return true;
+        }
+
+        public appeng.api.config.LockCraftingMode getCraftingLockedReason() {
+            return appeng.api.config.LockCraftingMode.LOCK_UNTIL_PULSE;
+        }
+
+        public GenericStack getUnlockStack() {
+            return null;
+        }
     }
 
     private static void record(TestNetwork net, GridTracker tracker) {

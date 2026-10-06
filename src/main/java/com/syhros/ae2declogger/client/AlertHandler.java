@@ -51,7 +51,11 @@ public final class AlertHandler {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_BELL.value(), 0.7f, 0.9f));
         }
         if (cfg.alertsToast.get()) {
+            //#if MC >= 1.20.5
+            //$$ SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+            //#else
             SystemToast.add(mc.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+            //#endif
                     Component.translatable("ae2declogger.alert.toast_title", state), item);
         }
     }

@@ -91,11 +91,11 @@ final class TestNetwork {
         GenericStack[] outputs = multiOutput
                 ? new GenericStack[] { new GenericStack(STONE, 1), new GenericStack(GRAVEL, 1) }
                 : new GenericStack[] { new GenericStack(STONE, 1) };
-        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+        ItemStack pattern = processingPattern(
                 new GenericStack[] { new GenericStack(COBBLE, 1) }, outputs);
         provider.getLogic().getPatternInv().addItems(pattern);
         if (twoSteps) {
-            provider.getLogic().getPatternInv().addItems(PatternDetailsHelper.encodeProcessingPattern(
+            provider.getLogic().getPatternInv().addItems(processingPattern(
                     new GenericStack[] { new GenericStack(GRAVEL, 1) }, new GenericStack[] { new GenericStack(COBBLE, 1) }));
         }
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
@@ -191,5 +191,20 @@ final class TestNetwork {
     void blockingMode(boolean on) {
         PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, on ? YesNo.YES : YesNo.NO);
+    }
+
+    /** A processing pattern item (AE2 19 takes lists instead of arrays). */
+    static ItemStack processingPattern(GenericStack[] inputs, GenericStack[] outputs) {
+        //#if MC >= 1.21
+        //$$ return PatternDetailsHelper.encodeProcessingPattern(java.util.Arrays.asList(inputs),
+        //$$         java.util.Arrays.asList(outputs));
+        //#else
+        return PatternDetailsHelper.encodeProcessingPattern(inputs, outputs);
+        //#endif
+    }
+
+    /** The pattern provider's logic (an AE2 crafting provider). */
+    Object providerLogic() {
+        return ((PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER)).getLogic();
     }
 }

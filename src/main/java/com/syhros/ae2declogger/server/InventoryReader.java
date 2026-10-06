@@ -6,9 +6,15 @@ import java.util.Set;
 import com.syhros.ae2declogger.data.MachineSnapshot;
 
 import net.minecraft.world.item.ItemStack;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.fluids.FluidStack;
+//$$ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+//$$ import net.neoforged.neoforge.items.IItemHandler;
+//#else
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
+//#endif
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;

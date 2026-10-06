@@ -148,17 +148,40 @@ public class MachineViewerScreen extends Screen {
     }
 
     @Override
+    //#if MC >= 1.20.2
+    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double delta) {
+    //#else
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    //#endif
         scroll -= delta * 12;
         return true;
     }
+
+    /**
+     * The darkened (or blurred) world behind the panel. From 1.20.2 Screen.render() draws it too, and drawing it twice
+     * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
+     */
+    private void drawBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 1.20.2
+        //$$ super.renderBackground(g, mouseX, mouseY, partialTick);
+        //#else
+        renderBackground(g);
+        //#endif
+    }
+
+    //#if MC >= 1.20.2
+    //$$ @Override
+    //$$ public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    //$$     // drawn by drawBackground() at the start of render()
+    //$$ }
+    //#endif
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (targetPanelHeight() != panelH) {
             rebuildWidgets();
         }
-        renderBackground(g);
+        drawBackground(g, mouseX, mouseY, partialTick);
         UiUtil.panel(g, left, top, panelW, panelH);
         MachineSnapshot snap = snapshot();
         int x = left + 6;

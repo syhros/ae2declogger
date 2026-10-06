@@ -1,0 +1,87 @@
+// Forge (1.18.2 - 1.20.1), built with ModDevGradle's legacy plugin. Applied by common.gradle.
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+
+    if (project.hasProperty('parchment_mappings_version')) {
+        parchment {
+            minecraftVersion = parchment_minecraft_version
+            mappingsVersion = parchment_mappings_version
+        }
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        // Runs every @GameTest in this mod on a headless server, then exits (non-zero on failure).
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = file('run/gametest')
+            systemProperty 'forge.enabledGameTestNamespaces', mod_id
+        }
+        // Opens the mod's screens with sample data, saves screenshots and quits. Needs a display (xvfb in CI).
+        selfTestClient {
+            client()
+            gameDirectory = file('run/selftest')
+            systemProperty 'ae2declogger.selfTest', 'true'
+            programArguments.addAll('--username', 'DecloggerTest', '--width', '1280', '--height', '720')
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    if (project.hasProperty('guideme_version')) {
+        modRuntimeOnly "org.appliedenergistics:guideme:${guideme_version}"
+    }
+    // Optional GregTech integration: only compiled against, never bundled.
+    if (project.hasProperty('gtceu_version')) {
+        modCompileOnly("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}") { transitive = false }
+        modCompileOnly("com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}") { transitive = false }
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveClassifier = 'dev'
+    exclude devOnly
+}
+
+// CI-only jar that keeps the test code, reobfuscated so it runs on a real (production) Forge server.
+tasks.register('gametestJar', Jar) {
+    dependsOn 'classes'
+    archiveClassifier = 'gametest-dev'
+    from sourceSets.main.output
+}
+obfuscation {
+    reobfuscate(tasks.named('gametestJar'), sourceSets.main) {
+        archiveClassifier = 'gametest'
+    }
+}
+
+// `build` produces the reobfuscated jar (no classifier) that goes into a real mods folder.
+// The "-dev" jar uses development names and only works inside this workspace.
+afterEvaluate {
+    tasks.named('reobfJar') {
+        archiveClassifier = ''
+    }
+}
+tasks.named('assemble') {
+    dependsOn 'reobfJar', 'reobfGametestJar'
+}

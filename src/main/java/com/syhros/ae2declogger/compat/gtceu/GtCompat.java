@@ -10,7 +10,11 @@ import com.syhros.ae2declogger.data.MachineSnapshot;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+//#if NEOFORGE
+//$$ import net.neoforged.fml.ModList;
+//#else
 import net.minecraftforge.fml.ModList;
+//#endif
 
 import appeng.api.stacks.AEKey;
 
@@ -30,7 +34,11 @@ public final class GtCompat {
 
     public static boolean isActive() {
         if (loaded == null) {
+            //#if MC == 1.20.1
             loaded = ModList.get() != null && ModList.get().isLoaded(MOD_ID);
+            //#else
+            //$$ loaded = false; // only built against GregTech for 1.20.1 so far
+            //#endif
         }
         return loaded && !disabled;
     }

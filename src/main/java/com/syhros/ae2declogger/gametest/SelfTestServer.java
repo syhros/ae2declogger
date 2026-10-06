@@ -21,9 +21,15 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+//#if NEOFORGE
+//$$ import net.neoforged.bus.api.SubscribeEvent;
+//$$ import net.neoforged.fml.common.EventBusSubscriber;
+//$$ import net.neoforged.neoforge.event.tick.ServerTickEvent;
+//#else
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+//#endif
 
 import appeng.api.config.Actionable;
 import appeng.api.config.Settings;
@@ -51,7 +57,11 @@ import appeng.core.definitions.AEItems;
  *                                   [chest A]   [chest B]    (one block up)
  * </pre>
  */
+//#if NEOFORGE
+//$$ @EventBusSubscriber(modid = Ae2Declogger.MOD_ID)
+//#else
 @Mod.EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+//#endif
 public final class SelfTestServer {
 
     static final boolean ENABLED = Boolean.getBoolean("ae2declogger.selfTest");
@@ -109,10 +119,17 @@ public final class SelfTestServer {
     }
 
     @SubscribeEvent
+    //#if NEOFORGE
+    //$$ public static void onServerTick(ServerTickEvent.Post event) {
+    //$$     if (!ENABLED) {
+    //$$         return;
+    //$$     }
+    //#else
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (!ENABLED || event.phase != TickEvent.Phase.END) {
             return;
         }
+    //#endif
         MinecraftServer server = event.getServer();
         try {
             step(server);
@@ -236,11 +253,11 @@ public final class SelfTestServer {
 
         ((DriveBlockEntity) level.getBlockEntity(drive())).getInternalInventory().addItems(AEItems.ITEM_CELL_4K.stack());
         PatternProviderBlockEntity a = (PatternProviderBlockEntity) level.getBlockEntity(providerA());
-        a.getLogic().getPatternInv().addItems(PatternDetailsHelper.encodeProcessingPattern(
+        a.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
                 new GenericStack[] { new GenericStack(COBBLE, 1) }, new GenericStack[] { new GenericStack(STONE, 1) }));
         a.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
         PatternProviderBlockEntity b = (PatternProviderBlockEntity) level.getBlockEntity(providerB());
-        b.getLogic().getPatternInv().addItems(PatternDetailsHelper.encodeProcessingPattern(
+        b.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
                 new GenericStack[] { new GenericStack(SAND, 1) }, new GenericStack[] { new GenericStack(GLASS, 1) }));
         b.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
         ((ChestBlockEntity) level.getBlockEntity(chestB())).setItem(0, new ItemStack(Items.SAND, 3));

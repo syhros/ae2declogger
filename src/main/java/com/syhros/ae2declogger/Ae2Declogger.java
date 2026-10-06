@@ -69,6 +69,10 @@ public final class Ae2Declogger {
     }
 
     public static ResourceLocation id(String path) {
+        //#if MC >= 1.21
+        //$$ return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+        //#else
         return new ResourceLocation(MOD_ID, path);
+        //#endif
     }
 }

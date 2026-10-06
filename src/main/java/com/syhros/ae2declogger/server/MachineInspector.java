@@ -18,10 +18,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.energy.IEnergyStorage;
+//$$ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+//$$ import net.neoforged.neoforge.items.IItemHandler;
+//#else
 import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
+//#endif
 
 import appeng.api.stacks.AEKey;
 
@@ -61,7 +66,7 @@ public final class MachineInspector {
         Component detail = null;
         BlockEntity be = level.getBlockEntity(pos);
         if (be != null && kind != MachineRef.Kind.PROVIDER) {
-            IItemHandler items = be.getCapability(ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
+            IItemHandler items = Caps.items(be, null);
             if (items != null && InventoryReader.isCompletelyFull(items)) {
                 problem = BlockReason.MACHINE_INPUT_FULL;
                 detail = Component.translatable("ae2declogger.machine.inventory_full");
@@ -115,7 +120,7 @@ public final class MachineInspector {
         }
         BlockEntity be = level.getBlockEntity(pos);
         if (!gtSections && be != null) {
-            IItemHandler items = be.getCapability(ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
+            IItemHandler items = Caps.items(be, null);
             if (items != null && items.getSlots() > 0) {
                 List<MachineSnapshot.Slot> slots = new ArrayList<>();
                 used += InventoryReader.readItems(items, slots, patternInputs, true, true, maxSlots - used);
@@ -125,7 +130,7 @@ public final class MachineInspector {
                     errors.add(Component.translatable("ae2declogger.machine.inventory_full"));
                 }
             }
-            IFluidHandler fluids = be.getCapability(ForgeCapabilities.FLUID_HANDLER, null).resolve().orElse(null);
+            IFluidHandler fluids = Caps.fluids(be, null);
             if (fluids != null && fluids.getTanks() > 0 && used < maxSlots) {
                 List<MachineSnapshot.Slot> slots = new ArrayList<>();
                 used += InventoryReader.readFluids(fluids, slots, patternInputs, true, true, maxSlots - used);
@@ -134,7 +139,7 @@ public final class MachineInspector {
             }
         }
         if (unit.isEmpty() && be != null) {
-            IEnergyStorage fe = be.getCapability(ForgeCapabilities.ENERGY, null).resolve().orElse(null);
+            IEnergyStorage fe = Caps.energy(be, null);
             if (fe != null && fe.getMaxEnergyStored() > 0) {
                 energyStored = fe.getEnergyStored();
                 energyCapacity = fe.getMaxEnergyStored();

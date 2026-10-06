@@ -23,11 +23,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ScreenEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import appeng.api.stacks.AEKey;
 import appeng.client.gui.me.crafting.CraftingCPUScreen;
@@ -43,8 +38,10 @@ import appeng.menu.me.crafting.CraftingStatusEntry;
  * <p>
  * AE2 does not expose the table layout, so it is read by reflection. If that ever fails (a different AE2 version),
  * clicking still works through AE2's public "stack under the mouse"; only the frames are missing.
+ *
+ * <p>
+ * The loader's screen events call the methods below (see ClientEvents).
  */
-@Mod.EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class CraftingScreenOverlay {
 
     private static final int POPUP_WIDTH = 170;
@@ -66,40 +63,38 @@ public final class CraftingScreenOverlay {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onInit(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof CraftingCPUScreen<?>) || !DeclogConfig.CLIENT.craftingOverlay.get()) {
+    /** A screen finished opening (or was resized). */
+    public static void onInit(Screen screen) {
+        if (!(screen instanceof CraftingCPUScreen<?>) || !DeclogConfig.CLIENT.craftingOverlay.get()) {
             return;
         }
-        if (watched != event.getScreen()) {
-            watched = event.getScreen();
+        if (watched != screen) {
+            watched = screen;
             clearSelection();
             ClientState.focusJob = -1;
             DeclogNetwork.sendToServer(new DeclogNetwork.WatchCraftingScreen(true));
         }
     }
 
-    @SubscribeEvent
-    public static void onClosing(ScreenEvent.Closing event) {
-        if (event.getScreen() == watched) {
+    public static void onClosing(Screen screen) {
+        if (screen == watched) {
             watched = null;
             clearSelection();
             DeclogNetwork.sendToServer(new DeclogNetwork.WatchCraftingScreen(false));
         }
     }
 
-    @SubscribeEvent
-    public static void onRender(ScreenEvent.Render.Post event) {
-        if (event.getScreen() != watched) {
+    /** After the screen has drawn itself. */
+    public static void onRender(Screen screen, GuiGraphics g, int mouseX, int mouseY) {
+        if (screen != watched) {
             return;
         }
-        GuiGraphics g = event.getGuiGraphics();
         g.pose().pushPose();
         g.pose().translate(0, 0, 350);
         try {
             JobView job = focusedJob(null);
             if (job != null) {
-                for (Cell cell : visibleCells(event.getScreen())) {
+                for (Cell cell : visibleCells(screen)) {
                     StepView step = step(job, cell.key);
                     if (step != null && step.state() != JobState.IN_PROGRESS && !step.state().isFinished()) {
                         frame(g, cell.rect, 0xFF000000 | step.state().color());
@@ -108,7 +103,7 @@ public final class CraftingScreenOverlay {
             }
             if (selected != null && selectedCell != null) {
                 frame(g, selectedCell, 0xFFFFFFFF);
-                renderPopup(g, event.getScreen(), event.getMouseX(), event.getMouseY());
+                renderPopup(g, screen, mouseX, mouseY);
             }
         } catch (RuntimeException e) {
             Ae2Declogger.LOG.debug("Crafting screen overlay failed", e);
@@ -117,23 +112,19 @@ public final class CraftingScreenOverlay {
         }
     }
 
-    @SubscribeEvent
-    public static void onClick(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (event.getScreen() != watched || event.getButton() != 0) {
-            return;
+    /** A mouse button went down; true when the click was used here and the screen must not see it. */
+    public static boolean onClick(Screen screen, double x, double y, int button) {
+        if (screen != watched || button != 0) {
+            return false;
         }
-        double x = event.getMouseX();
-        double y = event.getMouseY();
         if (inspectRect != null && contains(inspectRect, x, y)) {
             inspect();
-            event.setCanceled(true);
-            return;
+            return true;
         }
         if (popupRect != null && contains(popupRect, x, y)) {
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        Cell hit = cellAt(event.getScreen(), x, y);
+        Cell hit = cellAt(screen, x, y);
         if (hit != null) {
             if (hit.key.equals(selected)) {
                 clearSelection();
@@ -146,6 +137,7 @@ public final class CraftingScreenOverlay {
         } else {
             clearSelection();
         }
+        return false;
     }
 
     private static void clearSelection() {
@@ -455,6 +447,6 @@ public final class CraftingScreenOverlay {
     private static void click(Rect2i r) {
         double x = r.getX() + r.getWidth() / 2.0;
         double y = r.getY() + r.getHeight() / 2.0;
-        MinecraftForge.EVENT_BUS.post(new ScreenEvent.MouseButtonPressed.Pre(watched, x, y, 0));
+        onClick(watched, x, y, 0);
     }
 }

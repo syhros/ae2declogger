@@ -2,7 +2,19 @@ package com.syhros.ae2declogger.config;
 
 import com.syhros.ae2declogger.logic.Thresholds;
 
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.common.ModConfigSpec;
+//$$ import net.neoforged.neoforge.common.ModConfigSpec.BooleanValue;
+//$$ import net.neoforged.neoforge.common.ModConfigSpec.Builder;
+//$$ import net.neoforged.neoforge.common.ModConfigSpec.DoubleValue;
+//$$ import net.neoforged.neoforge.common.ModConfigSpec.IntValue;
+//#else
 import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
+import net.minecraftforge.common.ForgeConfigSpec.Builder;
+import net.minecraftforge.common.ForgeConfigSpec.DoubleValue;
+import net.minecraftforge.common.ForgeConfigSpec.IntValue;
+//#endif
 
 /**
  * Two config files:
@@ -14,16 +26,21 @@ import net.minecraftforge.common.ForgeConfigSpec;
  */
 public final class DeclogConfig {
 
+    //#if NEOFORGE
+    //$$ public static final ModConfigSpec COMMON_SPEC;
+    //$$ public static final ModConfigSpec CLIENT_SPEC;
+    //#else
     public static final ForgeConfigSpec COMMON_SPEC;
-    public static final Common COMMON;
     public static final ForgeConfigSpec CLIENT_SPEC;
+    //#endif
+    public static final Common COMMON;
     public static final Client CLIENT;
 
     static {
-        ForgeConfigSpec.Builder common = new ForgeConfigSpec.Builder();
+        Builder common = new Builder();
         COMMON = new Common(common);
         COMMON_SPEC = common.build();
-        ForgeConfigSpec.Builder client = new ForgeConfigSpec.Builder();
+        Builder client = new Builder();
         CLIENT = new Client(client);
         CLIENT_SPEC = client.build();
     }
@@ -32,25 +49,25 @@ public final class DeclogConfig {
     }
 
     public static final class Common {
-        public final ForgeConfigSpec.IntValue updateIntervalTicks;
-        public final ForgeConfigSpec.IntValue alertIntervalTicks;
-        public final ForgeConfigSpec.IntValue maxJobs;
-        public final ForgeConfigSpec.IntValue maxStepsPerJob;
-        public final ForgeConfigSpec.IntValue maxMachinesPerStep;
+        public final IntValue updateIntervalTicks;
+        public final IntValue alertIntervalTicks;
+        public final IntValue maxJobs;
+        public final IntValue maxStepsPerJob;
+        public final IntValue maxMachinesPerStep;
 
-        public final ForgeConfigSpec.IntValue slowAfterSeconds;
-        public final ForgeConfigSpec.IntValue stallAfterSeconds;
-        public final ForgeConfigSpec.IntValue minStallSeconds;
-        public final ForgeConfigSpec.DoubleValue recipeTimeMultiplier;
-        public final ForgeConfigSpec.IntValue blockedAfterSeconds;
+        public final IntValue slowAfterSeconds;
+        public final IntValue stallAfterSeconds;
+        public final IntValue minStallSeconds;
+        public final DoubleValue recipeTimeMultiplier;
+        public final IntValue blockedAfterSeconds;
 
-        public final ForgeConfigSpec.IntValue historySize;
-        public final ForgeConfigSpec.IntValue machineViewerMaxSlots;
+        public final IntValue historySize;
+        public final IntValue machineViewerMaxSlots;
 
-        public final ForgeConfigSpec.BooleanValue allowCrossDimension;
-        public final ForgeConfigSpec.IntValue maxLinkDistance;
+        public final BooleanValue allowCrossDimension;
+        public final IntValue maxLinkDistance;
 
-        Common(ForgeConfigSpec.Builder b) {
+        Common(Builder b) {
             b.comment("How often the server collects crafting data and how much it sends.").push("updates");
             updateIntervalTicks = b
                     .comment("Ticks between updates while the monitor screen is open (20 ticks = 1 second).")
@@ -109,18 +126,18 @@ public final class DeclogConfig {
     }
 
     public static final class Client {
-        public final ForgeConfigSpec.BooleanValue alertsChat;
-        public final ForgeConfigSpec.BooleanValue alertsSound;
-        public final ForgeConfigSpec.BooleanValue alertsToast;
-        public final ForgeConfigSpec.BooleanValue terminalButton;
-        public final ForgeConfigSpec.BooleanValue craftingOverlay;
-        public final ForgeConfigSpec.BooleanValue pinsInWorld;
-        public final ForgeConfigSpec.BooleanValue pinsHud;
-        public final ForgeConfigSpec.IntValue pinRenderDistance;
-        public final ForgeConfigSpec.IntValue hudY;
-        public final ForgeConfigSpec.BooleanValue showOnlyProblems;
+        public final BooleanValue alertsChat;
+        public final BooleanValue alertsSound;
+        public final BooleanValue alertsToast;
+        public final BooleanValue terminalButton;
+        public final BooleanValue craftingOverlay;
+        public final BooleanValue pinsInWorld;
+        public final BooleanValue pinsHud;
+        public final IntValue pinRenderDistance;
+        public final IntValue hudY;
+        public final BooleanValue showOnlyProblems;
 
-        Client(ForgeConfigSpec.Builder b) {
+        Client(Builder b) {
             b.comment("Alerts when a job stalls or gets blocked. Turn alerts on or off per network with the ♪ button in the monitor.")
                     .push("alerts");
             alertsChat = b.comment("Post a chat message.").define("chat", true);

@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger.compat.gtceu;
 
+//#if MC == 1.20.1
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -32,8 +34,13 @@ import com.syhros.ae2declogger.server.InventoryReader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+//$$ import net.neoforged.neoforge.items.IItemHandler;
+//#else
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
+//#endif
 
 import appeng.api.stacks.AEKey;
 
@@ -282,3 +289,37 @@ final class GtMachineReader {
         return sawAny;
     }
 }
+//#else
+//$$ import java.util.List;
+//$$ import java.util.Set;
+//$$
+//$$ import org.jetbrains.annotations.Nullable;
+//$$
+//$$ import com.syhros.ae2declogger.data.MachineSnapshot;
+//$$
+//$$ import net.minecraft.core.BlockPos;
+//$$ import net.minecraft.world.level.Level;
+//$$
+//$$ import appeng.api.stacks.AEKey;
+//$$
+//$$ /** GregTech CEu Modern is only supported on 1.20.1 so far: nothing to read here. */
+//$$ final class GtMachineReader {
+//$$
+//$$     private GtMachineReader() {
+//$$     }
+//$$
+//$$     @Nullable
+//$$     static GtMachineInfo inspect(Level level, BlockPos pos) {
+//$$         return null;
+//$$     }
+//$$
+//$$     static List<BlockPos> controllersOf(Level level, BlockPos pos) {
+//$$         return List.of();
+//$$     }
+//$$
+//$$     static boolean fillSections(Level level, BlockPos pos, Set<AEKey> patternInputs, int maxSlots,
+//$$             List<MachineSnapshot.Section> out) {
+//$$         return false;
+//$$     }
+//$$ }
+//#endif

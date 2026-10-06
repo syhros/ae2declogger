@@ -5,7 +5,11 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.KeyMapping;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.client.settings.KeyConflictContext;
+//#else
 import net.minecraftforge.client.settings.KeyConflictContext;
+//#endif
 
 /** Default keys. All can be changed under Options > Controls > Key Binds > AE2 Declogger. */
 public final class KeyBindings {

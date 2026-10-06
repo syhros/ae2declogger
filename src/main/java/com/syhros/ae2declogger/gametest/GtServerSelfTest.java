@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger.gametest;
 
+//#if MC == 1.20.1
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -256,3 +258,4 @@ public final class GtServerSelfTest {
         Ae2Declogger.LOG.info("AE2 DECLOGGER GT SELFTEST {}: {}", pass ? "PASS" : "FAIL", message);
     }
 }
+//#endif

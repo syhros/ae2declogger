@@ -12,6 +12,9 @@ import com.syhros.ae2declogger.data.HistoryEntry;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
+//#if MC >= 1.20.5
+//$$ import net.minecraft.core.HolderLookup;
+//#endif
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -77,8 +80,13 @@ public final class HistorySavedData extends SavedData {
     private final List<Store> stores = new ArrayList<>();
 
     public static HistorySavedData get(MinecraftServer server) {
+        //#if MC >= 1.20.5
+        //$$ return server.overworld().getDataStorage().computeIfAbsent(
+        //$$         new SavedData.Factory<>(HistorySavedData::new, HistorySavedData::load, null), NAME);
+        //#else
         return server.overworld().getDataStorage().computeIfAbsent(HistorySavedData::load, HistorySavedData::new,
                 NAME);
+        //#endif
     }
 
     /** The saved record of this network, or a new one. */
@@ -136,7 +144,11 @@ public final class HistorySavedData extends SavedData {
     }
 
     @Override
+    //#if MC >= 1.20.5
+    //$$ public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    //#else
     public CompoundTag save(CompoundTag tag) {
+    //#endif
         ListTag list = new ListTag();
         for (Store store : stores) {
             if (store.entries.isEmpty()) {
@@ -153,7 +165,11 @@ public final class HistorySavedData extends SavedData {
             s.put("anchors", anchors);
             ListTag entries = new ListTag();
             for (HistoryEntry e : store.entries) {
+                //#if MC >= 1.20.5
+                //$$ entries.add(e.toTag(registries));
+                //#else
                 entries.add(e.toTag());
+                //#endif
             }
             s.put("entries", entries);
             list.add(s);
@@ -162,7 +178,11 @@ public final class HistorySavedData extends SavedData {
         return tag;
     }
 
+    //#if MC >= 1.20.5
+    //$$ public static HistorySavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+    //#else
     public static HistorySavedData load(CompoundTag tag) {
+    //#endif
         HistorySavedData data = new HistorySavedData();
         for (Tag t : tag.getList("networks", Tag.TAG_COMPOUND)) {
             CompoundTag s = (CompoundTag) t;
@@ -175,7 +195,11 @@ public final class HistorySavedData extends SavedData {
             }
             for (Tag e : s.getList("entries", Tag.TAG_COMPOUND)) {
                 try {
+                    //#if MC >= 1.20.5
+                    //$$ HistoryEntry entry = HistoryEntry.fromTag((CompoundTag) e, registries);
+                    //#else
                     HistoryEntry entry = HistoryEntry.fromTag((CompoundTag) e);
+                    //#endif
                     if (entry != null) {
                         store.entries.add(entry);
                     }

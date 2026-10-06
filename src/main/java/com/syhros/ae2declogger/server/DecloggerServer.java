@@ -37,7 +37,11 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.level.Level;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.server.ServerLifecycleHooks;
+//#else
 import net.minecraftforge.server.ServerLifecycleHooks;
+//#endif
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -124,7 +128,11 @@ public final class DecloggerServer {
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
+        //#if MC >= 1.20.5
+        //$$ HitResult hit = player.pick(player.blockInteractionRange(), 1.0f, false);
+        //#else
         HitResult hit = player.pick(player.getBlockReach(), 1.0f, false);
+        //#endif
         if (hit instanceof BlockHitResult blockHit && hit.getType() == HitResult.Type.BLOCK
                 && GridHelper.getNodeHost(player.level(), blockHit.getBlockPos()) != null) {
             GlobalPos pos = GlobalPos.of(player.level().dimension(), blockHit.getBlockPos());
