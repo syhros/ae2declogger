@@ -10,10 +10,16 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 //$$ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 //$$ import net.neoforged.neoforge.items.IItemHandler;
 //#else
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
+//#if MC >= 1.19.2
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+//#else
+//$$ import net.minecraftforge.energy.CapabilityEnergy;
+//$$ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+//$$ import net.minecraftforge.items.CapabilityItemHandler;
+//#endif
 //#endif
 
 /**
@@ -30,8 +36,10 @@ public final class Caps {
         //#if NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
-        //#else
+        //#elseif MC >= 1.19.2
         return be.getCapability(ForgeCapabilities.ITEM_HANDLER, side).resolve().orElse(null);
+        //#else
+        //$$ return be.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, side).resolve().orElse(null);
         //#endif
     }
 
@@ -40,8 +48,10 @@ public final class Caps {
         //#if NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.FluidHandler.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
-        //#else
+        //#elseif MC >= 1.19.2
         return be.getCapability(ForgeCapabilities.FLUID_HANDLER, side).resolve().orElse(null);
+        //#else
+        //$$ return be.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, side).resolve().orElse(null);
         //#endif
     }
 
@@ -50,8 +60,10 @@ public final class Caps {
         //#if NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
-        //#else
+        //#elseif MC >= 1.19.2
         return be.getCapability(ForgeCapabilities.ENERGY, side).resolve().orElse(null);
+        //#else
+        //$$ return be.getCapability(CapabilityEnergy.ENERGY, side).resolve().orElse(null);
         //#endif
     }
 }

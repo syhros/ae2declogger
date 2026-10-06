@@ -49,8 +49,8 @@ public record JobView(long id, Component cpuName, int coProcessors, long cpuStor
         buf.writeLong(expectedMs);
         buf.writeEnum(state);
         buf.writeEnum(reason);
-        buf.writeNullable(detail, Bufs::writeComponent);
-        buf.writeNullable(primaryMachine, (b, m) -> m.write(b));
+        Bufs.writeNullable(buf, detail, Bufs::writeComponent);
+        Bufs.writeNullable(buf, primaryMachine, (b, m) -> m.write(b));
         buf.writeCollection(steps, (b, s) -> s.write(b));
     }
 
@@ -68,8 +68,8 @@ public record JobView(long id, Component cpuName, int coProcessors, long cpuStor
         long expected = buf.readLong();
         JobState state = buf.readEnum(JobState.class);
         BlockReason reason = buf.readEnum(BlockReason.class);
-        Component detail = buf.readNullable(Bufs::readComponent);
-        MachineRef primary = buf.readNullable(MachineRef::read);
+        Component detail = Bufs.readNullable(buf, Bufs::readComponent);
+        MachineRef primary = Bufs.readNullable(buf, MachineRef::read);
         List<StepView> rawSteps = buf.readList(StepView::read);
         List<StepView> steps = new ArrayList<>(rawSteps.size());
         for (StepView s : rawSteps) {

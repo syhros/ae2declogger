@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.network.Bufs;
 
 import net.minecraft.core.BlockPos;
@@ -62,11 +61,11 @@ public record MachineSnapshot(ResourceKey<Level> dimension, BlockPos pos, Compon
     }
 
     public void write(FriendlyByteBuf buf) {
-        buf.writeResourceKey(dimension);
+        Bufs.writeDimension(buf, dimension);
         buf.writeBlockPos(pos);
         Bufs.writeComponent(buf, name);
         buf.writeEnum(status);
-        buf.writeNullable(statusText, Bufs::writeComponent);
+        Bufs.writeNullable(buf, statusText, Bufs::writeComponent);
         buf.writeVarInt(progress + 1);
         buf.writeVarInt(duration + 1);
         buf.writeVarLong(Math.max(0, energyStored));
@@ -87,11 +86,11 @@ public record MachineSnapshot(ResourceKey<Level> dimension, BlockPos pos, Compon
     }
 
     public static MachineSnapshot read(FriendlyByteBuf buf) {
-        ResourceKey<Level> dim = buf.readResourceKey(Mc.DIMENSIONS);
+        ResourceKey<Level> dim = Bufs.readDimension(buf);
         BlockPos pos = buf.readBlockPos();
         Component name = Bufs.readComponent(buf);
         MachineStatus status = buf.readEnum(MachineStatus.class);
-        Component statusText = buf.readNullable(Bufs::readComponent);
+        Component statusText = Bufs.readNullable(buf, Bufs::readComponent);
         int progress = buf.readVarInt() - 1;
         int duration = buf.readVarInt() - 1;
         long stored = buf.readVarLong();

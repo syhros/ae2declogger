@@ -1,5 +1,6 @@
 package com.syhros.ae2declogger.client;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.client.screen.UiUtil;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.data.MachineRef;
@@ -29,21 +30,21 @@ public final class AlertHandler {
         }
         var cfg = DeclogConfig.CLIENT;
         Component state = UiUtil.stateLabel(alert.state());
-        Component item = Component.translatable("ae2declogger.amount_of", alert.output().getDisplayName(),
+        Component item = Text.translatable("ae2declogger.amount_of", alert.output().getDisplayName(),
                 UiUtil.amount(alert.output(), alert.amount()));
         Component reason = UiUtil.reasonText(alert.reason(), alert.detail());
 
         if (cfg.alertsChat.get()) {
-            MutableComponent msg = Component.translatable("ae2declogger.alert.chat", state, item, reason)
+            MutableComponent msg = Text.translatable("ae2declogger.alert.chat", state, item, reason)
                     .withStyle(ChatFormatting.GRAY);
             MachineRef machine = alert.machine();
             if (machine != null) {
                 String coords = machine.pos().getX() + " " + machine.pos().getY() + " " + machine.pos().getZ();
-                msg.append(" ").append(Component.literal("[" + coords + "]").withStyle(Style.EMPTY
+                msg.append(" ").append(Text.literal("[" + coords + "]").withStyle(Style.EMPTY
                         .withColor(ChatFormatting.AQUA)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, coords))
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                Component.translatable("ae2declogger.alert.copy", machine.name())))));
+                                Text.translatable("ae2declogger.alert.copy", machine.name())))));
             }
             mc.player.displayClientMessage(msg, false);
         }
@@ -56,7 +57,7 @@ public final class AlertHandler {
             //#else
             SystemToast.add(mc.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
             //#endif
-                    Component.translatable("ae2declogger.alert.toast_title", state), item);
+                    Text.translatable("ae2declogger.alert.toast_title", state), item);
         }
     }
 

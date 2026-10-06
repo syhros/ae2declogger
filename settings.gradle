@@ -8,7 +8,7 @@ pluginManagement {
 rootProject.name = 'ae2declogger'
 
 // One subproject per supported Minecraft version.
-def versions = ['forge-1.19.2', 'forge-1.20.1', 'neoforge-1.21.1']
+def versions = ['forge-1.18.2', 'forge-1.19.2', 'forge-1.20.1', 'neoforge-1.21.1']
 versions.each { v ->
     include ":${v}"
     project(":${v}").projectDir = file("versions/${v}")

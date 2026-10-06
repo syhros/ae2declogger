@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.data.JobView;
@@ -173,24 +174,24 @@ public final class CraftingScreenOverlay {
         if (step != null) {
             stateColor = 0xFF000000 | step.state().color();
             long stuckFor = Math.max(0, ClientState.serverNow() - step.sinceMs());
-            Component state = Component.translatable(step.state().translationKey());
+            Component state = Text.translatable(step.state().translationKey());
             if (step.state() != JobState.IN_PROGRESS) {
-                state = Component.translatable("ae2declogger.overlay.state_for", state, Formatting.duration(stuckFor));
+                state = Text.translatable("ae2declogger.overlay.state_for", state, Formatting.duration(stuckFor));
             }
             lines.add(state.copy().withStyle(s -> s.withColor(0xFFFFFF & step.state().color())));
             if (step.reason() != BlockReason.NONE) {
-                Component reason = Component.translatable(step.reason().translationKey());
+                Component reason = Text.translatable(step.reason().translationKey());
                 if (step.detail() != null) {
                     reason = reason.copy().append(": ").append(step.detail());
                 }
                 lines.add(reason.copy().withStyle(ChatFormatting.GRAY));
             }
-            lines.add(Component.translatable("ae2declogger.overlay.amounts", Formatting.compactAmount(step.stored()),
+            lines.add(Text.translatable("ae2declogger.overlay.amounts", Formatting.compactAmount(step.stored()),
                     Formatting.compactAmount(step.active()), Formatting.compactAmount(step.pending()))
                     .withStyle(ChatFormatting.DARK_GRAY));
             MachineRef machine = step.machines().isEmpty() ? null : step.machines().get(0);
             if (machine != null) {
-                lines.add(Component.translatable("ae2declogger.overlay.machine", machine.name(),
+                lines.add(Text.translatable("ae2declogger.overlay.machine", machine.name(),
                         machine.pos().getX(), machine.pos().getY(), machine.pos().getZ())
                         .withStyle(ChatFormatting.GRAY));
             }
@@ -198,22 +199,22 @@ public final class CraftingScreenOverlay {
             // No per-step details for this CPU: show what is known about the whole job.
             stateColor = 0xFF000000 | job.state().color();
             long idle = Math.max(0, ClientState.serverNow() - job.lastActivityAtMs());
-            lines.add(Component.translatable("ae2declogger.overlay.job_state_for",
-                    Component.translatable(job.state().translationKey()), Formatting.duration(idle))
+            lines.add(Text.translatable("ae2declogger.overlay.job_state_for",
+                    Text.translatable(job.state().translationKey()), Formatting.duration(idle))
                     .withStyle(s -> s.withColor(0xFFFFFF & job.state().color())));
             if (job.reason() != BlockReason.NONE) {
-                Component reason = Component.translatable(job.reason().translationKey());
+                Component reason = Text.translatable(job.reason().translationKey());
                 if (job.detail() != null) {
                     reason = reason.copy().append(": ").append(job.detail());
                 }
                 lines.add(reason.copy().withStyle(ChatFormatting.GRAY));
             }
         } else if (job != null) {
-            lines.add(Component.translatable("ae2declogger.overlay.no_problem").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.no_problem").withStyle(ChatFormatting.GRAY));
         } else if (ClientState.summary == null) {
-            lines.add(Component.translatable("ae2declogger.overlay.loading").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.loading").withStyle(ChatFormatting.GRAY));
         } else {
-            lines.add(Component.translatable("ae2declogger.overlay.no_data").withStyle(ChatFormatting.GRAY));
+            lines.add(Text.translatable("ae2declogger.overlay.no_data").withStyle(ChatFormatting.GRAY));
         }
 
         List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
@@ -245,7 +246,7 @@ public final class CraftingScreenOverlay {
         boolean hover = contains(inspectRect, mouseX, mouseY);
         g.fill(bx, by, bx + bw, by + buttonH, hover ? 0xFF5A7FD0 : 0xFF3A5280);
         g.fill(bx, by, bx + bw, by + 1, 0xFF8FA8E0);
-        Component label = Component.translatable("ae2declogger.overlay.inspect");
+        Component label = Text.translatable("ae2declogger.overlay.inspect");
         g.drawString(font, label, bx + (bw - font.width(label)) / 2, by + 3, 0xFFFFFFFF, false);
     }
 

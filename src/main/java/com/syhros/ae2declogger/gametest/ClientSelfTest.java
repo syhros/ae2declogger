@@ -37,7 +37,9 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
 //#endif
+//#if MC >= 1.19
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
+//#endif
 //#if NEOFORGE
 //$$ import net.neoforged.api.distmarker.Dist;
 //$$ import net.neoforged.bus.api.SubscribeEvent;
@@ -130,7 +132,11 @@ public final class ClientSelfTest {
             cfg.blockedAfterSeconds.set(1);
             cfg.updateIntervalTicks.set(5);
             cfg.alertIntervalTicks.set(20);
+            //#if MC >= 1.19
             mc().options.guiScale().set(2);
+            //#else
+            //$$ mc().options.guiScale = 2;
+            //#endif
             mc().resizeDisplay();
             String name = "declogger-selftest-" + System.currentTimeMillis();
             //#if MC >= 1.19.3
@@ -143,13 +149,20 @@ public final class ClientSelfTest {
                     //$$ , null
                     //#endif
             );
-            //#else
+            //#elseif MC >= 1.19
             //$$ LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
             //$$         new GameRules(), net.minecraft.world.level.DataPackConfig.DEFAULT);
             //$$ var registries = net.minecraft.core.RegistryAccess.builtinCopy().freeze();
             //$$ var worldGen = registries.registryOrThrow(net.minecraft.core.Registry.WORLD_PRESET_REGISTRY)
             //$$         .getHolderOrThrow(WorldPresets.FLAT).value().createWorldGenSettings(1234L, false, false);
             //$$ mc().createWorldOpenFlows().createFreshLevel(name, settings, registries, worldGen);
+            //#endif
+            //#if MC < 1.19
+            //$$ LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+            //$$         new GameRules(), net.minecraft.world.level.DataPackConfig.DEFAULT);
+            //$$ var registries = net.minecraft.core.RegistryAccess.builtinCopy();
+            //$$ mc().createLevel(name, settings, registries,
+            //$$         net.minecraft.world.level.levelgen.WorldGenSettings.makeDefault(registries));
             //#endif
         });
         then("in world", 60, () -> mc().level != null && mc().player != null && mc().screen == null

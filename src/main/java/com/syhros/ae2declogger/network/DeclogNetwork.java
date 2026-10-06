@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.data.GridSummary;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
@@ -82,13 +81,13 @@ public final class DeclogNetwork {
 
     public record RequestMachine(ResourceKey<Level> dimension, BlockPos pos, boolean open) {
         public void write(FriendlyByteBuf buf) {
-            buf.writeResourceKey(dimension);
+            Bufs.writeDimension(buf, dimension);
             buf.writeBlockPos(pos);
             buf.writeBoolean(open);
         }
 
         public static RequestMachine read(FriendlyByteBuf buf) {
-            return new RequestMachine(buf.readResourceKey(Mc.DIMENSIONS), buf.readBlockPos(),
+            return new RequestMachine(Bufs.readDimension(buf), buf.readBlockPos(),
                     buf.readBoolean());
         }
     }
@@ -189,8 +188,8 @@ public final class DeclogNetwork {
             buf.writeVarLong(amount);
             buf.writeEnum(state);
             buf.writeEnum(reason);
-            buf.writeNullable(detail, Bufs::writeComponent);
-            buf.writeNullable(machine, (b, m) -> m.write(b));
+            Bufs.writeNullable(buf, detail, Bufs::writeComponent);
+            Bufs.writeNullable(buf, machine, (b, m) -> m.write(b));
         }
 
         @Nullable
@@ -199,8 +198,8 @@ public final class DeclogNetwork {
             long amount = buf.readVarLong();
             JobState state = buf.readEnum(JobState.class);
             BlockReason reason = buf.readEnum(BlockReason.class);
-            Component detail = buf.readNullable(Bufs::readComponent);
-            MachineRef machine = buf.readNullable(MachineRef::read);
+            Component detail = Bufs.readNullable(buf, Bufs::readComponent);
+            MachineRef machine = Bufs.readNullable(buf, MachineRef::read);
             return key == null ? null : new Alert(key, amount, state, reason, detail, machine);
         }
     }

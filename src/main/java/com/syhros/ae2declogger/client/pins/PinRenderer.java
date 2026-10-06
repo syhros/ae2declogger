@@ -13,6 +13,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.logic.Formatting;
 
@@ -94,7 +95,7 @@ public final class PinRenderer {
             double dy = p.getY() + 1.4 - cam.y;
             double dz = p.getZ() + 0.5 - cam.z;
             double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            Component text = Component.literal(pin.label + " (" + Math.round(distance) + "m)");
+            Component text = Text.literal(pin.label + " (" + Math.round(distance) + "m)");
             pose.pushPose();
             pose.translate(dx, dy, dz);
             pose.mulPose(camera.rotation());
@@ -174,8 +175,11 @@ public final class PinRenderer {
         //$$ if (mesh != null) {
         //$$     BufferUploader.drawWithShader(mesh);
         //$$ }
-        //#else
+        //#elseif MC >= 1.19
         BufferUploader.drawWithShader(b.end());
+        //#else
+        //$$ b.end();
+        //$$ BufferUploader.end(b);
         //#endif
     }
 
@@ -202,7 +206,7 @@ public final class PinRenderer {
         Component line;
         int color = 0xFF000000 | pin.color;
         if (!mc.level.dimension().location().toString().equals(pin.dimension)) {
-            line = Component.translatable("ae2declogger.hud.other_dimension", pin.label, pin.dimension);
+            line = Text.translatable("ae2declogger.hud.other_dimension", pin.label, pin.dimension);
         } else {
             BlockPos p = pin.pos();
             double dx = p.getX() + 0.5 - player.getX();
@@ -212,9 +216,9 @@ public final class PinRenderer {
             String arrow = Formatting.directionArrow(player.getYRot(), dx, dz);
             String height3 = dy == 0 ? "" : (dy > 0 ? " ▲" + dy : " ▼" + (-dy));
             if (horizontal < 2.5 && Math.abs(dy) < 3) {
-                line = Component.translatable("ae2declogger.hud.arrived", pin.label);
+                line = Text.translatable("ae2declogger.hud.arrived", pin.label);
             } else {
-                line = Component.translatable("ae2declogger.hud.navigate", pin.label, p.getX(), p.getY(), p.getZ(),
+                line = Text.translatable("ae2declogger.hud.navigate", pin.label, p.getX(), p.getY(), p.getZ(),
                         arrow, Math.round(horizontal), height3);
             }
         }

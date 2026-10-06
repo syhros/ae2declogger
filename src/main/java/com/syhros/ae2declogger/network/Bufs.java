@@ -1,9 +1,16 @@
 package com.syhros.ae2declogger.network;
 
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
 import org.jetbrains.annotations.Nullable;
+
+import com.syhros.ae2declogger.Mc;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 //#if MC >= 1.20.5
 //$$ import net.minecraft.network.RegistryFriendlyByteBuf;
 //$$ import net.minecraft.network.chat.ComponentSerialization;
@@ -70,6 +77,26 @@ public final class Bufs {
         //#else
         return GenericStack.readBuffer(buf);
         //#endif
+    }
+
+    public static <T> void writeNullable(FriendlyByteBuf buf, @Nullable T value, BiConsumer<FriendlyByteBuf, T> writer) {
+        buf.writeBoolean(value != null);
+        if (value != null) {
+            writer.accept(buf, value);
+        }
+    }
+
+    @Nullable
+    public static <T> T readNullable(FriendlyByteBuf buf, Function<FriendlyByteBuf, T> reader) {
+        return buf.readBoolean() ? reader.apply(buf) : null;
+    }
+
+    public static void writeDimension(FriendlyByteBuf buf, ResourceKey<Level> dimension) {
+        buf.writeResourceLocation(dimension.location());
+    }
+
+    public static ResourceKey<Level> readDimension(FriendlyByteBuf buf) {
+        return Mc.dimension(buf.readResourceLocation());
     }
 
     //#if MC >= 1.20.5

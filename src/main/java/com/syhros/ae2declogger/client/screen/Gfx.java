@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger.client.screen;
 
+import com.syhros.ae2declogger.Text;
+
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
@@ -80,7 +82,7 @@ public final class Gfx {
     }
 
     public int drawString(Font font, String text, int x, int y, int color, boolean shadow) {
-        return drawString(font, Component.literal(text), x, y, color, shadow);
+        return drawString(font, Text.literal(text), x, y, color, shadow);
     }
 
     public int drawString(Font font, Component text, int x, int y, int color) {

@@ -1,5 +1,6 @@
 package com.syhros.ae2declogger.client;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
@@ -83,7 +84,7 @@ public final class ClientEvents {
                 if (PinManager.active() != null) {
                     PinManager.setActive(null);
                     if (mc.player != null) {
-                        mc.player.displayClientMessage(Component.translatable("ae2declogger.pin.navigation_stopped"),
+                        mc.player.displayClientMessage(Text.translatable("ae2declogger.pin.navigation_stopped"),
                                 true);
                     }
                 }
@@ -91,7 +92,7 @@ public final class ClientEvents {
             while (KeyBindings.TOGGLE_PINS.consumeClick()) {
                 PinManager.toggleHidden();
                 if (mc.player != null) {
-                    mc.player.displayClientMessage(Component.translatable(PinManager.isHidden()
+                    mc.player.displayClientMessage(Text.translatable(PinManager.isHidden()
                             ? "ae2declogger.pin.hidden" : "ae2declogger.pin.shown"), true);
                 }
             }
@@ -112,7 +113,7 @@ public final class ClientEvents {
         @SubscribeEvent
         public static void loggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
             PinManager.unload();
-            ClientState.reset(Component.empty());
+            ClientState.reset(Text.empty());
             ClientState.machine = null;
         }
 
@@ -159,7 +160,7 @@ public final class ClientEvents {
                 y = screen.getGuiTop() + 2;
             }
             IconButton button = new IconButton(x, y, b -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(true)));
-            Widgets.tooltip(button, Component.translatable("ae2declogger.terminal_button"));
+            Widgets.tooltip(button, Text.translatable("ae2declogger.terminal_button"));
             event.addListener(button);
         }
     }
@@ -170,9 +171,9 @@ public final class ClientEvents {
 
         IconButton(int x, int y, OnPress onPress) {
             //#if MC >= 1.19.3
-            super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress, DEFAULT_NARRATION);
+            super(x, y, 16, 16, Text.translatable("ae2declogger.terminal_button"), onPress, DEFAULT_NARRATION);
             //#else
-            //$$ super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress);
+            //$$ super(x, y, 16, 16, Text.translatable("ae2declogger.terminal_button"), onPress);
             //#endif
         }
 

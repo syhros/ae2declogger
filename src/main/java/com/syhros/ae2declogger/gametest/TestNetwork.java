@@ -154,7 +154,7 @@ final class TestNetwork {
                     + describe(p.usedItems()) + "; network has " + describe(requireGrid().getStorageService()
                             .getCachedInventory()) + "; craftable stone=" + requireGrid().getCraftingService()
                                     .isCraftable(STONE));
-            var result = requireGrid().getCraftingService().submitJob(p, null, null, false, IActionSource.empty());
+            var result = submit(requireGrid().getCraftingService(), p);
             Asserts.isTrue(helper, result.successful(), "job was not accepted: " + result.errorCode());
         } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
             throw new IllegalStateException(e);
@@ -191,6 +191,16 @@ final class TestNetwork {
     void blockingMode(boolean on) {
         PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, on ? YesNo.YES : YesNo.NO);
+    }
+
+    /** Starts a planned job with no requester (AE2 11 names it trySubmitJob). */
+    static appeng.api.networking.crafting.ICraftingSubmitResult submit(
+            appeng.api.networking.crafting.ICraftingService crafting, ICraftingPlan plan) {
+        //#if MC >= 1.19
+        return crafting.submitJob(plan, null, null, false, IActionSource.empty());
+        //#else
+        //$$ return crafting.trySubmitJob(plan, null, null, false, IActionSource.empty());
+        //#endif
     }
 
     /** A processing pattern item (AE2 19 takes lists instead of arrays). */

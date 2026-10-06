@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.compat.gtceu.GtCompat;
 import com.syhros.ae2declogger.compat.gtceu.GtMachineInfo;
 import com.syhros.ae2declogger.data.MachineRef;
@@ -42,9 +43,9 @@ public final class MachineInspector {
     /** Short status for job and step rows. */
     public static MachineRef describe(ServerLevel level, BlockPos pos, MachineRef.Kind kind) {
         if (!level.isLoaded(pos)) {
-            return new MachineRef(level.dimension(), pos, Component.translatable("ae2declogger.machine.unloaded"), kind,
+            return new MachineRef(level.dimension(), pos, Text.translatable("ae2declogger.machine.unloaded"), kind,
                     MachineStatus.UNKNOWN, BlockReason.NONE,
-                    Component.translatable("ae2declogger.machine.unloaded_detail"), -1, -1);
+                    Text.translatable("ae2declogger.machine.unloaded_detail"), -1, -1);
         }
         BlockState state = level.getBlockState(pos);
         Component name = state.getBlock().getName();
@@ -58,7 +59,7 @@ public final class MachineInspector {
         }
 
         if (state.isAir()) {
-            return new MachineRef(level.dimension(), pos, Component.translatable("ae2declogger.machine.nothing"), kind,
+            return new MachineRef(level.dimension(), pos, Text.translatable("ae2declogger.machine.nothing"), kind,
                     MachineStatus.UNKNOWN, BlockReason.NONE, null, -1, -1);
         }
 
@@ -69,7 +70,7 @@ public final class MachineInspector {
             IItemHandler items = Caps.items(be, null);
             if (items != null && InventoryReader.isCompletelyFull(items)) {
                 problem = BlockReason.MACHINE_INPUT_FULL;
-                detail = Component.translatable("ae2declogger.machine.inventory_full");
+                detail = Text.translatable("ae2declogger.machine.inventory_full");
             }
         }
         return new MachineRef(level.dimension(), pos, name, kind, MachineStatus.UNKNOWN, problem, detail, -1, -1);
@@ -80,8 +81,8 @@ public final class MachineInspector {
         List<Component> errors = new ArrayList<>();
         List<MachineSnapshot.Section> sections = new ArrayList<>();
         if (!level.isLoaded(pos)) {
-            errors.add(Component.translatable("ae2declogger.machine.unloaded_detail"));
-            return new MachineSnapshot(level.dimension(), pos, Component.translatable("ae2declogger.machine.unloaded"),
+            errors.add(Text.translatable("ae2declogger.machine.unloaded_detail"));
+            return new MachineSnapshot(level.dimension(), pos, Text.translatable("ae2declogger.machine.unloaded"),
                     MachineStatus.UNKNOWN, null, -1, -1, 0, 0, "", "", errors, sections, false);
         }
         BlockState state = level.getBlockState(pos);
@@ -98,7 +99,7 @@ public final class MachineInspector {
         GtMachineInfo gt = GtCompat.inspect(level, pos);
         if (gt != null) {
             name = gt.controllerPos() != null
-                    ? Component.translatable("ae2declogger.viewer.part_of", state.getBlock().getName(), gt.name())
+                    ? Text.translatable("ae2declogger.viewer.part_of", state.getBlock().getName(), gt.name())
                     : gt.name();
             status = gt.status();
             statusText = gt.detail();
@@ -125,9 +126,9 @@ public final class MachineInspector {
                 List<MachineSnapshot.Slot> slots = new ArrayList<>();
                 used += InventoryReader.readItems(items, slots, patternInputs, true, true, maxSlots - used);
                 sections.add(new MachineSnapshot.Section(MachineSnapshot.SectionKind.INVENTORY,
-                        Component.translatable("ae2declogger.viewer.section.inventory"), slots));
+                        Text.translatable("ae2declogger.viewer.section.inventory"), slots));
                 if (InventoryReader.isCompletelyFull(items)) {
-                    errors.add(Component.translatable("ae2declogger.machine.inventory_full"));
+                    errors.add(Text.translatable("ae2declogger.machine.inventory_full"));
                 }
             }
             IFluidHandler fluids = Caps.fluids(be, null);
@@ -135,7 +136,7 @@ public final class MachineInspector {
                 List<MachineSnapshot.Slot> slots = new ArrayList<>();
                 used += InventoryReader.readFluids(fluids, slots, patternInputs, true, true, maxSlots - used);
                 sections.add(new MachineSnapshot.Section(MachineSnapshot.SectionKind.FLUIDS,
-                        Component.translatable("ae2declogger.viewer.section.fluids"), slots));
+                        Text.translatable("ae2declogger.viewer.section.fluids"), slots));
             }
         }
         if (unit.isEmpty() && be != null) {
@@ -147,7 +148,7 @@ public final class MachineInspector {
             }
         }
         if (be == null && gt == null) {
-            errors.add(Component.translatable("ae2declogger.viewer.no_inventory"));
+            errors.add(Text.translatable("ae2declogger.viewer.no_inventory"));
         }
         boolean truncated = used >= maxSlots;
         return new MachineSnapshot(level.dimension(), pos, name, status, statusText, progress, duration, energyStored,

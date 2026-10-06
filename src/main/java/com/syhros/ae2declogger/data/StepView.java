@@ -37,7 +37,7 @@ public record StepView(AEKey key, long stored, long active, long pending, JobSta
         buf.writeVarLong(pending);
         buf.writeEnum(state);
         buf.writeEnum(reason);
-        buf.writeNullable(detail, Bufs::writeComponent);
+        Bufs.writeNullable(buf, detail, Bufs::writeComponent);
         buf.writeLong(sinceMs);
         buf.writeLong(recipeMs);
         buf.writeCollection(machines, (b, m) -> m.write(b));
@@ -51,7 +51,7 @@ public record StepView(AEKey key, long stored, long active, long pending, JobSta
         long pending = buf.readVarLong();
         JobState state = buf.readEnum(JobState.class);
         BlockReason reason = buf.readEnum(BlockReason.class);
-        Component detail = buf.readNullable(Bufs::readComponent);
+        Component detail = Bufs.readNullable(buf, Bufs::readComponent);
         long since = buf.readLong();
         long recipeMs = buf.readLong();
         List<MachineRef> machines = buf.readList(MachineRef::read);

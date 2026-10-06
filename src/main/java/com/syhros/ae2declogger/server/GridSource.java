@@ -2,6 +2,7 @@ package com.syhros.ae2declogger.server;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.config.DeclogConfig;
 
@@ -30,7 +31,7 @@ public record GridSource(@Nullable GlobalPos link, @Nullable Direction side, @Nu
         }
 
         static Resolved fail(String key, Object... args) {
-            return new Resolved(null, Component.translatable(key, args));
+            return new Resolved(null, Text.translatable(key, args));
         }
     }
 

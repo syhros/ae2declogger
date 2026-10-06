@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
@@ -526,7 +527,7 @@ public final class DecloggerGameTests {
                 "WatchCraftingScreen");
 
         var alert = new DeclogNetwork.Alert(TestNetwork.STONE, 64, JobState.STALLED,
-                BlockReason.MACHINE_NO_POWER, net.minecraft.network.chat.Component.literal("x"), null);
+                BlockReason.MACHINE_NO_POWER, Text.literal("x"), null);
         buf = buffer(helper);
         alert.write(buf);
         Asserts.isTrue(helper, alert.equals(DeclogNetwork.Alert.read(buf)) && buf.readableBytes() == 0, "Alert");
@@ -590,9 +591,9 @@ public final class DecloggerGameTests {
                     GridTracker tracker = new GridTracker(10);
                     tracker.attach(data.storeFor(net.requireGrid()));
                     HistoryEntry job = new HistoryEntry(TestNetwork.STONE, 4, 12_000, true, 1_000,
-                            Component.literal("CPU 1"));
+                            Text.literal("CPU 1"));
                     HistoryEntry step = new HistoryEntry(TestNetwork.COBBLE, 4, 3_000, true, 900,
-                            Component.literal("CPU 1"), TestNetwork.STONE);
+                            Text.literal("CPU 1"), TestNetwork.STONE);
                     tracker.addHistory(step);
                     tracker.addHistory(job);
 
@@ -622,9 +623,9 @@ public final class DecloggerGameTests {
         TestNetwork net = TestNetwork.build(helper, false);
         ItemStack named = new ItemStack(Items.COBBLESTONE);
         //#if MC >= 1.20.5
-        //$$ named.set(DataComponents.CUSTOM_NAME, Component.literal("Used tool"));
+        //$$ named.set(DataComponents.CUSTOM_NAME, Text.literal("Used tool"));
         //#else
-        named.setHoverName(Component.literal("Used tool"));
+        named.setHoverName(Text.literal("Used tool"));
         //#endif
         AEItemKey listed = AEItemKey.of(named);
         helper.startSequence()

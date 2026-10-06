@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.Exporter;
@@ -97,7 +98,7 @@ public class DecloggerScreen extends Screen {
     private List<JobStats.Row<AEKey>> stats = List.of();
 
     public DecloggerScreen() {
-        super(Component.translatable("ae2declogger.monitor.screen_title"));
+        super(Text.translatable("ae2declogger.monitor.screen_title"));
         if (problemsOnlyDefault == null) {
             try {
                 problemsOnlyDefault = com.syhros.ae2declogger.config.DeclogConfig.CLIENT.showOnlyProblems.get();
@@ -127,23 +128,23 @@ public class DecloggerScreen extends Screen {
         int tx = left + 6;
         for (Tab t : Tab.values()) {
             Tab target = t;
-            Button b = Widgets.builder(Component.translatable("ae2declogger.tab." + t.name().toLowerCase(Locale.ROOT)),
+            Button b = Widgets.builder(Text.translatable("ae2declogger.tab." + t.name().toLowerCase(Locale.ROOT)),
                     btn -> switchTab(target)).bounds(tx, top + 19, 54, 14).build();
             tabButtons.add(addRenderableWidget(b));
             tx += 56;
         }
 
         int right = left + panelW - 6;
-        alertsButton = addRenderableWidget(Widgets.builder(Component.literal("♪"),
+        alertsButton = addRenderableWidget(Widgets.builder(Text.literal("♪"),
                 b -> DeclogNetwork.sendToServer(new DeclogNetwork.ToggleAlerts()))
                 .bounds(right - 16, top + 19, 16, 14).build());
-        problemsButton = addRenderableWidget(Widgets.builder(Component.literal("!"), b -> {
+        problemsButton = addRenderableWidget(Widgets.builder(Text.literal("!"), b -> {
             problemsOnly = !problemsOnly;
             jobScroll = 0;
         }).bounds(right - 34, top + 19, 16, 14).build());
         int searchW = Math.max(60, Math.min(120, right - 38 - tx - 4));
         search = new EditBox(font, right - 38 - searchW, top + 20, searchW, 12,
-                Component.translatable("ae2declogger.search"));
+                Text.translatable("ae2declogger.search"));
         search.setMaxLength(64);
         search.setBordered(true);
         addRenderableWidget(search);
@@ -152,36 +153,36 @@ public class DecloggerScreen extends Screen {
         int bw = Math.min(110, (panelW - 12 - 6) / 3);
         int bx = left + 6;
         jobButtons.clear();
-        gotoButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.goto"),
+        gotoButton = addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.goto"),
                 b -> goTo(targetMachine())).bounds(bx, by, bw, 16).build());
-        viewButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.view"),
+        viewButton = addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.view"),
                 b -> view(targetMachine())).bounds(bx + (bw + 3), by, bw, 16).build());
-        pinButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.pin"),
+        pinButton = addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.pin"),
                 b -> pin(targetMachine(), false)).bounds(bx + 2 * (bw + 3), by, bw, 16).build());
-        Widgets.tooltip(gotoButton, Component.translatable("ae2declogger.button.goto.tooltip"));
-        Widgets.tooltip(viewButton, Component.translatable("ae2declogger.button.view.tooltip"));
-        Widgets.tooltip(pinButton, Component.translatable("ae2declogger.button.pin.tooltip"));
+        Widgets.tooltip(gotoButton, Text.translatable("ae2declogger.button.goto.tooltip"));
+        Widgets.tooltip(viewButton, Text.translatable("ae2declogger.button.view.tooltip"));
+        Widgets.tooltip(pinButton, Text.translatable("ae2declogger.button.pin.tooltip"));
         jobButtons.add(gotoButton);
         jobButtons.add(viewButton);
         jobButtons.add(pinButton);
 
         historyButtons.clear();
-        historyButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.export"),
+        historyButtons.add(addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.export"),
                 b -> Exporter.export(new ArrayList<>(ClientState.JOBS.values()), ClientState.HISTORY))
                 .bounds(bx, by, bw, 16).build()));
-        historyButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.clear"),
+        historyButtons.add(addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.clear"),
                 b -> DeclogNetwork.sendToServer(new DeclogNetwork.ClearHistory())).bounds(bx + bw + 3, by, bw, 16)
                 .build()));
 
         statsButtons.clear();
-        statsButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.export"),
+        statsButtons.add(addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.export"),
                 b -> Exporter.export(new ArrayList<>(ClientState.JOBS.values()), ClientState.HISTORY))
                 .bounds(bx, by, bw, 16).build()));
 
         pinButtons.clear();
-        navigateButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.navigate"),
+        navigateButton = addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.navigate"),
                 b -> toggleNavigate()).bounds(bx, by, bw, 16).build());
-        pinRemoveButton = addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.remove"),
+        pinRemoveButton = addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.remove"),
                 b -> {
                     PinManager.Pin p = selectedPinObj();
                     if (p != null) {
@@ -191,7 +192,7 @@ public class DecloggerScreen extends Screen {
                 }).bounds(bx + bw + 3, by, bw, 16).build());
         pinButtons.add(navigateButton);
         pinButtons.add(pinRemoveButton);
-        pinButtons.add(addRenderableWidget(Widgets.builder(Component.translatable("ae2declogger.button.clear_all"),
+        pinButtons.add(addRenderableWidget(Widgets.builder(Text.translatable("ae2declogger.button.clear_all"),
                 b -> {
                     PinManager.clear();
                     selectedPin = null;
@@ -223,17 +224,17 @@ public class DecloggerScreen extends Screen {
 
         PinManager.Pin pin = selectedPinObj();
         navigateButton.active = pin != null;
-        navigateButton.setMessage(Component.translatable(pin != null && pin == PinManager.active()
+        navigateButton.setMessage(Text.translatable(pin != null && pin == PinManager.active()
                 ? "ae2declogger.button.stop" : "ae2declogger.button.navigate"));
         pinRemoveButton.active = pin != null;
 
-        problemsButton.setMessage(Component.literal("!").withStyle(problemsOnly ? ChatFormatting.RED
+        problemsButton.setMessage(Text.literal("!").withStyle(problemsOnly ? ChatFormatting.RED
                 : ChatFormatting.GRAY));
-        Widgets.tooltip(problemsButton, Component.translatable(problemsOnly
+        Widgets.tooltip(problemsButton, Text.translatable(problemsOnly
                 ? "ae2declogger.button.problems.on" : "ae2declogger.button.problems.off"));
-        alertsButton.setMessage(Component.literal("♪").withStyle(ClientState.alertsOn ? ChatFormatting.GREEN
+        alertsButton.setMessage(Text.literal("♪").withStyle(ClientState.alertsOn ? ChatFormatting.GREEN
                 : ChatFormatting.DARK_GRAY));
-        Widgets.tooltip(alertsButton, Component.translatable(ClientState.alertsOn
+        Widgets.tooltip(alertsButton, Text.translatable(ClientState.alertsOn
                 ? "ae2declogger.button.alerts.on" : "ae2declogger.button.alerts.off"));
         search.visible = tab != Tab.PINS;
     }
@@ -434,7 +435,7 @@ public class DecloggerScreen extends Screen {
         String label = pinLabel(m);
         PinManager.Pin pin = PinManager.add(label, m.dimension(), m.pos());
         if (!quiet && minecraft != null && minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.translatable("ae2declogger.pin.added", label,
+            minecraft.player.displayClientMessage(Text.translatable("ae2declogger.pin.added", label,
                     UiUtil.coords(m)), true);
         }
         return pin;
@@ -511,7 +512,7 @@ public class DecloggerScreen extends Screen {
         }
         super.render(g.raw(), mouseX, mouseY, partialTick);
         if (search.visible && search.getValue().isEmpty() && !search.isFocused()) {
-            g.drawString(font, Component.translatable("ae2declogger.search"), Widgets.x(search) + 4, Widgets.y(search) + 2,
+            g.drawString(font, Text.translatable("ae2declogger.search"), Widgets.x(search) + 4, Widgets.y(search) + 2,
                     UiUtil.TEXT_FAINT, false);
         }
         if (tooltip != null && !tooltip.isEmpty()) {
@@ -533,13 +534,13 @@ public class DecloggerScreen extends Screen {
             right = ClientState.closedReason;
             color = 0xFFFF6B6B;
         } else if (s == null) {
-            right = Component.translatable("ae2declogger.monitor.loading");
+            right = Text.translatable("ae2declogger.monitor.loading");
         } else {
             String power = Formatting.compactAmount((long) s.storedPower()) + " / "
                     + Formatting.compactAmount((long) s.maxPower()) + " AE";
-            right = Component.translatable("ae2declogger.monitor.summary", s.busyCpus(), s.cpus(), power);
+            right = Text.translatable("ae2declogger.monitor.summary", s.busyCpus(), s.cpus(), power);
             if (!s.powered()) {
-                right = Component.translatable("ae2declogger.monitor.unpowered");
+                right = Text.translatable("ae2declogger.monitor.unpowered");
                 color = 0xFFFF6B6B;
             }
         }
@@ -557,9 +558,9 @@ public class DecloggerScreen extends Screen {
         int listBottom = split;
 
         if (jobs.isEmpty()) {
-            Component msg = ClientState.summary == null ? Component.translatable("ae2declogger.monitor.loading")
-                    : ClientState.JOBS.isEmpty() ? Component.translatable("ae2declogger.monitor.no_jobs")
-                            : Component.translatable("ae2declogger.monitor.no_match");
+            Component msg = ClientState.summary == null ? Text.translatable("ae2declogger.monitor.loading")
+                    : ClientState.JOBS.isEmpty() ? Text.translatable("ae2declogger.monitor.no_jobs")
+                            : Text.translatable("ae2declogger.monitor.no_match");
             g.drawCenteredString(font, msg, left + panelW / 2, listTop + 20, UiUtil.TEXT_DIM);
             return null;
         }
@@ -584,7 +585,7 @@ public class DecloggerScreen extends Screen {
             g.fill(x, y, x + 2, y + JOB_ROW - 1, 0xFF000000 | job.state().color());
             UiUtil.key(g, job.output(), x + 5, y + 3);
 
-            Component name = Component.translatable("ae2declogger.amount_of", job.output().getDisplayName(),
+            Component name = Text.translatable("ae2declogger.amount_of", job.output().getDisplayName(),
                     UiUtil.amount(job.output(), job.amount()));
             Component state = UiUtil.stateLabel(job.state());
             int stateW = font.width(state);
@@ -598,9 +599,9 @@ public class DecloggerScreen extends Screen {
             }
             long idle = now - job.lastActivityAtMs();
             if (idle >= 10_000) {
-                times += "  " + Component.translatable("ae2declogger.idle", Formatting.duration(idle)).getString();
+                times += "  " + Text.translatable("ae2declogger.idle", Formatting.duration(idle)).getString();
             }
-            int tw = UiUtil.text(g, font, Component.literal(times), x + 68, y + 13, w - 72, UiUtil.TEXT_DIM);
+            int tw = UiUtil.text(g, font, Text.literal(times), x + 68, y + 13, w - 72, UiUtil.TEXT_DIM);
             Component reasonOrCpu = job.reason().isProblem() ? UiUtil.reasonText(job.reason(), job.detail())
                     : job.cpuName();
             int reasonColor = job.reason().isProblem() ? UiUtil.reasonColor(job.reason(), job.state())
@@ -619,13 +620,13 @@ public class DecloggerScreen extends Screen {
         if (selected == null) {
             return tooltip;
         }
-        Component header = Component.translatable("ae2declogger.monitor.steps_for",
+        Component header = Text.translatable("ae2declogger.monitor.steps_for",
                 selected.output().getDisplayName(), selected.cpuName());
         UiUtil.text(g, font, header, x, split + 5, w, UiUtil.TEXT_DIM);
         int stepTop = split + 16;
         List<StepView> steps = selected.steps();
         if (steps.isEmpty()) {
-            g.drawString(font, Component.translatable("ae2declogger.monitor.no_steps"), x + 4, stepTop + 4,
+            g.drawString(font, Text.translatable("ae2declogger.monitor.no_steps"), x + 4, stepTop + 4,
                     UiUtil.TEXT_FAINT, false);
             return tooltip;
         }
@@ -651,7 +652,7 @@ public class DecloggerScreen extends Screen {
             int stateW = font.width(state);
             UiUtil.text(g, font, step.key().getDisplayName(), x + 24, y + 2, w - 30 - stateW - 6, UiUtil.TEXT);
             g.drawString(font, state, x + w - 4 - stateW, y + 2, 0xFFFFFFFF, false);
-            Component counts = Component.translatable("ae2declogger.step.counts",
+            Component counts = Text.translatable("ae2declogger.step.counts",
                     UiUtil.amount(step.key(), step.stored()), UiUtil.amount(step.key(), step.active()),
                     UiUtil.amount(step.key(), step.pending()));
             int cw = UiUtil.text(g, font, counts, x + 24, y + 12, w / 2, UiUtil.TEXT_DIM);
@@ -662,10 +663,10 @@ public class DecloggerScreen extends Screen {
                 color = UiUtil.reasonColor(step.reason(), step.state());
             } else if (!step.machines().isEmpty()) {
                 MachineRef m = step.machines().get(0);
-                right = Component.literal(m.name().getString() + " @ " + UiUtil.coords(m));
+                right = Text.literal(m.name().getString() + " @ " + UiUtil.coords(m));
                 color = UiUtil.TEXT_FAINT;
             } else {
-                right = Component.empty();
+                right = Text.empty();
                 color = UiUtil.TEXT_FAINT;
             }
             UiUtil.textRight(g, font, right, x + w - 4, y + 12, w - 24 - cw - 12, color);
@@ -681,59 +682,59 @@ public class DecloggerScreen extends Screen {
 
     private List<Component> jobTooltip(JobView job, long now) {
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable("ae2declogger.amount_of", job.output().getDisplayName(),
+        lines.add(Text.translatable("ae2declogger.amount_of", job.output().getDisplayName(),
                 UiUtil.amount(job.output(), job.amount())));
-        lines.add(Component.translatable("ae2declogger.tooltip.state", UiUtil.stateLabel(job.state())));
+        lines.add(Text.translatable("ae2declogger.tooltip.state", UiUtil.stateLabel(job.state())));
         if (job.reason() != com.syhros.ae2declogger.logic.BlockReason.NONE) {
             lines.add(UiUtil.reasonText(job.reason(), job.detail()).copy()
                     .withStyle(s -> s.withColor(UiUtil.reasonColor(job.reason(), job.state()) & 0xFFFFFF)));
         }
-        lines.add(Component.translatable("ae2declogger.tooltip.elapsed", Formatting.duration(now - job.startedAtMs()),
+        lines.add(Text.translatable("ae2declogger.tooltip.elapsed", Formatting.duration(now - job.startedAtMs()),
                 job.expectedMs() > 0 ? Formatting.duration(job.expectedMs()) : "-").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("ae2declogger.tooltip.idle",
+        lines.add(Text.translatable("ae2declogger.tooltip.idle",
                 Formatting.duration(now - job.lastActivityAtMs())).withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("ae2declogger.tooltip.cpu", job.cpuName(), job.coProcessors(),
+        lines.add(Text.translatable("ae2declogger.tooltip.cpu", job.cpuName(), job.coProcessors(),
                 Formatting.compactAmount(job.cpuStorage())).withStyle(ChatFormatting.DARK_GRAY));
         MachineRef m = job.primaryMachine();
         if (m != null) {
             lines.add(machineLine(m));
         }
-        lines.add(Component.translatable("ae2declogger.tooltip.click_job").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(Text.translatable("ae2declogger.tooltip.click_job").withStyle(ChatFormatting.DARK_GRAY));
         return lines;
     }
 
     private List<Component> stepTooltip(StepView step, long now) {
         List<Component> lines = new ArrayList<>();
         lines.add(step.key().getDisplayName());
-        lines.add(Component.translatable("ae2declogger.step.counts.long", UiUtil.amount(step.key(), step.stored()),
+        lines.add(Text.translatable("ae2declogger.step.counts.long", UiUtil.amount(step.key(), step.stored()),
                 UiUtil.amount(step.key(), step.active()), UiUtil.amount(step.key(), step.pending()))
                 .withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("ae2declogger.tooltip.state", UiUtil.stateLabel(step.state())));
+        lines.add(Text.translatable("ae2declogger.tooltip.state", UiUtil.stateLabel(step.state())));
         if (step.reason() != com.syhros.ae2declogger.logic.BlockReason.NONE) {
             lines.add(UiUtil.reasonText(step.reason(), step.detail()).copy()
                     .withStyle(s -> s.withColor(UiUtil.reasonColor(step.reason(), step.state()) & 0xFFFFFF)));
         }
         if (step.sinceMs() > 0) {
-            lines.add(Component.translatable("ae2declogger.tooltip.unchanged",
+            lines.add(Text.translatable("ae2declogger.tooltip.unchanged",
                     Formatting.duration(now - step.sinceMs())).withStyle(ChatFormatting.GRAY));
         }
         if (step.recipeMs() > 0) {
-            lines.add(Component.translatable("ae2declogger.tooltip.recipe_time", Formatting.duration(step.recipeMs()))
+            lines.add(Text.translatable("ae2declogger.tooltip.recipe_time", Formatting.duration(step.recipeMs()))
                     .withStyle(ChatFormatting.GRAY));
         }
         for (MachineRef m : step.machines()) {
             lines.add(machineLine(m));
         }
         if (!step.machines().isEmpty()) {
-            lines.add(Component.translatable("ae2declogger.tooltip.click_step").withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Text.translatable("ae2declogger.tooltip.click_step").withStyle(ChatFormatting.DARK_GRAY));
         }
         return lines;
     }
 
     private static Component machineLine(MachineRef m) {
-        Component status = Component.translatable(m.status().translationKey())
+        Component status = Text.translatable(m.status().translationKey())
                 .withStyle(s -> s.withColor(m.status().color()));
-        var line = Component.translatable("ae2declogger.tooltip.machine", m.name(), UiUtil.coords(m), status);
+        var line = Text.translatable("ae2declogger.tooltip.machine", m.name(), UiUtil.coords(m), status);
         if (m.hasProblem()) {
             line.append(" - ").append(UiUtil.reasonText(m.problem(), m.detail()).copy()
                     .withStyle(ChatFormatting.RED));
@@ -741,7 +742,7 @@ public class DecloggerScreen extends Screen {
             line.append(" - ").append(m.detail());
         }
         if (m.duration() > 0) {
-            line.append(Component.literal(String.format(Locale.ROOT, " (%.1fs/%.1fs)", m.progress() / 20.0,
+            line.append(Text.literal(String.format(Locale.ROOT, " (%.1fs/%.1fs)", m.progress() / 20.0,
                     m.duration() / 20.0)).withStyle(ChatFormatting.DARK_GRAY));
         }
         return line;
@@ -752,7 +753,7 @@ public class DecloggerScreen extends Screen {
         int x = left + 6;
         int w = panelW - 16;
         if (history.isEmpty()) {
-            g.drawCenteredString(font, Component.translatable("ae2declogger.history.empty"), left + panelW / 2,
+            g.drawCenteredString(font, Text.translatable("ae2declogger.history.empty"), left + panelW / 2,
                     contentTop + 20, UiUtil.TEXT_DIM);
             return null;
         }
@@ -776,16 +777,16 @@ public class DecloggerScreen extends Screen {
             g.fill(x, y, x + 2, y + ROW - 1, e.isStep() ? 0xFF3A6F78 : 0xFF000000 | state.color());
             UiUtil.key(g, e.output(), x + 5, y + 2);
             Component label = e.isStep()
-                    ? Component.translatable("ae2declogger.history.step").withStyle(s -> s.withColor(0x7FB8C2))
+                    ? Text.translatable("ae2declogger.history.step").withStyle(s -> s.withColor(0x7FB8C2))
                     : UiUtil.stateLabel(state);
             int lw = font.width(label);
-            UiUtil.text(g, font, Component.translatable("ae2declogger.amount_of", e.output().getDisplayName(),
+            UiUtil.text(g, font, Text.translatable("ae2declogger.amount_of", e.output().getDisplayName(),
                     UiUtil.amount(e.output(), e.amount())), x + 24, y + 2, w - 30 - lw - 6, UiUtil.TEXT);
             g.drawString(font, label, x + w - 4 - lw, y + 2, 0xFFFFFFFF, false);
             Component line2 = e.isStep()
-                    ? Component.translatable("ae2declogger.history.step_line", Formatting.duration(e.durationMs()),
+                    ? Text.translatable("ae2declogger.history.step_line", Formatting.duration(e.durationMs()),
                             UiUtil.ago(now - e.finishedAtMs()), e.partOf().getDisplayName())
-                    : Component.translatable("ae2declogger.history.line", Formatting.duration(e.durationMs()),
+                    : Text.translatable("ae2declogger.history.line", Formatting.duration(e.durationMs()),
                             UiUtil.ago(now - e.finishedAtMs()), e.cpuName());
             UiUtil.text(g, font, line2, x + 24, y + 12, w - 30, UiUtil.TEXT_DIM);
             if (hover) {
@@ -811,7 +812,7 @@ public class DecloggerScreen extends Screen {
         int x = left + 6;
         int w = panelW - 16;
         if (stats.isEmpty()) {
-            g.drawCenteredString(font, Component.translatable("ae2declogger.stats.empty"), left + panelW / 2,
+            g.drawCenteredString(font, Text.translatable("ae2declogger.stats.empty"), left + panelW / 2,
                     contentTop + 20, UiUtil.TEXT_DIM);
             return null;
         }
@@ -826,24 +827,24 @@ public class DecloggerScreen extends Screen {
             UiUtil.key(g, row.key(), x + 5, y + 2);
             int rate = (int) Math.round(row.successRate() * 100);
             // Items only ever made as a step of another job have no runs of their own.
-            Component right = row.jobs() == 0 ? Component.translatable("ae2declogger.stats.steps", row.steps())
-                    : row.steps() > 0 ? Component.translatable("ae2declogger.stats.jobs_steps", row.jobs(), rate,
+            Component right = row.jobs() == 0 ? Text.translatable("ae2declogger.stats.steps", row.steps())
+                    : row.steps() > 0 ? Text.translatable("ae2declogger.stats.jobs_steps", row.jobs(), rate,
                             row.steps())
-                    : Component.translatable("ae2declogger.stats.jobs", row.jobs(), rate);
+                    : Text.translatable("ae2declogger.stats.jobs", row.jobs(), rate);
             int rw = font.width(right);
             UiUtil.text(g, font, row.key().getDisplayName(), x + 24, y + 2, w - 30 - rw - 6, UiUtil.TEXT);
             g.drawString(font, right, x + w - 4 - rw, y + 2, row.jobs() == 0 ? 0xFF7FB8C2 : rate >= 90 ? 0xFF55FF55
                     : rate >= 50 ? 0xFFFFDD33 : 0xFFFF5555, false);
             Component line2;
             if (row.jobs() == 0) {
-                line2 = Component.translatable("ae2declogger.stats.step_line", Formatting.duration(row.stepAvgMs()),
+                line2 = Text.translatable("ae2declogger.stats.step_line", Formatting.duration(row.stepAvgMs()),
                         perItem(row.stepMsPerUnit()), Formatting.compactAmount(row.totalAmount()));
             } else {
-                line2 = Component.translatable("ae2declogger.stats.line", Formatting.duration(row.avgDurationMs()),
+                line2 = Text.translatable("ae2declogger.stats.line", Formatting.duration(row.avgDurationMs()),
                         Formatting.duration(row.bestDurationMs()), perItem(row.msPerUnit()),
                         Formatting.compactAmount(row.totalAmount()));
                 if (row.steps() > 0) {
-                    line2 = line2.copy().append(Component.translatable("ae2declogger.stats.step_suffix",
+                    line2 = line2.copy().append(Text.translatable("ae2declogger.stats.step_suffix",
                             perItem(row.stepMsPerUnit())));
                 }
             }
@@ -861,7 +862,7 @@ public class DecloggerScreen extends Screen {
         int w = panelW - 16;
         List<PinManager.Pin> pins = PinManager.pins();
         if (pins.isEmpty()) {
-            g.drawCenteredString(font, Component.translatable("ae2declogger.pins.empty"), left + panelW / 2,
+            g.drawCenteredString(font, Text.translatable("ae2declogger.pins.empty"), left + panelW / 2,
                     contentTop + 20, UiUtil.TEXT_DIM);
             return null;
         }
@@ -887,11 +888,11 @@ public class DecloggerScreen extends Screen {
             if (player != null && Mc.level(player).dimension().location().toString().equals(pin.dimension)) {
                 distance = Math.round(Math.sqrt(player.blockPosition().distSqr(pin.pos()))) + "m";
             }
-            Component right = Component.literal((pin == active ? "▶ " : "") + distance);
+            Component right = Text.literal((pin == active ? "▶ " : "") + distance);
             int rw = font.width(right);
-            UiUtil.text(g, font, Component.literal(pin.label), x + 20, y + 2, w - 26 - rw - 6, UiUtil.TEXT);
+            UiUtil.text(g, font, Text.literal(pin.label), x + 20, y + 2, w - 26 - rw - 6, UiUtil.TEXT);
             g.drawString(font, right, x + w - 4 - rw, y + 2, pin == active ? 0xFF55FF55 : UiUtil.TEXT_DIM, false);
-            UiUtil.text(g, font, Component.literal(pin.x + " " + pin.y + " " + pin.z + "  " + pin.dimension),
+            UiUtil.text(g, font, Text.literal(pin.x + " " + pin.y + " " + pin.z + "  " + pin.dimension),
                     x + 20, y + 12, w - 26, UiUtil.TEXT_DIM);
         }
         g.disableScissor();

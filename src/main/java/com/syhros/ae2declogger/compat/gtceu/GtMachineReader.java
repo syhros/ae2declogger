@@ -26,6 +26,7 @@ import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.multiblock.WorkableElectricMultiblockMachine;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.data.MachineSnapshot;
 import com.syhros.ae2declogger.data.MachineStatus;
 import com.syhros.ae2declogger.logic.BlockReason;
@@ -67,7 +68,7 @@ final class GtMachineReader {
         if (!(machine instanceof IRecipeLogicMachine) && machine instanceof IMultiPart part) {
             IMultiController controller = firstController(part);
             if (controller == null) {
-                Component msg = Component.translatable("ae2declogger.gt.part_without_controller");
+                Component msg = Text.translatable("ae2declogger.gt.part_without_controller");
                 errors.add(msg);
                 return new GtMachineInfo(name, MachineStatus.NOT_FORMED, BlockReason.MACHINE_NOT_FORMED, msg, -1,
                         -1, null, -1, -1, "", errors);
@@ -88,7 +89,7 @@ final class GtMachineReader {
             formed = false;
             status = MachineStatus.NOT_FORMED;
             problem = BlockReason.MACHINE_NOT_FORMED;
-            detail = Component.translatable("ae2declogger.gt.not_formed");
+            detail = Text.translatable("ae2declogger.gt.not_formed");
             errors.add(detail);
         } else if (worker instanceof IRecipeLogicMachine recipeMachine) {
             RecipeLogic logic = recipeMachine.getRecipeLogic();
@@ -105,13 +106,13 @@ final class GtMachineReader {
                     duration = logic.getDuration();
                     detail = logic.getWaitingReason();
                     errors.add(detail != null
-                            ? Component.translatable("ae2declogger.gt.waiting", detail)
-                            : Component.translatable("ae2declogger.gt.waiting_unknown"));
+                            ? Text.translatable("ae2declogger.gt.waiting", detail)
+                            : Text.translatable("ae2declogger.gt.waiting_unknown"));
                 }
                 case SUSPEND -> {
                     status = MachineStatus.SUSPENDED;
                     problem = BlockReason.MACHINE_DISABLED;
-                    detail = Component.translatable("ae2declogger.gt.disabled");
+                    detail = Text.translatable("ae2declogger.gt.disabled");
                     errors.add(detail);
                 }
                 default -> {
@@ -121,7 +122,7 @@ final class GtMachineReader {
                         problem = BlockReason.MACHINE_NO_RECIPE;
                         detail = failures.get(0);
                         for (Component f : failures) {
-                            errors.add(Component.translatable("ae2declogger.gt.recipe_failed", f));
+                            errors.add(Text.translatable("ae2declogger.gt.recipe_failed", f));
                         }
                     }
                 }
@@ -129,7 +130,7 @@ final class GtMachineReader {
             if (!logic.isWorkingEnabled() && status != MachineStatus.SUSPENDED) {
                 status = MachineStatus.SUSPENDED;
                 problem = BlockReason.stronger(problem, BlockReason.MACHINE_DISABLED);
-                errors.add(Component.translatable("ae2declogger.gt.disabled"));
+                errors.add(Text.translatable("ae2declogger.gt.disabled"));
             }
         }
 
@@ -137,7 +138,7 @@ final class GtMachineReader {
             for (IMultiPart p : controller.getParts()) {
                 if (p instanceof IMaintenanceMachine maintenance && maintenance.hasMaintenanceProblems()) {
                     problem = BlockReason.stronger(problem, BlockReason.MACHINE_MAINTENANCE);
-                    errors.add(Component.translatable("ae2declogger.gt.maintenance",
+                    errors.add(Text.translatable("ae2declogger.gt.maintenance",
                             String.valueOf(maintenance.getNumMaintenanceProblems())));
                     break;
                 }
@@ -152,7 +153,7 @@ final class GtMachineReader {
             euCapacity = energy.getEnergyCapacity();
             long oneTick = Math.max(1, energy.getInputVoltage());
             if (euCapacity > 0 && status != MachineStatus.WORKING && euStored < oneTick) {
-                Component msg = Component.translatable("ae2declogger.gt.no_energy", String.valueOf(euStored),
+                Component msg = Text.translatable("ae2declogger.gt.no_energy", String.valueOf(euStored),
                         String.valueOf(euCapacity));
                 errors.add(0, msg);
                 problem = BlockReason.MACHINE_NO_POWER;
@@ -170,7 +171,7 @@ final class GtMachineReader {
 
         // Full output buses are a common reason for a multiblock to wait.
         if (formed && worker instanceof IRecipeCapabilityHolder holder && outputsFull(holder)) {
-            Component msg = Component.translatable("ae2declogger.gt.output_full");
+            Component msg = Text.translatable("ae2declogger.gt.output_full");
             errors.add(msg);
             if (problem == BlockReason.NONE || problem == BlockReason.MACHINE_WAITING) {
                 problem = BlockReason.MACHINE_OUTPUT_FULL;
@@ -243,11 +244,11 @@ final class GtMachineReader {
             MachineSnapshot.SectionKind fluidKind = input ? MachineSnapshot.SectionKind.FLUID_INPUT
                     : output ? MachineSnapshot.SectionKind.FLUID_OUTPUT : MachineSnapshot.SectionKind.FLUIDS;
             if (!items.isEmpty()) {
-                out.add(new MachineSnapshot.Section(itemKind, Component.translatable(
+                out.add(new MachineSnapshot.Section(itemKind, Text.translatable(
                         "ae2declogger.viewer.section." + itemKind.name().toLowerCase(java.util.Locale.ROOT)), items));
             }
             if (!fluids.isEmpty()) {
-                out.add(new MachineSnapshot.Section(fluidKind, Component.translatable(
+                out.add(new MachineSnapshot.Section(fluidKind, Text.translatable(
                         "ae2declogger.viewer.section." + fluidKind.name().toLowerCase(java.util.Locale.ROOT)), fluids));
             }
         }

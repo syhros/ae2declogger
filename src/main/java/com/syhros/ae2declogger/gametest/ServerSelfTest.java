@@ -22,6 +22,11 @@ import com.syhros.ae2declogger.server.MachineInspector;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.server.ServerLifecycleHooks;
+//#else
+import net.minecraftforge.server.ServerLifecycleHooks;
+//#endif
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
@@ -110,7 +115,7 @@ public final class ServerSelfTest {
     //#endif
         ticks++;
         total++;
-        server = event.getServer();
+        server = ServerLifecycleHooks.getCurrentServer();
         try {
             step(server);
         } catch (RuntimeException | LinkageError e) {
@@ -189,8 +194,7 @@ public final class ServerSelfTest {
                     return;
                 }
                 try {
-                    var result = grid(level).getCraftingService().submitJob(plan.get(), null, null, false,
-                            IActionSource.empty());
+                    var result = TestNetwork.submit(grid(level).getCraftingService(), plan.get());
                     if (!result.successful()) {
                         done(false, "job not accepted: " + result.errorCode());
                         return;

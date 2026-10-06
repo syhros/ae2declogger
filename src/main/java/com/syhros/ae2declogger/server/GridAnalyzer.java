@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.JobView;
 import com.syhros.ae2declogger.data.MachineRef;
@@ -132,7 +133,7 @@ public final class GridAnalyzer {
                 CpuAccess access = CpuAccess.of(cpu);
                 ICraftingLink link = access.link();
                 Component cpuName = cpu.getName() != null ? cpu.getName()
-                        : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
+                        : Text.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
                 long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
                 GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
                         status.crafting(), cpuName, nowMs - elapsedMs, link, nowMs);
@@ -251,7 +252,7 @@ public final class GridAnalyzer {
         CpuAccess access = CpuAccess.of(cpu);
         ICraftingLink link = access.link();
         Component cpuName = cpu.getName() != null ? cpu.getName()
-                : Component.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
+                : Text.translatable("ae2declogger.cpu.numbered", String.valueOf(number));
         long elapsedMs = Math.max(0, status.elapsedTimeNanos() / 1_000_000L);
         GridTracker.CpuTrack track = tracker.trackFor(cpu, link != null ? link.getCraftingID() : null,
                 status.crafting(), cpuName, now - elapsedMs, link, now);
@@ -746,16 +747,16 @@ public final class GridAnalyzer {
     private static Component lockText(ProviderIndex.ProviderState logic) {
         LockCraftingMode mode = logic.lockReason();
         return switch (mode) {
-            case LOCK_WHILE_LOW -> Component.translatable("ae2declogger.lock.while_low");
-            case LOCK_WHILE_HIGH -> Component.translatable("ae2declogger.lock.while_high");
-            case LOCK_UNTIL_PULSE -> Component.translatable("ae2declogger.lock.until_pulse");
+            case LOCK_WHILE_LOW -> Text.translatable("ae2declogger.lock.while_low");
+            case LOCK_WHILE_HIGH -> Text.translatable("ae2declogger.lock.while_high");
+            case LOCK_UNTIL_PULSE -> Text.translatable("ae2declogger.lock.until_pulse");
             case LOCK_UNTIL_RESULT -> {
                 GenericStack unlock = logic.unlockStack();
                 yield unlock != null
-                        ? Component.translatable("ae2declogger.lock.until_result", unlock.what().getDisplayName())
-                        : Component.translatable("ae2declogger.lock.until_result_unknown");
+                        ? Text.translatable("ae2declogger.lock.until_result", unlock.what().getDisplayName())
+                        : Text.translatable("ae2declogger.lock.until_result_unknown");
             }
-            default -> Component.literal(mode.name());
+            default -> Text.literal(mode.name());
         };
     }
 }

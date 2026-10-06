@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.data.GridSummary;
 import com.syhros.ae2declogger.data.HistoryEntry;
 import com.syhros.ae2declogger.data.JobView;
@@ -23,7 +24,7 @@ public final class ClientState {
 
     private static final int MAX_HISTORY = 2000;
 
-    public static Component title = Component.empty();
+    public static Component title = Text.empty();
     @Nullable
     public static GridSummary summary;
     public static final LinkedHashMap<Long, JobView> JOBS = new LinkedHashMap<>();

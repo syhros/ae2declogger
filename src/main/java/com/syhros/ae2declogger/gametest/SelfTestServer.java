@@ -14,6 +14,11 @@ import com.syhros.ae2declogger.server.NetworkMemory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
+//#if NEOFORGE
+//$$ import net.neoforged.neoforge.server.ServerLifecycleHooks;
+//#else
+import net.minecraftforge.server.ServerLifecycleHooks;
+//#endif
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -130,7 +135,7 @@ public final class SelfTestServer {
             return;
         }
     //#endif
-        MinecraftServer server = event.getServer();
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         try {
             step(server);
         } catch (RuntimeException e) {
@@ -200,8 +205,7 @@ public final class SelfTestServer {
                 for (Future<ICraftingPlan> f : PLANS) {
                     try {
                         ICraftingPlan plan = f.get();
-                        var result = grid.getCraftingService().submitJob(plan, null, null, false,
-                                IActionSource.empty());
+                        var result = TestNetwork.submit(grid.getCraftingService(), plan);
                         if (!result.successful()) {
                             fail("job not accepted: " + result.errorCode() + "; missing "
                                     + TestNetwork.describe(plan.missingItems()) + "; network has "

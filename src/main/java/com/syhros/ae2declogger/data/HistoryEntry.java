@@ -2,6 +2,7 @@ package com.syhros.ae2declogger.data;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.network.Bufs;
 
 //#if MC >= 1.20.5
@@ -113,6 +114,6 @@ public record HistoryEntry(AEKey output, long amount, long durationMs, boolean c
         AEKey parent = t.contains("of") ? AEKey.fromTagGeneric(t.getCompound("of")) : null;
         //#endif
         return new HistoryEntry(key, t.getLong("amount"), t.getLong("ms"), t.getBoolean("done"), t.getLong("at"),
-                cpu != null ? cpu : Component.empty(), parent);
+                cpu != null ? cpu : Text.empty(), parent);
     }
 }

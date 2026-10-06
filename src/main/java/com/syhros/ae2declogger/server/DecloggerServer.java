@@ -14,6 +14,7 @@ import java.util.WeakHashMap;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.config.DeclogConfig;
@@ -119,13 +120,13 @@ public final class DecloggerServer {
         if (fromTerminal) {
             IGridNode node = menuNode(player.containerMenu);
             if (node != null) {
-                Component title = Component.translatable("ae2declogger.monitor.title_terminal");
+                Component title = Text.translatable("ae2declogger.monitor.title_terminal");
                 // Close the terminal first so the client is not left with a dangling container.
                 player.closeContainer();
                 openMonitor(player, GridSource.ofNode(node, title));
                 return;
             }
-            player.displayClientMessage(Component.translatable("ae2declogger.error.no_terminal")
+            player.displayClientMessage(Text.translatable("ae2declogger.error.no_terminal")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
@@ -134,16 +135,16 @@ public final class DecloggerServer {
                 && GridHelper.getNodeHost(Mc.level(player), blockHit.getBlockPos()) != null) {
             GlobalPos pos = GlobalPos.of(Mc.level(player).dimension(), blockHit.getBlockPos());
             openMonitor(player, GridSource.ofLink(pos, blockHit.getDirection(),
-                    Component.translatable("ae2declogger.monitor.title")));
+                    Text.translatable("ae2declogger.monitor.title")));
             return;
         }
         GlobalPos last = NetworkMemory.last(player);
         if (last == null) {
-            player.displayClientMessage(Component.translatable("ae2declogger.error.no_network")
+            player.displayClientMessage(Text.translatable("ae2declogger.error.no_network")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
-        openMonitor(player, GridSource.ofLink(last, null, Component.translatable("ae2declogger.monitor.title")));
+        openMonitor(player, GridSource.ofLink(last, null, Text.translatable("ae2declogger.monitor.title")));
     }
 
     /** The grid node behind an open AE2 screen (terminal, wireless terminal, crafting CPU or status screen). */
@@ -178,7 +179,7 @@ public final class DecloggerServer {
         if (node == null) {
             return;
         }
-        GridSource source = GridSource.ofNode(node, Component.translatable("ae2declogger.monitor.title_terminal"));
+        GridSource source = GridSource.ofNode(node, Text.translatable("ae2declogger.monitor.title_terminal"));
         GridSource.Resolved resolved = source.resolve(player);
         if (resolved.grid() == null) {
             return;
@@ -285,7 +286,7 @@ public final class DecloggerServer {
                             ex);
                     MONITORS.remove(e.getKey());
                     DeclogNetwork.sendTo(player, new DeclogNetwork.MonitorClosed(
-                            Component.translatable("ae2declogger.error.internal")));
+                            Text.translatable("ae2declogger.error.internal")));
                 }
             }
         }
@@ -460,7 +461,7 @@ public final class DecloggerServer {
             ALERTS.remove(player.getUUID());
             return;
         }
-        GridSource.Resolved resolved = GridSource.ofLink(target, null, Component.empty()).resolve(player);
+        GridSource.Resolved resolved = GridSource.ofLink(target, null, Text.empty()).resolve(player);
         if (resolved.grid() == null) {
             return;
         }
@@ -492,7 +493,7 @@ public final class DecloggerServer {
         if (target == null) {
             return false;
         }
-        return GridSource.ofLink(target, null, Component.empty()).resolve(player).grid() == grid;
+        return GridSource.ofLink(target, null, Text.empty()).resolve(player).grid() == grid;
     }
 
     /** The bell button in the monitor: alerts on or off for the network the monitor shows. */
@@ -508,7 +509,7 @@ public final class DecloggerServer {
                 pos = sub.source.link();
             }
             if (pos == null) {
-                player.displayClientMessage(Component.translatable("ae2declogger.error.alerts_no_position")
+                player.displayClientMessage(Text.translatable("ae2declogger.error.alerts_no_position")
                         .withStyle(ChatFormatting.RED), true);
                 return;
             }
@@ -517,7 +518,7 @@ public final class DecloggerServer {
             NetworkMemory.setAlerts(player, null);
             ALERTS.remove(player.getUUID());
         }
-        player.displayClientMessage(Component.translatable(
+        player.displayClientMessage(Text.translatable(
                 enable ? "ae2declogger.alerts_on" : "ae2declogger.alerts_off"), true);
         sendUpdate(player, sub, null, false);
     }
@@ -553,7 +554,7 @@ public final class DecloggerServer {
         boolean listed = sub != null && sub.allowed.contains(target);
         if (!listed && !player.hasPermissions(2)) {
             if (open) {
-                player.displayClientMessage(Component.translatable("ae2declogger.error.viewer_not_allowed")
+                player.displayClientMessage(Text.translatable("ae2declogger.error.viewer_not_allowed")
                         .withStyle(ChatFormatting.RED), true);
             }
             return;

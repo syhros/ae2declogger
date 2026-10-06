@@ -2,7 +2,6 @@ package com.syhros.ae2declogger.data;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.logic.BlockReason;
 
 import com.syhros.ae2declogger.network.Bufs;
@@ -34,25 +33,25 @@ public record MachineRef(ResourceKey<Level> dimension, BlockPos pos, Component n
     }
 
     public void write(FriendlyByteBuf buf) {
-        buf.writeResourceKey(dimension);
+        Bufs.writeDimension(buf, dimension);
         buf.writeBlockPos(pos);
         Bufs.writeComponent(buf, name);
         buf.writeEnum(kind);
         buf.writeEnum(status);
         buf.writeEnum(problem);
-        buf.writeNullable(detail, Bufs::writeComponent);
+        Bufs.writeNullable(buf, detail, Bufs::writeComponent);
         buf.writeVarInt(progress + 1);
         buf.writeVarInt(duration + 1);
     }
 
     public static MachineRef read(FriendlyByteBuf buf) {
-        ResourceKey<Level> dim = buf.readResourceKey(Mc.DIMENSIONS);
+        ResourceKey<Level> dim = Bufs.readDimension(buf);
         BlockPos pos = buf.readBlockPos();
         Component name = Bufs.readComponent(buf);
         Kind kind = buf.readEnum(Kind.class);
         MachineStatus status = buf.readEnum(MachineStatus.class);
         BlockReason problem = buf.readEnum(BlockReason.class);
-        Component detail = buf.readNullable(Bufs::readComponent);
+        Component detail = Bufs.readNullable(buf, Bufs::readComponent);
         int progress = buf.readVarInt() - 1;
         int duration = buf.readVarInt() - 1;
         return new MachineRef(dim, pos, name, kind, status, problem, detail, progress, duration);

@@ -2,6 +2,7 @@ package com.syhros.ae2declogger.client.screen;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.data.MachineRef;
 import com.syhros.ae2declogger.logic.BlockReason;
 import com.syhros.ae2declogger.logic.Formatting;
@@ -68,7 +69,7 @@ public final class UiUtil {
         }
         int ellipsis = font.width("...");
         FormattedText cut = font.substrByWidth(text, Math.max(0, maxWidth - ellipsis));
-        return Language.getInstance().getVisualOrder(FormattedText.composite(cut, Component.literal("...")));
+        return Language.getInstance().getVisualOrder(FormattedText.composite(cut, Text.literal("...")));
     }
 
     public static void key(Gfx g, AEKey key, int x, int y) {
@@ -76,11 +77,11 @@ public final class UiUtil {
     }
 
     public static MutableComponent stateLabel(JobState state) {
-        return Component.translatable(state.translationKey()).withStyle(s -> s.withColor(state.color()));
+        return Text.translatable(state.translationKey()).withStyle(s -> s.withColor(state.color()));
     }
 
     public static Component reasonText(BlockReason reason, @Nullable Component detail) {
-        MutableComponent text = Component.translatable(reason.translationKey());
+        MutableComponent text = Text.translatable(reason.translationKey());
         if (detail != null && !detail.getString().isEmpty()) {
             text = text.append(": ").append(detail);
         }
@@ -107,7 +108,7 @@ public final class UiUtil {
     }
 
     public static Component ago(long ms) {
-        return Component.translatable("ae2declogger.ago", Formatting.duration(ms));
+        return Text.translatable("ae2declogger.ago", Formatting.duration(ms));
     }
 
     /** Thin scrollbar on the right of a list area. */
