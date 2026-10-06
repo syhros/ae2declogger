@@ -133,8 +133,9 @@ public final class GtServerSelfTest {
                 //#else
                 BlockPos spawn = level.getSharedSpawnPos();
                 //#endif
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 3);
-                origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 3);
+                // Six blocks south of ServerSelfTest's network, which runs on the same server.
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 9);
+                origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 9);
                 level.setBlockAndUpdate(cell(), AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
                 level.setBlockAndUpdate(drive(), AEBlocks.DRIVE.block().defaultBlockState());
                 level.setBlockAndUpdate(origin.east(2), AEBlocks.CRAFTING_STORAGE_1K.block().defaultBlockState());

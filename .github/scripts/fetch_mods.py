@@ -16,8 +16,10 @@ import json
 import os
 import sys
 import time
+import tomllib
 import urllib.parse
 import urllib.request
+import zipfile
 
 MC, LOADER, PACK, DEST = sys.argv[1:5]
 API = "https://api.modrinth.com/v2"
@@ -100,9 +102,60 @@ def add(project, required):
             add(dep["project_id"], True)
 
 
+# Mod ids whose Modrinth project slug is not the id itself (or the id with - for _).
+SLUGS = {"architectury": "architectury-api", "cloth_config": "cloth-config"}
+BUILTIN = {"minecraft", "forge", "neoforge", "java", "fml", "javafml", "lowcodefml"}
+
+
+def jar_mods(path):
+    """(mod ids, mandatory dependency ids) from a jar's mods.toml / neoforge.mods.toml."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = [n for n in ("META-INF/neoforge.mods.toml", "META-INF/mods.toml") if n in z.namelist()]
+            if not names:
+                return set(), set()
+            data = tomllib.loads(z.read(names[0]).decode("utf8", "replace"))
+    except Exception as e:  # noqa: BLE001 - a jar we cannot read adds nothing
+        print(f"  could not read the mod list of {os.path.basename(path)}: {e}")
+        return set(), set()
+    ids = {m.get("modId") for m in data.get("mods", []) if m.get("modId")}
+    deps = set()
+    for entries in data.get("dependencies", {}).values():
+        for d in entries if isinstance(entries, list) else []:
+            if d.get("mandatory") is True or str(d.get("type", "")).lower() == "required":
+                deps.add(d.get("modId"))
+    return ids, deps - BUILTIN - {None}
+
+
+def add_jar_dependencies():
+    """Modrinth's dependency lists are incomplete for some older builds; follow what each jar itself requires."""
+    tried = set()
+    while True:
+        present, wanted = set(), set()
+        for name in os.listdir(DEST):
+            if name.endswith(".jar"):
+                ids, deps = jar_mods(os.path.join(DEST, name))
+                present |= ids
+                wanted |= deps
+        todo = sorted(wanted - present - tried)
+        if not todo:
+            for mod_id in sorted(wanted - present):
+                missing.append(f"{mod_id}: required by a downloaded mod, no build found for {MC} {LOADER}")
+            return
+        for mod_id in todo:
+            tried.add(mod_id)
+            slug = SLUGS.get(mod_id, mod_id.replace("_", "-"))
+            print(f"  {mod_id} is required by a downloaded jar, fetching {slug}")
+            try:
+                add(slug, True)
+            except Exception as e:  # noqa: BLE001 - reported as missing once the loop ends
+                print(f"  {slug}: {e}")
+
+
 print(f"Mods for {MC} {LOADER}, pack {PACK}:")
 for i, project in enumerate(PACKS[PACK]):
     add(project, i == 0)  # AE2 is required; add-ons a version lacks are skipped
+add_jar_dependencies()
 if PACK == "gtceu":
     if MC not in GTCEU:
         missing.append(f"gtceu: no build for {MC}")
