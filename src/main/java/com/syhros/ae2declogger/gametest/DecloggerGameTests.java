@@ -427,11 +427,16 @@ public final class DecloggerGameTests {
                     GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, net.cpu(), now, FAST, LIMITS);
                     GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(), now, FAST, LIMITS);
                 })
+                // Both trackers look at every tick, at the same moment, so they see the same changes (a tracker that
+                // looked only at the start would restart its stall timer on a change the other already saw).
                 .thenWaitUntil(() -> {
-                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(),
-                            System.currentTimeMillis(), FAST, LIMITS);
-                    Asserts.isTrue(helper, read.state() == JobState.STALLED, "waiting for the add-on CPU job to stall, have "
-                            + read.state());
+                    long now = System.currentTimeMillis();
+                    JobView real = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), nativeTracker, net.cpu(), now,
+                            FAST, LIMITS);
+                    JobView read = GridAnalyzer.analyzeCpuForTests(net.requireGrid(), addonTracker, addon.get(), now,
+                            FAST, LIMITS);
+                    Asserts.isTrue(helper, read.state() == JobState.STALLED && real.state() == JobState.STALLED,
+                            "waiting for both jobs to stall, have add-on " + read.state() + ", AE2 " + real.state());
                 })
                 .thenExecute(() -> {
                     CraftingCPUCluster cluster = (CraftingCPUCluster) net.cpu();
