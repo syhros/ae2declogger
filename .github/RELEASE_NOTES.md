@@ -14,6 +14,22 @@ Pick the jar for your Minecraft version below and put it in your `mods` folder. 
 
 GregTech CEu Modern is optional on 1.20.1. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
 
+## What's new in 1.5
+
+- **Machine status for the big tech mods.** When a job is stuck at one of their machines, the monitor and the machine viewer now say why:
+  - **Mekanism:** not enough energy, waiting for input, output full, no recipe, redstone off.
+  - **Ender IO:** no power, no capacitor, output full, redstone off.
+  - **Immersive Engineering:** redstone off, no energy, process queue full, read from the multiblock's IO block.
+  - **Modern Industrialization:** structure incomplete, redstone off, no EU, read from the input hatch.
+  - **Industrial Foregoing:** redstone off, no energy, cannot process.
+  - **Create:** not rotating, overstressed, too slow, basin with no mixer or press.
+  - **Powah:** Energizing Orb with no charged rods, or no recipe.
+  - **Oritech:** not assembled, redstone off, output full, no energy.
+  - **Iron Furnaces:** no fuel, no energy.
+- **Any machine** with an empty FE buffer is reported as having no power.
+- **Sided inventories:** machines that expose their inventory only on some sides now show it in the viewer.
+- Each integration switches itself off if a mod update renames what it reads, and CI checks them against the current release of every mod.
+
 ## What's new in 1.4
 
 - **More Minecraft versions.** The Declogger now runs on Forge 1.18.2, Forge 1.19.2, Forge 1.20.1, NeoForge 1.21.1 and NeoForge 26.1.2. Every version has the same features: the monitor, the crafting status overlay and Inspect, the machine viewer, pins, alerts, History and Stats.

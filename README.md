@@ -182,7 +182,22 @@ A GregTech machine that reports it is working never shows as Stalled, only as Sl
 - **AE2 add-ons.** Providers that use AE2's pattern provider logic (ExtendedAE's extended providers, for example) are fully supported. Add-on providers with their own logic class, like Advanced AE's advanced pattern providers, are read by name: their machines, blocking mode and lock reasons show up. GregTech's ME Pattern Buffer is supported; its multiblock controller is shown as the machine. Crafting CPUs from add-ons that keep AE2's crafting logic (MEGA Cells) show full detail.
 - **Advanced AE.** Quantum Computer CPUs show full detail too: steps, machines and block reasons. They are read by name (CI checks Advanced AE 1.1 to 1.3 on 1.20.1 and the newest releases for 1.21.1 and 26.1.2), and a job on one counts as done or cancelled from its crafting link, not from its CPU disappearing. A quantum computer keeps one CPU number for all its jobs. Other add-on CPUs show the job, progress and time only.
 - **GregTech CEu Modern** (1.20.1). Status, recipe progress, waiting and failure reasons, power, maintenance and formed state come from GT directly. If a different GT version has a different API, the GT part switches itself off with one log line and machines show generic info.
-- **Without GregTech.** Everything works; machines show their block name, inventory, tanks and FE energy.
+- **Other tech mods.** The monitor says why a machine from these mods is not working:
+
+  | Mod | What it reports |
+  |---|---|
+  | Mekanism | Its own recipe warnings (not enough energy, no input, output full, no recipe) and redstone off |
+  | Ender IO | Its machine states (no power, no capacitor, output full, redstone off) with Ender IO's own text |
+  | Immersive Engineering | The whole multiblock from its IO block: redstone off, no energy, process queue full |
+  | Modern Industrialization | Structure incomplete (resolved from the input hatch), redstone off, no EU, progress |
+  | Industrial Foregoing | Redstone off, no energy, cannot process |
+  | Create | Not rotating, overstressed, too slow; a basin with no mixer or press above it |
+  | Powah | Energizing Orb with no charged rods aimed at it, or no recipe |
+  | Oritech | Not assembled (resolved from a machine core), redstone off, output full, no energy |
+  | Iron Furnaces | No fuel, no energy (factory), progress |
+
+  These mods are read by name, not compiled against. If a mod update renames what the Declogger reads, that mod's integration switches itself off with one log line and its machines fall back to the generic view. CI checks every name against the current release of each mod on each Minecraft version.
+- **Any other machine.** Machines show their block name, inventory, tanks and FE energy. A machine whose FE buffer is empty is reported as having no power, and a machine that exposes its inventory only on some sides is still read.
 - **Other mods.** CI starts a real server on every version with AE2 and its popular add-ons together (Advanced AE, Extended AE, MEGA Cells, AE2 Wireless Terminals, Applied Flux, where they exist for that version) to catch conflicts.
 - The mod only reads AE2 state through AE2's public classes. It adds no mixins and changes nothing in AE2, Advanced AE or GregTech. It even avoids AE2's own provider lookup, because walking it would shift which provider AE2 picks next.
 
@@ -232,6 +247,7 @@ Every test below runs on every Minecraft version unless it says otherwise.
 - **Client self-test**: creates a world, builds a network with one stalled and one blocked job, drives the real screens over real packets (including AE2's crafting status screen and its Inspect popup), checks what they show and takes screenshots.
 - **Advanced AE check**: downloads Advanced AE 1.1, 1.2 and 1.3 for 1.20.1 and the newest releases for 1.21.1 and 26.1.2, and checks every class, field and method name the Declogger reads.
 - **Server smoke test**: boots a real dedicated server with the release jar, with AE2 alone, with AE2 and its popular add-ons, and on 1.20.1 with AE2 + GregTech CEu Modern 7.5.3.
+- **Machine integrations on a real server**: with the tech mods above installed (each where it exists for that version), every class and member name each integration reads must exist. One unpowered machine per mod is then placed and must be read by that mod's integration. Where the answer is certain, the reason must be right: a Create machine with no rotation, a basin with nothing above it, an iron furnace with ore and no fuel, an unpowered Mekanism machine.
 - **GregTech check on a real server** (1.20.1): with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
 
 All of these run in GitHub Actions on every pull request.
