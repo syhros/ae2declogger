@@ -169,5 +169,6 @@
   "key.ae2declogger.open": "Open crafting monitor",
   "key.ae2declogger.stop_navigation": "Stop navigating (clears the Go To outline)",
   "key.ae2declogger.toggle_pins": "Show/hide locator pins",
-  "key.categories.ae2declogger": "AE2 Declogger"
+  "key.categories.ae2declogger": "AE2 Declogger",
+  "key.category.ae2declogger.main": "AE2 Declogger"
 }

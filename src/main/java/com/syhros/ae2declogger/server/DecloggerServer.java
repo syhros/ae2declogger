@@ -126,7 +126,7 @@ public final class DecloggerServer {
                 openMonitor(player, GridSource.ofNode(node, title));
                 return;
             }
-            player.displayClientMessage(Text.translatable("ae2declogger.error.no_terminal")
+            Mc.message(player, Text.translatable("ae2declogger.error.no_terminal")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
@@ -140,7 +140,7 @@ public final class DecloggerServer {
         }
         GlobalPos last = NetworkMemory.last(player);
         if (last == null) {
-            player.displayClientMessage(Text.translatable("ae2declogger.error.no_network")
+            Mc.message(player, Text.translatable("ae2declogger.error.no_network")
                     .withStyle(ChatFormatting.RED), true);
             return;
         }
@@ -238,7 +238,7 @@ public final class DecloggerServer {
     public static void openMonitor(ServerPlayer player, GridSource source) {
         GridSource.Resolved resolved = source.resolve(player);
         if (resolved.error() != null) {
-            player.displayClientMessage(resolved.error().copy().withStyle(ChatFormatting.RED), true);
+            Mc.message(player, resolved.error().copy().withStyle(ChatFormatting.RED), true);
             return;
         }
         Subscription sub = new Subscription(source);
@@ -282,7 +282,7 @@ public final class DecloggerServer {
                 try {
                     sendUpdate(player, e.getValue(), null, false);
                 } catch (RuntimeException | LinkageError ex) {
-                    Ae2Declogger.LOG.error("AE2 Declogger update failed for {}", player.getGameProfile().getName(),
+                    Ae2Declogger.LOG.error("AE2 Declogger update failed for {}", Mc.name(player),
                             ex);
                     MONITORS.remove(e.getKey());
                     DeclogNetwork.sendTo(player, new DeclogNetwork.MonitorClosed(
@@ -364,7 +364,7 @@ public final class DecloggerServer {
             sub.lastSummary = null;
         }
         GridTracker tracker = tracker(grid);
-        GridAnalysis analysis = analysis(grid, tracker, player.server);
+        GridAnalysis analysis = analysis(grid, tracker, Mc.server(player));
 
         Map<Long, JobView> current = new LinkedHashMap<>();
         for (JobView job : analysis.jobs()) {
@@ -450,7 +450,7 @@ public final class DecloggerServer {
                 alertsFor(server, player);
             } catch (RuntimeException | LinkageError ex) {
                 // One broken network must not stop alerts for everyone else.
-                Ae2Declogger.LOG.debug("Alert check failed for {}", player.getGameProfile().getName(), ex);
+                Ae2Declogger.LOG.debug("Alert check failed for {}", Mc.name(player), ex);
             }
         }
     }
@@ -509,7 +509,7 @@ public final class DecloggerServer {
                 pos = sub.source.link();
             }
             if (pos == null) {
-                player.displayClientMessage(Text.translatable("ae2declogger.error.alerts_no_position")
+                Mc.message(player, Text.translatable("ae2declogger.error.alerts_no_position")
                         .withStyle(ChatFormatting.RED), true);
                 return;
             }
@@ -518,7 +518,7 @@ public final class DecloggerServer {
             NetworkMemory.setAlerts(player, null);
             ALERTS.remove(player.getUUID());
         }
-        player.displayClientMessage(Text.translatable(
+        Mc.message(player, Text.translatable(
                 enable ? "ae2declogger.alerts_on" : "ae2declogger.alerts_off"), true);
         sendUpdate(player, sub, null, false);
     }
@@ -539,11 +539,11 @@ public final class DecloggerServer {
      * for operators.
      */
     public static void requestMachine(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos, boolean open) {
-        ServerLevel level = player.server.getLevel(dimension);
+        ServerLevel level = Mc.server(player).getLevel(dimension);
         if (level == null) {
             return;
         }
-        long tick = player.server.getTickCount();
+        long tick = Mc.server(player).getTickCount();
         Long last = LAST_VIEW_REQUEST.get(player.getUUID());
         if (!open && last != null && tick - last < VIEWER_COOLDOWN_TICKS) {
             return; // refresh spam from a client
@@ -552,9 +552,9 @@ public final class DecloggerServer {
         GlobalPos target = GlobalPos.of(dimension, pos);
         Subscription sub = MONITORS.get(player.getUUID());
         boolean listed = sub != null && sub.allowed.contains(target);
-        if (!listed && !player.hasPermissions(2)) {
+        if (!listed && !Mc.isOperator(player)) {
             if (open) {
-                player.displayClientMessage(Text.translatable("ae2declogger.error.viewer_not_allowed")
+                Mc.message(player, Text.translatable("ae2declogger.error.viewer_not_allowed")
                         .withStyle(ChatFormatting.RED), true);
             }
             return;

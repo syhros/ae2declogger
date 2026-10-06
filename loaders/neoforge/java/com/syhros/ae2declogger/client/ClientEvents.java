@@ -1,6 +1,8 @@
 package com.syhros.ae2declogger.client;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
+import com.syhros.ae2declogger.client.pins.PinHud;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
@@ -9,12 +11,18 @@ import com.syhros.ae2declogger.config.DeclogConfig;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.client.Minecraft;
+//#if MC >= 26.1
+//$$ import net.minecraft.client.gui.GuiGraphicsExtractor;
+//$$ import net.minecraft.resources.Identifier;
+//#else
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+//#endif
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -22,7 +30,6 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 
 import appeng.client.gui.me.common.MEStorageScreen;
@@ -34,13 +41,20 @@ public final class ClientEvents {
     private ClientEvents() {
     }
 
+    //#if MC >= 26.1
+    //$$ @EventBusSubscriber(modid = Ae2Declogger.MOD_ID, value = Dist.CLIENT)
+    //#else
     @EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    //#endif
     public static final class ModBus {
         private ModBus() {
         }
 
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
+            //#if MC >= 26.1
+            //$$ event.registerCategory(KeyBindings.CATEGORY);
+            //#endif
             event.register(KeyBindings.OPEN_MONITOR);
             event.register(KeyBindings.STOP_NAVIGATION);
             event.register(KeyBindings.TOGGLE_PINS);
@@ -48,12 +62,16 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiLayersEvent event) {
-            event.registerAboveAll(Ae2Declogger.id("navigation"), (g, delta) -> PinRenderer.renderHud(new Gfx(g),
+            event.registerAboveAll(Ae2Declogger.id("navigation"), (g, delta) -> PinHud.render(new Gfx(g),
                     delta.getGameTimeDeltaPartialTick(false), g.guiWidth(), g.guiHeight()));
         }
     }
 
+    //#if MC >= 26.1
+    //$$ @EventBusSubscriber(modid = Ae2Declogger.MOD_ID, value = Dist.CLIENT)
+    //#else
     @EventBusSubscriber(modid = Ae2Declogger.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    //#endif
     public static final class ForgeBus {
         private ForgeBus() {
         }
@@ -62,6 +80,9 @@ public final class ClientEvents {
         public static void clientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             PinManager.tickTarget(mc.player);
+            //#if MC >= 26.1
+            //$$ PinRenderer.addGizmos();
+            //#endif
             while (KeyBindings.OPEN_MONITOR.consumeClick()) {
                 if (mc.player != null && mc.screen == null) {
                     DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(false));
@@ -71,7 +92,7 @@ public final class ClientEvents {
                 if (PinManager.active() != null) {
                     PinManager.setActive(null);
                     if (mc.player != null) {
-                        mc.player.displayClientMessage(Component.translatable("ae2declogger.pin.navigation_stopped"),
+                        Mc.message(mc.player, Component.translatable("ae2declogger.pin.navigation_stopped"),
                                 true);
                     }
                 }
@@ -79,18 +100,20 @@ public final class ClientEvents {
             while (KeyBindings.TOGGLE_PINS.consumeClick()) {
                 PinManager.toggleHidden();
                 if (mc.player != null) {
-                    mc.player.displayClientMessage(Component.translatable(PinManager.isHidden()
+                    Mc.message(mc.player, Component.translatable(PinManager.isHidden()
                             ? "ae2declogger.pin.hidden" : "ae2declogger.pin.shown"), true);
                 }
             }
         }
 
+        //#if MC < 26.1
         @SubscribeEvent
         public static void renderLevel(RenderLevelStageEvent event) {
             if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
                 PinRenderer.renderWorld(event.getPoseStack(), event.getCamera());
             }
         }
+        //#endif
 
         @SubscribeEvent
         public static void loggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
@@ -149,14 +172,23 @@ public final class ClientEvents {
 
     /** 16x16 button with the Declogger icon. */
     static final class IconButton extends Button {
+        //#if MC >= 26.1
+        //$$ private static final Identifier ICON = Ae2Declogger.id("textures/gui/button.png");
+        //#else
         private static final ResourceLocation ICON = Ae2Declogger.id("textures/gui/button.png");
+        //#endif
 
         IconButton(int x, int y, OnPress onPress) {
             super(x, y, 16, 16, Component.translatable("ae2declogger.terminal_button"), onPress, DEFAULT_NARRATION);
         }
 
         @Override
-        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 26.1
+        //$$ protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        //#else
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        //#endif
+            Gfx g = new Gfx(graphics);
             g.fill(getX(), getY(), getX() + width, getY() + height, isHoveredOrFocused() ? 0xFF5A6070 : 0xFF2C3038);
             g.renderOutline(getX(), getY(), width, height, 0xFF8A90A0);
             g.blit(ICON, getX(), getY(), 0, 0, 16, 16, 16, 16);

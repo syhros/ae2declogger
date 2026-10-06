@@ -84,9 +84,18 @@ public final class ServerSelfTest {
     private static final boolean EXIT = Boolean.getBoolean("ae2declogger.selfTestExit");
     private static MinecraftServer server;
     private static final Thresholds FAST = new Thresholds(500, 1500, 500, 2.0, 500);
-    private static final AEItemKey GRAVEL = AEItemKey.of(Items.GRAVEL);
-    private static final AEItemKey COBBLE = AEItemKey.of(Items.COBBLESTONE);
-    private static final AEItemKey STONE = AEItemKey.of(Items.STONE);
+    /**
+     * Item keys, in their own class so they are made on first use: this class is an event subscriber, loaded while
+     * mods are constructed, and 26.1 cannot make item stacks that early.
+     */
+    static final class Keys {
+        static final AEItemKey GRAVEL = AEItemKey.of(Items.GRAVEL);
+        static final AEItemKey COBBLE = AEItemKey.of(Items.COBBLESTONE);
+        static final AEItemKey STONE = AEItemKey.of(Items.STONE);
+
+        private Keys() {
+        }
+    }
     private static final int AMOUNT = 3;
 
     private static int stage;
@@ -143,10 +152,20 @@ public final class ServerSelfTest {
         ServerLevel level = server.overworld();
         switch (stage) {
             case 0 -> {
+                //#if MC >= 26.1
+                //$$ BlockPos spawn = level.getRespawnData().globalPos().pos();
+                //#else
+                BlockPos spawn = level.getSharedSpawnPos();
+                //#endif
+                if (ticks == 1) {
+                    // Newer versions keep no spawn chunks loaded; with nobody online the network would never tick.
+                    for (int dx = 0; dx <= 8; dx += 8) {
+                        level.setChunkForced((spawn.getX() + 3 + dx) >> 4, (spawn.getZ() + 3) >> 4, true);
+                    }
+                }
                 if (ticks < 40) {
                     return;
                 }
-                BlockPos spawn = level.getSharedSpawnPos();
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 3);
                 origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 3);
                 level.setBlockAndUpdate(origin, AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
@@ -158,11 +177,11 @@ public final class ServerSelfTest {
                         .addItems(AEItems.ITEM_CELL_1K.stack());
                 PatternProviderBlockEntity p = (PatternProviderBlockEntity) level.getBlockEntity(provider());
                 p.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
-                        new GenericStack[] { new GenericStack(COBBLE, 1) },
-                        new GenericStack[] { new GenericStack(STONE, 1) }));
+                        new GenericStack[] { new GenericStack(Keys.COBBLE, 1) },
+                        new GenericStack[] { new GenericStack(Keys.STONE, 1) }));
                 p.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
-                        new GenericStack[] { new GenericStack(GRAVEL, 1) },
-                        new GenericStack[] { new GenericStack(COBBLE, 1) }));
+                        new GenericStack[] { new GenericStack(Keys.GRAVEL, 1) },
+                        new GenericStack[] { new GenericStack(Keys.COBBLE, 1) }));
                 p.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
                 Ae2Declogger.LOG.info("Server self-test: built at {}", origin);
                 next();
@@ -171,11 +190,11 @@ public final class ServerSelfTest {
                 IGrid grid = grid(level);
                 if (grid == null || !grid.getEnergyService().isNetworkPowered()
                         || grid.getCraftingService().getCpus().isEmpty()
-                        || !grid.getCraftingService().isCraftable(STONE)) {
+                        || !grid.getCraftingService().isCraftable(Keys.STONE)) {
                     last = "network not ready";
                     return;
                 }
-                grid.getStorageService().getInventory().insert(GRAVEL, 16, Actionable.MODULATE,
+                grid.getStorageService().getInventory().insert(Keys.GRAVEL, 16, Actionable.MODULATE,
                         IActionSource.empty());
                 next();
             }
@@ -185,7 +204,7 @@ public final class ServerSelfTest {
                 }
                 IGrid grid = grid(level);
                 IActionSource source = IActionSource.ofMachine(grid::getPivot);
-                plan = grid.getCraftingService().beginCraftingCalculation(level, () -> source, STONE, AMOUNT,
+                plan = grid.getCraftingService().beginCraftingCalculation(level, () -> source, Keys.STONE, AMOUNT,
                         CalculationStrategy.REPORT_MISSING_ITEMS);
                 next();
             }
@@ -221,15 +240,15 @@ public final class ServerSelfTest {
                 if (job.state() != JobState.STALLED) {
                     return;
                 }
-                check(job.output().equals(STONE) && job.amount() == AMOUNT, "job " + job.output() + " x" + job.amount());
+                check(job.output().equals(Keys.STONE) && job.amount() == AMOUNT, "job " + job.output() + " x" + job.amount());
                 check(job.reason() == BlockReason.OUTPUT_NOT_RETURNING, "stall reason " + job.reason());
                 MachineRef m = job.primaryMachine();
                 check(m != null && m.pos().equals(chest()), "stalled job points at " + m);
-                MachineSnapshot snap = MachineInspector.snapshot(level, chest(), Set.of(GRAVEL), 108);
+                MachineSnapshot snap = MachineInspector.snapshot(level, chest(), Set.of(Keys.GRAVEL), 108);
                 boolean gravelSeen = snap.sections().stream().flatMap(s -> s.slots().stream())
-                        .anyMatch(s -> s.stack() != null && s.stack().what().equals(GRAVEL));
+                        .anyMatch(s -> s.stack() != null && s.stack().what().equals(Keys.GRAVEL));
                 check(gravelSeen, "machine viewer does not show the pushed gravel");
-                insert(level, COBBLE, AMOUNT); // the "machine" made the cobblestone
+                insert(level, Keys.COBBLE, AMOUNT); // the "machine" made the cobblestone
                 next();
             }
             case 5 -> {
@@ -239,7 +258,7 @@ public final class ServerSelfTest {
                     return;
                 }
                 analyze(level);
-                insert(level, STONE, AMOUNT);
+                insert(level, Keys.STONE, AMOUNT);
                 next();
             }
             case 6 -> {
@@ -261,13 +280,13 @@ public final class ServerSelfTest {
     }
 
     private static void checkHistory(String who, List<HistoryEntry> history) {
-        HistoryEntry job = history.stream().filter(e -> !e.isStep() && e.output().equals(STONE)).findFirst()
+        HistoryEntry job = history.stream().filter(e -> !e.isStep() && e.output().equals(Keys.STONE)).findFirst()
                 .orElse(null);
-        HistoryEntry step = history.stream().filter(e -> e.isStep() && e.output().equals(COBBLE)).findFirst()
+        HistoryEntry step = history.stream().filter(e -> e.isStep() && e.output().equals(Keys.COBBLE)).findFirst()
                 .orElse(null);
         check(job != null && job.completed() && job.amount() == AMOUNT, who + ": stone job entry " + job + " in "
                 + history);
-        check(step != null && step.amount() == AMOUNT && STONE.equals(step.partOf()), who + ": cobblestone step "
+        check(step != null && step.amount() == AMOUNT && Keys.STONE.equals(step.partOf()), who + ": cobblestone step "
                 + step + " in " + history);
     }
 

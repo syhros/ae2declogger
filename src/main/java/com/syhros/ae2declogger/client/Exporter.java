@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.data.HistoryEntry;
@@ -76,16 +77,16 @@ public final class Exporter {
         } catch (IOException e) {
             Ae2Declogger.LOG.warn("Export failed", e);
             if (mc.player != null) {
-                mc.player.displayClientMessage(Text.translatable("ae2declogger.export.failed", e.getMessage())
+                Mc.message(mc.player, Text.translatable("ae2declogger.export.failed", e.getMessage())
                         .withStyle(ChatFormatting.RED), false);
             }
             return null;
         }
         if (mc.player != null) {
-            mc.player.displayClientMessage(Text.translatable("ae2declogger.export.done",
+            Mc.message(mc.player, Text.translatable("ae2declogger.export.done",
                     Text.literal(file.getFileName().toString()).withStyle(Style.EMPTY
                             .withColor(ChatFormatting.AQUA).withUnderlined(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, file.toString())))),
+                            .withClickEvent(Text.openFileOnClick(file.toString())))),
                     false);
         }
         return file;

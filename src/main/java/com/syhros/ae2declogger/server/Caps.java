@@ -24,7 +24,8 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 /**
  * Item, fluid and energy access of a block entity, the way the loader provides it: Forge's capabilities on the block
- * entity, NeoForge's block capabilities on the level. Read-only callers only.
+ * entity, NeoForge's block capabilities on the level. NeoForge 26.1 moved to resource handlers; they are wrapped in the
+ * old interfaces, which the callers read.
  */
 public final class Caps {
 
@@ -33,7 +34,11 @@ public final class Caps {
 
     @Nullable
     public static IItemHandler items(BlockEntity be, @Nullable Direction side) {
-        //#if NEOFORGE
+        //#if MC >= 26.1
+        //$$ var raw = be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.Item.BLOCK,
+        //$$         be.getBlockPos(), be.getBlockState(), be, side);
+        //$$ return raw == null ? null : IItemHandler.of(raw);
+        //#elseif NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
         //#elseif MC >= 1.19.2
@@ -45,7 +50,11 @@ public final class Caps {
 
     @Nullable
     public static IFluidHandler fluids(BlockEntity be, @Nullable Direction side) {
-        //#if NEOFORGE
+        //#if MC >= 26.1
+        //$$ var raw = be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.Fluid.BLOCK,
+        //$$         be.getBlockPos(), be.getBlockState(), be, side);
+        //$$ return raw == null ? null : IFluidHandler.of(raw);
+        //#elseif NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.FluidHandler.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
         //#elseif MC >= 1.19.2
@@ -57,7 +66,11 @@ public final class Caps {
 
     @Nullable
     public static IEnergyStorage energy(BlockEntity be, @Nullable Direction side) {
-        //#if NEOFORGE
+        //#if MC >= 26.1
+        //$$ var raw = be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.Energy.BLOCK,
+        //$$         be.getBlockPos(), be.getBlockState(), be, side);
+        //$$ return raw == null ? null : IEnergyStorage.of(raw);
+        //#elseif NEOFORGE
         //$$ return be.getLevel() == null ? null : be.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK,
         //$$         be.getBlockPos(), be.getBlockState(), be, side);
         //#elseif MC >= 1.19.2

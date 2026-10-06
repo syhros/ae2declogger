@@ -30,7 +30,9 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.core.registries.Registries;
 //#endif
 import net.minecraft.world.Difficulty;
+//#if MC < 26.1
 import net.minecraft.world.level.GameRules;
+//#endif
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 //#if MC >= 1.19.3
@@ -102,7 +104,11 @@ public final class ClientSelfTest {
 
     private static void screenshot(String name) {
         Minecraft mc = mc();
+        //#if MC >= 26.1
+        //$$ Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), 1, msg -> LOG.add("shot " + name));
+        //#else
         Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), msg -> LOG.add("shot " + name));
+        //#endif
     }
 
     @Nullable
@@ -137,9 +143,20 @@ public final class ClientSelfTest {
             //#else
             //$$ mc().options.guiScale = 2;
             //#endif
+            //#if MC >= 26.1
+            //$$ mc().resizeGui();
+            //#else
             mc().resizeDisplay();
+            //#endif
             String name = "declogger-selftest-" + System.currentTimeMillis();
-            //#if MC >= 1.19.3
+            //#if MC >= 26.1
+            //$$ LevelSettings settings = new LevelSettings(name, GameType.CREATIVE,
+            //$$         new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true,
+            //$$         WorldDataConfiguration.DEFAULT);
+            //$$ mc().createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(1234L, false, false),
+            //$$         registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT)
+            //$$                 .value().createWorldDimensions(), null);
+            //#elseif MC >= 1.19.3
             LevelSettings settings = new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
                     new GameRules(), WorldDataConfiguration.DEFAULT);
             mc().createWorldOpenFlows().createFreshLevel(name, settings, new WorldOptions(1234L, false, false),
@@ -178,13 +195,13 @@ public final class ClientSelfTest {
                 () -> mc().screen instanceof CraftingCPUScreen<?> && ClientState.JOBS.containsKey(ClientState.focusJob),
                 () -> {
                     JobView focused = ClientState.JOBS.get(ClientState.focusJob);
-                    check(focused.output().equals(SelfTestServer.STONE),
+                    check(focused.output().equals(SelfTestServer.Keys.STONE),
                             "the screen's CPU is matched to the stone job");
                 });
-        then("stuck stone entry is framed", 10, () -> CraftingScreenOverlay.testHasFrame(SelfTestServer.STONE),
+        then("stuck stone entry is framed", 10, () -> CraftingScreenOverlay.testHasFrame(SelfTestServer.Keys.STONE),
                 () -> screenshot("01-ae2-crafting-screen-marked"));
         then("click the stone entry", 0, () -> true, () -> check(
-                CraftingScreenOverlay.testClickEntry(SelfTestServer.STONE), "clicking the stone entry selects it"));
+                CraftingScreenOverlay.testClickEntry(SelfTestServer.Keys.STONE), "clicking the stone entry selects it"));
         then("Inspect popup shown", 0, CraftingScreenOverlay::testPopupShown,
                 () -> screenshot("02-ae2-inspect-popup"));
         then("press Inspect", 2, () -> true,
@@ -192,9 +209,9 @@ public final class ClientSelfTest {
         then("monitor opened on the stone step", 0,
                 () -> monitor() != null && ClientState.summary != null && ClientState.pendingFocusJob < 0, () -> {
                     JobView selected = ClientState.JOBS.get(monitor().testSelectedJob());
-                    check(selected != null && selected.output().equals(SelfTestServer.STONE),
+                    check(selected != null && selected.output().equals(SelfTestServer.Keys.STONE),
                             "Inspect selected the stone job");
-                    check(SelfTestServer.STONE.equals(monitor().testSelectedStep()), "Inspect selected the stone step");
+                    check(SelfTestServer.Keys.STONE.equals(monitor().testSelectedStep()), "Inspect selected the stone step");
                 });
         then("monitor from Inspect shot", 5, () -> true, () -> screenshot("03-monitor-from-inspect"));
         then("close monitor", 5, () -> true, () -> mc().screen.onClose());
@@ -238,7 +255,7 @@ public final class ClientSelfTest {
                     MachineSnapshot snap = ClientState.machine;
                     check(snap.pos().equals(SelfTestServer.chestA()), "viewer opened chest A");
                     boolean hasCobble = snap.sections().stream().flatMap(s -> s.slots().stream())
-                            .anyMatch(s -> s.stack() != null && s.stack().what().equals(SelfTestServer.COBBLE)
+                            .anyMatch(s -> s.stack() != null && s.stack().what().equals(SelfTestServer.Keys.COBBLE)
                                     && s.stack().amount() == 4 && s.has(MachineSnapshot.FLAG_PATTERN_INPUT));
                     check(hasCobble, "viewer shows 4 cobblestone flagged as pattern input");
                     screenshot("06-machine-viewer");
@@ -251,7 +268,7 @@ public final class ClientSelfTest {
                 () -> SelfTestServer.STAGE.set(SelfTestServer.COMPLETE_STONE_REQUESTED));
         then("history updated", 20, () -> !ClientState.HISTORY.isEmpty(), () -> {
             var entry = ClientState.HISTORY.get(0);
-            check(entry.completed() && entry.output().equals(SelfTestServer.STONE) && entry.amount() == 4,
+            check(entry.completed() && entry.output().equals(SelfTestServer.Keys.STONE) && entry.amount() == 4,
                     "history has the completed stone job");
             check(job("Stone") == null, "finished job left the job list");
             monitor().testSwitchTab(1);

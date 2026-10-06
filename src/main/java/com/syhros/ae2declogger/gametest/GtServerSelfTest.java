@@ -128,7 +128,11 @@ public final class GtServerSelfTest {
                     done(false, "block " + FURNACE_ID + " not registered");
                     return;
                 }
+                //#if MC >= 26.1
+                //$$ BlockPos spawn = level.getRespawnData().globalPos().pos();
+                //#else
                 BlockPos spawn = level.getSharedSpawnPos();
+                //#endif
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, spawn.getX() + 3, spawn.getZ() + 3);
                 origin = new BlockPos(spawn.getX() + 3, y, spawn.getZ() + 3);
                 level.setBlockAndUpdate(cell(), AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());

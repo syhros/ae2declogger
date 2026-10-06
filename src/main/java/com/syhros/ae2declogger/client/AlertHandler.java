@@ -1,5 +1,6 @@
 package com.syhros.ae2declogger.client;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.client.screen.UiUtil;
 import com.syhros.ae2declogger.config.DeclogConfig;
@@ -42,17 +43,18 @@ public final class AlertHandler {
                 String coords = machine.pos().getX() + " " + machine.pos().getY() + " " + machine.pos().getZ();
                 msg.append(" ").append(Text.literal("[" + coords + "]").withStyle(Style.EMPTY
                         .withColor(ChatFormatting.AQUA)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, coords))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                Text.translatable("ae2declogger.alert.copy", machine.name())))));
+                        .withClickEvent(Text.copyOnClick(coords))
+                        .withHoverEvent(Text.showText(Text.translatable("ae2declogger.alert.copy", machine.name())))));
             }
-            mc.player.displayClientMessage(msg, false);
+            Mc.message(mc.player, msg, false);
         }
         if (cfg.alertsSound.get()) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(bell(), 0.7f, 0.9f));
         }
         if (cfg.alertsToast.get()) {
-            //#if MC >= 1.20.5
+            //#if MC >= 26.1
+            //$$ SystemToast.add(mc.getToastManager(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+            //#elseif MC >= 1.20.5
             //$$ SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
             //#else
             SystemToast.add(mc.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,

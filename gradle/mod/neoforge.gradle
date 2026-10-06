@@ -85,6 +85,6 @@ tasks.matching { it.name == 'runSelfTestServer' }.configureEach {
         dir.mkdirs()
         new File(dir, 'eula.txt').text = 'eula=true\n'
         new File(dir, 'server.properties').text = ['online-mode=false', 'level-type=minecraft\\:flat',
-                'spawn-protection=0', 'max-tick-time=-1'].join('\n') + '\n'
+                'spawn-protection=0', 'max-tick-time=-1', 'pause-when-empty-seconds=0'].join('\n') + '\n'
     }
 }

@@ -23,7 +23,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+//#if MC >= 26.1
+//$$ import net.minecraft.world.level.gamerules.GameRules;
+//#else
 import net.minecraft.world.level.GameRules;
+//#endif
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 //#if NEOFORGE
@@ -88,10 +92,19 @@ public final class SelfTestServer {
     static volatile String failure = "";
     static volatile BlockPos origin = BlockPos.ZERO;
 
-    static final AEItemKey COBBLE = AEItemKey.of(Items.COBBLESTONE);
-    static final AEItemKey STONE = AEItemKey.of(Items.STONE);
-    static final AEItemKey SAND = AEItemKey.of(Items.SAND);
-    static final AEItemKey GLASS = AEItemKey.of(Items.GLASS);
+    /**
+     * Item keys, in their own class so they are made on first use: this class is an event subscriber, loaded while
+     * mods are constructed, and 26.1 cannot make item stacks that early.
+     */
+    static final class Keys {
+        static final AEItemKey COBBLE = AEItemKey.of(Items.COBBLESTONE);
+        static final AEItemKey STONE = AEItemKey.of(Items.STONE);
+        static final AEItemKey SAND = AEItemKey.of(Items.SAND);
+        static final AEItemKey GLASS = AEItemKey.of(Items.GLASS);
+
+        private Keys() {
+        }
+    }
 
     private static final List<Future<ICraftingPlan>> PLANS = new ArrayList<>();
     private static int waitTicks;
@@ -166,12 +179,12 @@ public final class SelfTestServer {
                 }
                 if (grid == null || !grid.getEnergyService().isNetworkPowered()
                         || grid.getCraftingService().getCpus().size() < 2
-                        || !grid.getCraftingService().isCraftable(STONE)
-                        || !grid.getCraftingService().isCraftable(GLASS)) {
+                        || !grid.getCraftingService().isCraftable(Keys.STONE)
+                        || !grid.getCraftingService().isCraftable(Keys.GLASS)) {
                     return;
                 }
-                insert(grid, COBBLE, 32);
-                insert(grid, SAND, 32);
+                insert(grid, Keys.COBBLE, 32);
+                insert(grid, Keys.SAND, 32);
                 waitTicks = 0;
                 STAGE.set(INSERTED);
             }
@@ -184,9 +197,9 @@ public final class SelfTestServer {
                 PLANS.clear();
                 // AE2 only looks at patterns when the requester has a grid node.
                 IActionSource source = IActionSource.ofMachine(grid::getPivot);
-                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, STONE, 4,
+                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, Keys.STONE, 4,
                         CalculationStrategy.REPORT_MISSING_ITEMS));
-                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, GLASS, 2,
+                PLANS.add(grid.getCraftingService().beginCraftingCalculation(level, () -> source, Keys.GLASS, 2,
                         CalculationStrategy.REPORT_MISSING_ITEMS));
                 waitTicks = 0;
                 STAGE.set(CALCULATING);
@@ -230,7 +243,7 @@ public final class SelfTestServer {
             case COMPLETE_STONE_REQUESTED -> {
                 IGrid grid = grid(level);
                 if (grid != null) {
-                    insert(grid, STONE, 4);
+                    insert(grid, Keys.STONE, 4);
                 }
                 STAGE.set(STONE_COMPLETED);
             }
@@ -240,9 +253,16 @@ public final class SelfTestServer {
     }
 
     private static void build(ServerLevel level, ServerPlayer player) {
+        //#if MC >= 26.1
+        //$$ level.getGameRules().set(GameRules.ADVANCE_TIME, false, level.getServer());
+        //$$ level.getGameRules().set(GameRules.ADVANCE_WEATHER, false, level.getServer());
+        //$$ level.getServer().getCommands().performPrefixedCommand(
+        //$$         level.getServer().createCommandSourceStack().withSuppressedOutput(), "time set noon");
+        //#else
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, level.getServer());
         level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, level.getServer());
         level.setDayTime(6000);
+        //#endif
         BlockPos feet = player.blockPosition();
         origin = feet.offset(-2, 0, 5);
 
@@ -258,11 +278,11 @@ public final class SelfTestServer {
         ((DriveBlockEntity) level.getBlockEntity(drive())).getInternalInventory().addItems(AEItems.ITEM_CELL_4K.stack());
         PatternProviderBlockEntity a = (PatternProviderBlockEntity) level.getBlockEntity(providerA());
         a.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
-                new GenericStack[] { new GenericStack(COBBLE, 1) }, new GenericStack[] { new GenericStack(STONE, 1) }));
+                new GenericStack[] { new GenericStack(Keys.COBBLE, 1) }, new GenericStack[] { new GenericStack(Keys.STONE, 1) }));
         a.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.NO);
         PatternProviderBlockEntity b = (PatternProviderBlockEntity) level.getBlockEntity(providerB());
         b.getLogic().getPatternInv().addItems(TestNetwork.processingPattern(
-                new GenericStack[] { new GenericStack(SAND, 1) }, new GenericStack[] { new GenericStack(GLASS, 1) }));
+                new GenericStack[] { new GenericStack(Keys.SAND, 1) }, new GenericStack[] { new GenericStack(Keys.GLASS, 1) }));
         b.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
         ((ChestBlockEntity) level.getBlockEntity(chestB())).setItem(0, new ItemStack(Items.SAND, 3));
 
@@ -272,7 +292,12 @@ public final class SelfTestServer {
         NetworkMemory.setAlerts(player, network);
 
         // Stand back so the whole row and both chests are in view.
+        //#if MC >= 26.1
+        //$$ player.teleportTo(level, origin.getX() + 3.5, origin.getY(), origin.getZ() - 4.5, java.util.Set.of(), 0f, 20f,
+        //$$         true);
+        //#else
         player.teleportTo(level, origin.getX() + 3.5, origin.getY(), origin.getZ() - 4.5, 0f, 20f);
+        //#endif
     }
 
     /** Opens AE2's own crafting CPU screen for the CPU that runs the stone job, as right-clicking the CPU does. */
@@ -281,7 +306,7 @@ public final class SelfTestServer {
             if (level.getBlockEntity(pos) instanceof appeng.blockentity.crafting.CraftingBlockEntity unit
                     && unit.getCluster() != null) {
                 var job = unit.getCluster().craftingLogic.getFinalJobOutput();
-                if (job != null && job.what().equals(STONE)) {
+                if (job != null && job.what().equals(Keys.STONE)) {
                     return appeng.menu.MenuOpener.open(appeng.menu.me.crafting.CraftingCPUMenu.TYPE, player,
                             appeng.menu.locator.MenuLocators.forBlockEntity(unit));
                 }

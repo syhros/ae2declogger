@@ -4,6 +4,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 
 import net.minecraft.network.FriendlyByteBuf;
@@ -76,7 +77,7 @@ final class Channel {
         try {
             handler.accept(msg, player);
         } catch (RuntimeException | LinkageError e) {
-            Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(), player.getGameProfile().getName(),
+            Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(), Mc.name(player),
                     e);
         }
     }

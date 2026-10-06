@@ -1,8 +1,10 @@
 package com.syhros.ae2declogger.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.Text;
+import com.syhros.ae2declogger.client.pins.PinHud;
 import com.syhros.ae2declogger.client.pins.PinManager;
 import com.syhros.ae2declogger.client.pins.PinRenderer;
 import com.syhros.ae2declogger.client.screen.DecloggerScreen;
@@ -46,7 +48,7 @@ public final class ClientEvents {
             ClientRegistry.registerKeyBinding(KeyBindings.STOP_NAVIGATION);
             ClientRegistry.registerKeyBinding(KeyBindings.TOGGLE_PINS);
             OverlayRegistry.registerOverlayTop("AE2 Declogger navigation",
-                    (gui, pose, partialTick, width, height) -> PinRenderer.renderHud(
+                    (gui, pose, partialTick, width, height) -> PinHud.render(
                             new Gfx(pose, Minecraft.getInstance().screen), partialTick, width, height));
         }
     }
@@ -72,7 +74,7 @@ public final class ClientEvents {
                 if (PinManager.active() != null) {
                     PinManager.setActive(null);
                     if (mc.player != null) {
-                        mc.player.displayClientMessage(Text.translatable("ae2declogger.pin.navigation_stopped"),
+                        Mc.message(mc.player, Text.translatable("ae2declogger.pin.navigation_stopped"),
                                 true);
                     }
                 }
@@ -80,7 +82,7 @@ public final class ClientEvents {
             while (KeyBindings.TOGGLE_PINS.consumeClick()) {
                 PinManager.toggleHidden();
                 if (mc.player != null) {
-                    mc.player.displayClientMessage(Text.translatable(PinManager.isHidden()
+                    Mc.message(mc.player, Text.translatable(PinManager.isHidden()
                             ? "ae2declogger.pin.hidden" : "ae2declogger.pin.shown"), true);
                 }
             }

@@ -24,7 +24,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
 /**
@@ -56,8 +55,7 @@ public final class PinManager {
 
         @Nullable
         public ResourceKey<Level> dimensionKey() {
-            ResourceLocation rl = ResourceLocation.tryParse(dimension == null ? "" : dimension);
-            return rl == null ? null : ResourceKey.create(Mc.DIMENSIONS, rl);
+            return Mc.dimension(dimension);
         }
     }
 
@@ -106,7 +104,7 @@ public final class PinManager {
         Pin pin = new Pin();
         pin.id = "goto";
         pin.label = label;
-        pin.dimension = dimension.location().toString();
+        pin.dimension = Mc.dimensionId(dimension);
         pin.x = pos.getX();
         pin.y = pos.getY();
         pin.z = pos.getZ();
@@ -127,7 +125,7 @@ public final class PinManager {
         if (target == null || player == null) {
             return;
         }
-        boolean sameDim = Mc.level(player).dimension().location().toString().equals(target.dimension);
+        boolean sameDim = Mc.dimensionId(Mc.level(player).dimension()).equals(target.dimension);
         boolean near = sameDim && player.blockPosition().distSqr(target.pos()) <= 5 * 5;
         long now = System.currentTimeMillis();
         if (near && targetReachedAtMs < 0) {
@@ -165,7 +163,7 @@ public final class PinManager {
 
     /** Adds a pin, or renames an existing one at the same spot. Returns the pin. */
     public static Pin add(String label, ResourceKey<Level> dimension, BlockPos pos) {
-        String dim = dimension.location().toString();
+        String dim = Mc.dimensionId(dimension);
         for (Pin p : PINS) {
             if (p.dimension.equals(dim) && p.x == pos.getX() && p.y == pos.getY() && p.z == pos.getZ()) {
                 p.label = label;

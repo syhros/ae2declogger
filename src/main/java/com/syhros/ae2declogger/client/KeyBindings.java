@@ -14,7 +14,13 @@ import net.minecraftforge.client.settings.KeyConflictContext;
 /** Default keys. All can be changed under Options > Controls > Key Binds > AE2 Declogger. */
 public final class KeyBindings {
 
+    //#if MC >= 26.1
+    //$$ /** Registered in ClientEvents (26.1 key categories are objects; the label is key.category.ae2declogger.main). */
+    //$$ public static final KeyMapping.Category CATEGORY = new KeyMapping.Category(
+    //$$         com.syhros.ae2declogger.Ae2Declogger.id("main"));
+    //#else
     public static final String CATEGORY = "key.categories.ae2declogger";
+    //#endif
 
     /** Opens the monitor for the first linked Declogger in your inventory. Default: K. */
     public static final KeyMapping OPEN_MONITOR = new KeyMapping("key.ae2declogger.open", KeyConflictContext.IN_GAME,

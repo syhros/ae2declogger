@@ -55,9 +55,9 @@ public record GridSource(@Nullable GlobalPos link, @Nullable Direction side, @Nu
         if (link == null) {
             return Resolved.fail("ae2declogger.error.not_linked");
         }
-        ServerLevel level = player.server.getLevel(link.dimension());
+        ServerLevel level = Mc.server(player).getLevel(link.dimension());
         if (level == null) {
-            return Resolved.fail("ae2declogger.error.dimension_missing", link.dimension().location().toString());
+            return Resolved.fail("ae2declogger.error.dimension_missing", Mc.dimensionId(link.dimension()));
         }
         boolean sameDimension = Mc.level(player).dimension().equals(link.dimension());
         if (!sameDimension && !DeclogConfig.COMMON.allowCrossDimension.get()) {

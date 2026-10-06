@@ -91,12 +91,14 @@ public final class Bufs {
         return buf.readBoolean() ? reader.apply(buf) : null;
     }
 
+    /** Written as the id string, the same bytes vanilla's resource key writer uses. */
     public static void writeDimension(FriendlyByteBuf buf, ResourceKey<Level> dimension) {
-        buf.writeResourceLocation(dimension.location());
+        buf.writeUtf(Mc.dimensionId(dimension));
     }
 
     public static ResourceKey<Level> readDimension(FriendlyByteBuf buf) {
-        return Mc.dimension(buf.readResourceLocation());
+        ResourceKey<Level> key = Mc.dimension(buf.readUtf());
+        return key != null ? key : Level.OVERWORLD;
     }
 
     //#if MC >= 1.20.5

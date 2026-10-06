@@ -1,6 +1,8 @@
 package com.syhros.ae2declogger.gametest;
 
+//#if MC < 26.1
 import net.minecraft.gametest.framework.GameTestAssertException;
+//#endif
 import net.minecraft.gametest.framework.GameTestHelper;
 
 /** GameTestHelper.assertTrue/assertFalse, which only exist from 1.19.4. */
@@ -11,7 +13,11 @@ final class Asserts {
 
     static void isTrue(GameTestHelper helper, boolean condition, String message) {
         if (!condition) {
+            //#if MC >= 26.1
+            //$$ throw helper.assertionException(net.minecraft.network.chat.Component.literal(message));
+            //#else
             throw new GameTestAssertException(message);
+            //#endif
         }
     }
 

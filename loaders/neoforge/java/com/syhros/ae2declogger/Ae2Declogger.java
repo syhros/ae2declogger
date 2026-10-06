@@ -10,7 +10,11 @@ import com.syhros.ae2declogger.network.DeclogNetwork;
 import com.syhros.ae2declogger.server.DecloggerServer;
 import com.syhros.ae2declogger.server.NetworkMemory;
 
+//#if MC >= 26.1
+//$$ import net.minecraft.resources.Identifier;
+//#else
 import net.minecraft.resources.ResourceLocation;
+//#endif
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -67,7 +71,13 @@ public final class Ae2Declogger {
         DecloggerServer.onServerStopped();
     }
 
+    //#if MC >= 26.1
+    //$$ public static Identifier id(String path) {
+    //$$     return Identifier.fromNamespaceAndPath(MOD_ID, path);
+    //$$ }
+    //#else
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
+    //#endif
 }

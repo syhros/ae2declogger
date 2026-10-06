@@ -13,11 +13,9 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.config.DeclogConfig;
-import com.syhros.ae2declogger.logic.Formatting;
-
-import com.syhros.ae2declogger.client.screen.Gfx;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -27,10 +25,9 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
-/** Draws pins in the world (outline box + label, through walls) and the navigation line on the HUD. */
+/** Draws pins in the world: an outline box and a label, seen through walls. The HUD line is {@link PinHud}. */
 public final class PinRenderer {
 
     private PinRenderer() {
@@ -43,7 +40,7 @@ public final class PinRenderer {
                 || !DeclogConfig.CLIENT.pinsInWorld.get()) {
             return;
         }
-        String dim = mc.level.dimension().location().toString();
+        String dim = Mc.dimensionId(mc.level.dimension());
         Vec3 cam = camera.getPosition();
         double maxDist = DeclogConfig.CLIENT.pinRenderDistance.get();
         PinManager.Pin active = PinManager.active();
@@ -100,7 +97,13 @@ public final class PinRenderer {
             pose.translate(dx, dy, dz);
             pose.mulPose(camera.rotation());
             float scale = (float) (0.025 * Math.max(1.0, distance / 10.0));
+            // 1.20.5 turned the camera rotation around (name tags flipped their x scale at the same time); with the
+            // old sign the label faces away and is culled.
+            //#if MC >= 1.20.5
+            //$$ pose.scale(scale, -scale, scale);
+            //#else
             pose.scale(-scale, -scale, scale);
+            //#endif
             float x = -font.width(text) / 2f;
             //#if MC >= 1.19.4
             font.drawInBatch(text, x, 0, 0xFF000000 | pin.color, false, pose.last().pose(), buffers,
@@ -190,42 +193,5 @@ public final class PinRenderer {
         //#else
         b.vertex(m, x, y, z).color(r, g, bl, a).endVertex();
         //#endif
-    }
-
-    /** HUD line: "Pin: Label  x y z  ↑ 42m ▲3". Called by the loader's HUD overlay (see ClientEvents). */
-    public static void renderHud(Gfx graphics, float partialTick, int width, int height) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui || mc.player == null || mc.level == null || !DeclogConfig.CLIENT.pinsHud.get()) {
-            return;
-        }
-        PinManager.Pin pin = PinManager.active();
-        if (pin == null) {
-            return;
-        }
-        Player player = mc.player;
-        Component line;
-        int color = 0xFF000000 | pin.color;
-        if (!mc.level.dimension().location().toString().equals(pin.dimension)) {
-            line = Text.translatable("ae2declogger.hud.other_dimension", pin.label, pin.dimension);
-        } else {
-            BlockPos p = pin.pos();
-            double dx = p.getX() + 0.5 - player.getX();
-            double dz = p.getZ() + 0.5 - player.getZ();
-            int dy = p.getY() - player.blockPosition().getY();
-            double horizontal = Math.sqrt(dx * dx + dz * dz);
-            String arrow = Formatting.directionArrow(player.getYRot(), dx, dz);
-            String height3 = dy == 0 ? "" : (dy > 0 ? " ▲" + dy : " ▼" + (-dy));
-            if (horizontal < 2.5 && Math.abs(dy) < 3) {
-                line = Text.translatable("ae2declogger.hud.arrived", pin.label);
-            } else {
-                line = Text.translatable("ae2declogger.hud.navigate", pin.label, p.getX(), p.getY(), p.getZ(),
-                        arrow, Math.round(horizontal), height3);
-            }
-        }
-        int textWidth = mc.font.width(line);
-        int x = (width - textWidth) / 2;
-        int y = DeclogConfig.CLIENT.hudY.get();
-        graphics.fill(x - 3, y - 2, x + textWidth + 3, y + 10, 0x88000000);
-        graphics.drawString(mc.font, line, x, y, color, true);
     }
 }

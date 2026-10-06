@@ -1,33 +1,47 @@
 package com.syhros.ae2declogger.client.screen;
 
-import com.syhros.ae2declogger.Text;
-
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
-//#if MC >= 1.20
+//#if MC >= 26.1
+//$$ import net.minecraft.client.gui.GuiGraphicsExtractor;
+//$$ import net.minecraft.client.renderer.RenderPipelines;
+//$$ import net.minecraft.resources.Identifier;
+//#elseif MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 //#else
 //$$ import com.mojang.blaze3d.systems.RenderSystem;
 //$$ import com.mojang.blaze3d.vertex.PoseStack;
 //$$ import net.minecraft.client.gui.GuiComponent;
 //$$ import net.minecraft.client.gui.screens.Screen;
+//$$ import net.minecraft.resources.ResourceLocation;
 //#endif
 
 import appeng.api.stacks.AEKey;
 
 /**
  * The drawing calls the Declogger's screens make, with GuiGraphics' names. Minecraft 1.20 introduced GuiGraphics;
- * before it screens drew with a PoseStack and static helpers. Screens get one of these from their render method and
- * pass it on; nothing else in the client code depends on how a Minecraft version draws.
+ * before it screens drew with a PoseStack and static helpers, and 26.1 replaced it with GuiGraphicsExtractor (screens
+ * describe what to draw, the game draws it later). Screens get one of these from their render method and pass it on;
+ * nothing else in the client code depends on how a Minecraft version draws.
  */
 public final class Gfx {
 
-    //#if MC >= 1.20
+    //#if MC >= 26.1
+    //$$ private final GuiGraphicsExtractor g;
+    //$$
+    //$$ public Gfx(GuiGraphicsExtractor g) {
+    //$$     this.g = g;
+    //$$ }
+    //$$
+    //$$ public GuiGraphicsExtractor raw() {
+    //$$     return g;
+    //$$ }
+    //#elseif MC >= 1.20
     private final GuiGraphics g;
 
     public Gfx(GuiGraphics g) {
@@ -70,10 +84,13 @@ public final class Gfx {
     }
 
     public int drawString(Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ g.text(font, text, x, y, color, shadow);
+        //$$ return x + font.width(text) + (shadow ? 1 : 0);
+        //#elseif MC >= 1.20
         return g.drawString(font, text, x, y, color, shadow);
         //#else
-        //$$ return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
+        //$$ return (int) (shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color));
         //#endif
     }
 
@@ -82,7 +99,7 @@ public final class Gfx {
     }
 
     public int drawString(Font font, String text, int x, int y, int color, boolean shadow) {
-        return drawString(font, Text.literal(text), x, y, color, shadow);
+        return drawString(font, com.syhros.ae2declogger.Text.literal(text), x, y, color, shadow);
     }
 
     public int drawString(Font font, Component text, int x, int y, int color) {
@@ -115,7 +132,9 @@ public final class Gfx {
     }
 
     public void renderComponentTooltip(Font font, List<Component> lines, int x, int y) {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ g.setComponentTooltipForNextFrame(font, lines, x, y);
+        //#elseif MC >= 1.20
         g.renderComponentTooltip(font, lines, x, y);
         //#else
         //$$ screen.renderComponentTooltip(pose, lines, x, y);
@@ -123,6 +142,12 @@ public final class Gfx {
     }
 
     /** Draws part of a texture (u, v, w, h within a textureWidth x textureHeight image). */
+    //#if MC >= 26.1
+    //$$ public void blit(Identifier texture, int x, int y, int u, int v, int w, int h, int textureWidth,
+    //$$         int textureHeight) {
+    //$$     g.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, w, h, textureWidth, textureHeight);
+    //$$ }
+    //#else
     public void blit(ResourceLocation texture, int x, int y, int u, int v, int w, int h, int textureWidth,
             int textureHeight) {
         //#if MC >= 1.20
@@ -132,13 +157,14 @@ public final class Gfx {
         //$$ GuiComponent.blit(pose, x, y, u, v, w, h, textureWidth, textureHeight);
         //#endif
     }
+    //#endif
 
     /** An AE2 item or fluid icon, 16x16. */
     public void key(AEKey key, int x, int y) {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ appeng.client.api.AEKeyRendering.drawInGui(Minecraft.getInstance(), g, x, y, key);
+        //#elseif MC >= 1.20
         appeng.api.client.AEKeyRendering.drawInGui(Minecraft.getInstance(), g, x, y, key);
-        //#elseif MC >= 1.19
-        //$$ appeng.api.client.AEStackRendering.drawInGui(Minecraft.getInstance(), pose, x, y, 0, key);
         //#else
         //$$ appeng.api.client.AEStackRendering.drawInGui(Minecraft.getInstance(), pose, x, y, 0, key);
         //#endif
@@ -147,7 +173,9 @@ public final class Gfx {
     // ---------------------------------------------------------------- transforms
 
     public void push() {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ g.pose().pushMatrix();
+        //#elseif MC >= 1.20
         g.pose().pushPose();
         //#else
         //$$ pose.pushPose();
@@ -155,16 +183,26 @@ public final class Gfx {
     }
 
     public void pop() {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ g.pose().popMatrix();
+        //#elseif MC >= 1.20
         g.pose().popPose();
         //#else
         //$$ pose.popPose();
         //#endif
     }
 
-    /** Moves drawing by x, y; z lifts it above what is already drawn (ignored where GUIs have no depth). */
+    /**
+     * Moves drawing by x, y; a positive z draws it above what is already drawn (26.1 has no GUI depth: it starts a new
+     * layer instead).
+     */
     public void translate(float x, float y, float z) {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ if (z > 0) {
+        //$$     g.nextStratum();
+        //$$ }
+        //$$ g.pose().translate(x, y);
+        //#elseif MC >= 1.20
         g.pose().translate(x, y, z);
         //#else
         //$$ pose.translate(x, y, z);
@@ -172,7 +210,9 @@ public final class Gfx {
     }
 
     public void scale(float x, float y) {
-        //#if MC >= 1.20
+        //#if MC >= 26.1
+        //$$ g.pose().scale(x, y);
+        //#elseif MC >= 1.20
         g.pose().scale(x, y, 1f);
         //#else
         //$$ pose.scale(x, y, 1f);

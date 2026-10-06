@@ -22,7 +22,11 @@ import com.syhros.ae2declogger.logic.JobStats;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.ChatFormatting;
-//#if MC >= 1.20
+//#if MC >= 26.1
+//$$ import net.minecraft.client.gui.GuiGraphicsExtractor;
+//$$ import net.minecraft.client.input.KeyEvent;
+//$$ import net.minecraft.client.input.MouseButtonEvent;
+//#elseif MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
 //#else
 //$$ import com.mojang.blaze3d.vertex.PoseStack;
@@ -435,7 +439,7 @@ public class DecloggerScreen extends Screen {
         String label = pinLabel(m);
         PinManager.Pin pin = PinManager.add(label, m.dimension(), m.pos());
         if (!quiet && minecraft != null && minecraft.player != null) {
-            minecraft.player.displayClientMessage(Text.translatable("ae2declogger.pin.added", label,
+            Mc.message(minecraft.player, Text.translatable("ae2declogger.pin.added", label,
                     UiUtil.coords(m)), true);
         }
         return pin;
@@ -477,14 +481,25 @@ public class DecloggerScreen extends Screen {
      * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
      */
     private void drawBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
-        //#if MC >= 1.20.2
+        //#if MC >= 26.1
+        //$$ // 26.1 draws the background before extractRenderState on its own
+        //#elseif MC >= 1.20.2
         //$$ super.renderBackground(g.raw(), mouseX, mouseY, partialTick);
         //#else
         renderBackground(g.raw());
         //#endif
     }
 
-    //#if MC >= 1.20.2
+    /** The screen's buttons and other widgets. */
+    private void renderWidgets(Gfx g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 26.1
+        //$$ super.extractRenderState(g.raw(), mouseX, mouseY, partialTick);
+        //#else
+        super.render(g.raw(), mouseX, mouseY, partialTick);
+        //#endif
+    }
+
+    //#if MC >= 1.20.2 && MC < 26.1
     //$$ @Override
     //$$ public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
     //$$     // drawn by drawBackground() at the start of render()
@@ -492,7 +507,10 @@ public class DecloggerScreen extends Screen {
     //#endif
 
     @Override
-    //#if MC >= 1.20
+    //#if MC >= 26.1
+    //$$ public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(graphics);
+    //#elseif MC >= 1.20
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Gfx g = new Gfx(graphics);
     //#else
@@ -510,7 +528,7 @@ public class DecloggerScreen extends Screen {
             case STATS -> tooltip = renderStats(g, mouseX, mouseY);
             case PINS -> tooltip = renderPins(g, mouseX, mouseY);
         }
-        super.render(g.raw(), mouseX, mouseY, partialTick);
+        renderWidgets(g, mouseX, mouseY, partialTick);
         if (search.visible && search.getValue().isEmpty() && !search.isFocused()) {
             g.drawString(font, Text.translatable("ae2declogger.search"), Widgets.x(search) + 4, Widgets.y(search) + 2,
                     UiUtil.TEXT_FAINT, false);
@@ -885,7 +903,7 @@ public class DecloggerScreen extends Screen {
             }
             g.fill(x + 4, y + 4, x + 14, y + 14, 0xFF000000 | pin.color);
             String distance = "";
-            if (player != null && Mc.level(player).dimension().location().toString().equals(pin.dimension)) {
+            if (player != null && Mc.dimensionId(Mc.level(player).dimension()).equals(pin.dimension)) {
                 distance = Math.round(Math.sqrt(player.blockPosition().distSqr(pin.pos()))) + "m";
             }
             Component right = Text.literal((pin == active ? "▶ " : "") + distance);
@@ -955,8 +973,16 @@ public class DecloggerScreen extends Screen {
     // ---------------------------------------------------------------- input
 
     @Override
+    //#if MC >= 26.1
+    //$$ public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+    //$$     double mouseX = event.x();
+    //$$     double mouseY = event.y();
+    //$$     int button = event.button();
+    //$$     if (super.mouseClicked(event, doubleClick)) {
+    //#else
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) {
+    //#endif
             return true;
         }
         int x = left + 6;
@@ -1038,7 +1064,13 @@ public class DecloggerScreen extends Screen {
     }
 
     @Override
+    //#if MC >= 26.1
+    //$$ public boolean keyPressed(KeyEvent event) {
+    //$$     int keyCode = event.key();
+    //$$     int modifiers = event.modifiers();
+    //#else
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    //#endif
         if (keyCode == GLFW.GLFW_KEY_F && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && search.visible) {
             setFocused(search);
             //#if MC >= 1.19.3
@@ -1049,12 +1081,20 @@ public class DecloggerScreen extends Screen {
             return true;
         }
         if (search.isFocused() && keyCode != GLFW.GLFW_KEY_ESCAPE) {
+            //#if MC >= 26.1
+            //$$ return search.keyPressed(event) || search.canConsumeInput();
+            //#else
             return search.keyPressed(keyCode, scanCode, modifiers) || search.canConsumeInput();
+            //#endif
         }
         if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_4 && modifiers == 0) {
             switchTab(Tab.values()[keyCode - GLFW.GLFW_KEY_1]);
             return true;
         }
+        //#if MC >= 26.1
+        //$$ return super.keyPressed(event);
+        //#else
         return super.keyPressed(keyCode, scanCode, modifiers);
+        //#endif
     }
 }

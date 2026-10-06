@@ -84,10 +84,10 @@ final class TestNetwork {
             helper.setBlock(CHEST, Blocks.CHEST.defaultBlockState());
         }
 
-        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(DRIVE);
+        DriveBlockEntity drive = blockEntity(helper, DRIVE, DriveBlockEntity.class);
         drive.getInternalInventory().addItems(AEItems.ITEM_CELL_1K.stack());
 
-        PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
+        PatternProviderBlockEntity provider = blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class);
         GenericStack[] outputs = multiOutput
                 ? new GenericStack[] { new GenericStack(STONE, 1), new GenericStack(GRAVEL, 1) }
                 : new GenericStack[] { new GenericStack(STONE, 1) };
@@ -161,6 +161,16 @@ final class TestNetwork {
         }
     }
 
+    /** The block entity at a test-relative position (26.1 asks for the expected type). */
+    static <T extends net.minecraft.world.level.block.entity.BlockEntity> T blockEntity(GameTestHelper helper,
+            BlockPos pos, Class<T> type) {
+        //#if MC >= 26.1
+        //$$ return helper.getBlockEntity(pos, type);
+        //#else
+        return type.cast(helper.getBlockEntity(pos));
+        //#endif
+    }
+
     static String describe(appeng.api.stacks.KeyCounter counter) {
         StringBuilder sb = new StringBuilder("[");
         for (var e : counter) {
@@ -177,7 +187,7 @@ final class TestNetwork {
     }
 
     int chestCount(net.minecraft.world.item.Item item) {
-        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(CHEST);
+        ChestBlockEntity chest = blockEntity(helper, CHEST, ChestBlockEntity.class);
         int count = 0;
         for (int i = 0; i < chest.getContainerSize(); i++) {
             ItemStack s = chest.getItem(i);
@@ -189,7 +199,7 @@ final class TestNetwork {
     }
 
     void blockingMode(boolean on) {
-        PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER);
+        PatternProviderBlockEntity provider = blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class);
         provider.getLogic().getConfigManager().putSetting(Settings.BLOCKING_MODE, on ? YesNo.YES : YesNo.NO);
     }
 
@@ -215,6 +225,6 @@ final class TestNetwork {
 
     /** The pattern provider's logic (an AE2 crafting provider). */
     Object providerLogic() {
-        return ((PatternProviderBlockEntity) helper.getBlockEntity(PROVIDER)).getLogic();
+        return (blockEntity(helper, PROVIDER, PatternProviderBlockEntity.class)).getLogic();
     }
 }

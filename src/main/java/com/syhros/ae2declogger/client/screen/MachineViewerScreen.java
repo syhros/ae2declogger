@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Text;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.pins.PinManager;
@@ -14,7 +15,11 @@ import com.syhros.ae2declogger.logic.Formatting;
 import com.syhros.ae2declogger.network.DeclogNetwork;
 
 import net.minecraft.ChatFormatting;
-//#if MC >= 1.20
+//#if MC >= 26.1
+//$$ import net.minecraft.client.gui.GuiGraphicsExtractor;
+//$$ import net.minecraft.client.input.KeyEvent;
+//$$ import net.minecraft.client.input.MouseButtonEvent;
+//#elseif MC >= 1.20
 import net.minecraft.client.gui.GuiGraphics;
 //#else
 //$$ import com.mojang.blaze3d.vertex.PoseStack;
@@ -106,7 +111,7 @@ public class MachineViewerScreen extends Screen {
                 minecraft.setScreen(null);
             }
         } else if (minecraft != null && minecraft.player != null) {
-            minecraft.player.displayClientMessage(Text.translatable("ae2declogger.pin.added", label,
+            Mc.message(minecraft.player, Text.translatable("ae2declogger.pin.added", label,
                     pos.getX() + " " + pos.getY() + " " + pos.getZ()), true);
         }
     }
@@ -166,14 +171,25 @@ public class MachineViewerScreen extends Screen {
      * crashes on 1.21 ("Can only blur once per frame"), so there it is drawn here and the automatic one is skipped.
      */
     private void drawBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
-        //#if MC >= 1.20.2
+        //#if MC >= 26.1
+        //$$ // 26.1 draws the background before extractRenderState on its own
+        //#elseif MC >= 1.20.2
         //$$ super.renderBackground(g.raw(), mouseX, mouseY, partialTick);
         //#else
         renderBackground(g.raw());
         //#endif
     }
 
-    //#if MC >= 1.20.2
+    /** The screen's buttons and other widgets. */
+    private void renderWidgets(Gfx g, int mouseX, int mouseY, float partialTick) {
+        //#if MC >= 26.1
+        //$$ super.extractRenderState(g.raw(), mouseX, mouseY, partialTick);
+        //#else
+        super.render(g.raw(), mouseX, mouseY, partialTick);
+        //#endif
+    }
+
+    //#if MC >= 1.20.2 && MC < 26.1
     //$$ @Override
     //$$ public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
     //$$     // drawn by drawBackground() at the start of render()
@@ -181,7 +197,10 @@ public class MachineViewerScreen extends Screen {
     //#endif
 
     @Override
-    //#if MC >= 1.20
+    //#if MC >= 26.1
+    //$$ public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    //$$     Gfx g = new Gfx(graphics);
+    //#elseif MC >= 1.20
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Gfx g = new Gfx(graphics);
     //#else
@@ -204,12 +223,12 @@ public class MachineViewerScreen extends Screen {
         if (snap == null) {
             g.drawCenteredString(font, Text.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
                     top + 40, UiUtil.TEXT_DIM);
-            super.render(g.raw(), mouseX, mouseY, partialTick);
+            renderWidgets(g, mouseX, mouseY, partialTick);
             return;
         }
 
         UiUtil.text(g, font, snap.name(), x, top + 6, w, UiUtil.TEXT);
-        String where = pos.getX() + " " + pos.getY() + " " + pos.getZ() + "  " + dimension.location();
+        String where = pos.getX() + " " + pos.getY() + " " + pos.getZ() + "  " + Mc.dimensionId(dimension);
         if (!snap.tier().isEmpty()) {
             where = snap.tier() + "  " + where;
         }
@@ -282,7 +301,7 @@ public class MachineViewerScreen extends Screen {
         g.drawString(font, Text.translatable("ae2declogger.viewer.read_only").withStyle(ChatFormatting.ITALIC),
                 x, bodyBottom + 3, UiUtil.TEXT_FAINT, false);
 
-        super.render(g.raw(), mouseX, mouseY, partialTick);
+        renderWidgets(g, mouseX, mouseY, partialTick);
         if (tooltip != null) {
             g.renderComponentTooltip(font, tooltip, mouseX, mouseY);
         } else {

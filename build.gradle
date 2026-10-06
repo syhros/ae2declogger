@@ -1,6 +1,6 @@
 // Each supported Minecraft version is a subproject under versions/ (see gradle/mod/common.gradle).
 // logic-tests runs the Minecraft-free unit tests.
 plugins {
-    id 'net.neoforged.moddev' version '2.0.86' apply false
-    id 'net.neoforged.moddev.legacyforge' version '2.0.86' apply false
+    id 'net.neoforged.moddev' version '2.0.148' apply false
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148' apply false
 }

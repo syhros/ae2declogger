@@ -9,6 +9,7 @@ import java.util.function.Function;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.syhros.ae2declogger.Mc;
 import com.syhros.ae2declogger.Ae2Declogger;
 
 import net.minecraft.network.FriendlyByteBuf;
@@ -17,6 +18,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
+//#if MC >= 26.1
+//$$ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+//#endif
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
@@ -94,7 +98,11 @@ public final class Channel {
     }
 
     static void sendToServer(Object message) {
+        //#if MC >= 26.1
+        //$$ ClientPacketDistributor.sendToServer(wrap(message));
+        //#else
         PacketDistributor.sendToServer(wrap(message));
+        //#endif
     }
 
     @SuppressWarnings("unchecked")
@@ -110,7 +118,7 @@ public final class Channel {
         try {
             handler.accept(msg, player);
         } catch (RuntimeException | LinkageError e) {
-            Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(), player.getGameProfile().getName(),
+            Ae2Declogger.LOG.error("Error handling {} from {}", type.getSimpleName(), Mc.name(player),
                     e);
         }
     }

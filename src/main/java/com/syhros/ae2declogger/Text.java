@@ -1,5 +1,7 @@
 package com.syhros.ae2declogger;
 
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 //#if MC >= 1.19
 import net.minecraft.network.chat.Component;
@@ -27,6 +29,31 @@ public final class Text {
         return Component.literal(text);
         //#else
         //$$ return new TextComponent(text);
+        //#endif
+    }
+
+    /** Clicking the text copies {@code value} (chat click events became records in 1.21.5). */
+    public static ClickEvent copyOnClick(String value) {
+        //#if MC >= 1.21.5
+        //$$ return new ClickEvent.CopyToClipboard(value);
+        //#else
+        return new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, value);
+        //#endif
+    }
+
+    public static ClickEvent openFileOnClick(String path) {
+        //#if MC >= 1.21.5
+        //$$ return new ClickEvent.OpenFile(path);
+        //#else
+        return new ClickEvent(ClickEvent.Action.OPEN_FILE, path);
+        //#endif
+    }
+
+    public static HoverEvent showText(net.minecraft.network.chat.Component text) {
+        //#if MC >= 1.21.5
+        //$$ return new HoverEvent.ShowText(text);
+        //#else
+        return new HoverEvent(HoverEvent.Action.SHOW_TEXT, text);
         //#endif
     }
 
