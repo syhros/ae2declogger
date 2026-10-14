@@ -9,7 +9,9 @@ public enum JobState {
     STALLED(2, 0xFF5555),
     BLOCKED(3, 0xFF3333),
     COMPLETE(-1, 0x55FFFF),
-    CANCELLED(-1, 0xAAAAAA);
+    CANCELLED(-1, 0xAAAAAA),
+    /** Waiting for a machine busy with another step of the same job: next in line, not a problem. */
+    QUEUED(0, 0x88AADD);
 
     private final int severity;
     private final int color;

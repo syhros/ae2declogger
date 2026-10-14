@@ -111,6 +111,16 @@ public final class Gfx {
         drawString(font, seq, centerX - font.width(seq) / 2, y, color, true);
     }
 
+    /** Centred text wrapped to {@code maxWidth}, one line under another; returns the height used. */
+    public int drawCenteredWrapped(Font font, Component text, int centerX, int y, int maxWidth, int color) {
+        List<FormattedCharSequence> lines = font.split(text, Math.max(20, maxWidth));
+        for (int i = 0; i < lines.size(); i++) {
+            FormattedCharSequence seq = lines.get(i);
+            drawString(font, seq, centerX - font.width(seq) / 2, y + i * (font.lineHeight + 1), color, true);
+        }
+        return lines.size() * (font.lineHeight + 1);
+    }
+
     /** Clips drawing to the rectangle (GUI coordinates) until {@link #disableScissor()}. */
     public void enableScissor(int x0, int y0, int x1, int y1) {
         //#if MC >= 1.20

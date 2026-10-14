@@ -221,8 +221,8 @@ public class MachineViewerScreen extends Screen {
         int x = left + 6;
         int w = panelW - 12;
         if (snap == null) {
-            g.drawCenteredString(font, Text.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
-                    top + 40, UiUtil.TEXT_DIM);
+            g.drawCenteredWrapped(font, Text.translatable("ae2declogger.monitor.loading"), left + panelW / 2,
+                    top + 40, panelW - 16, UiUtil.TEXT_DIM);
             renderWidgets(g, mouseX, mouseY, partialTick);
             return;
         }
