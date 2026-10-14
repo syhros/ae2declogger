@@ -14,6 +14,12 @@ Pick the jar for your Minecraft version below and put it in your `mods` folder. 
 
 GregTech CEu Modern is optional on 1.20.1. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
 
+## What's new in 1.5.1
+
+- **Queued instead of Blocked.** When two steps of the same job need the same machine (silver and gold dust from one macerator for electrum, for example), the one waiting its turn now shows **Queued** with the step it is waiting behind, instead of Blocked. It no longer makes the whole job look stuck. A machine busy with a different crafting CPU's job still counts as blocked.
+- The Declogger button on AE2 terminals now sits directly above AE2's Crafting Status button.
+- Messages on empty tabs wrap inside the window instead of running past its edges.
+
 ## What's new in 1.5
 
 - **Machine status for the big tech mods.** When a job is stuck at one of their machines, the monitor and the machine viewer now say why:
