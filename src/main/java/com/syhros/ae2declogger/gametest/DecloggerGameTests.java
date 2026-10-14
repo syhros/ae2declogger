@@ -250,6 +250,63 @@ public final class DecloggerGameTests {
     }
 
     /**
+     * Two ingredient steps of one job made by the same machine (cobblestone from sand and gravel from dirt, both
+     * through one provider into one chest, blocking mode on): the one waiting for the machine is Queued behind the
+     * other, not Blocked, and does not become the job's reason.
+     */
+    //#if MC < 26.1
+    @GameTest(template = "empty", timeoutTicks = TIMEOUT)
+    //#endif
+    public static void sameMachineStepIsQueued(GameTestHelper helper) {
+        TestNetwork net = TestNetwork.build(helper, true);
+        AEItemKey sand = AEItemKey.of(Items.SAND);
+        AEItemKey dirt = AEItemKey.of(Items.DIRT);
+        var provider = TestNetwork.blockEntity(helper, TestNetwork.PROVIDER,
+                appeng.blockentity.crafting.PatternProviderBlockEntity.class);
+        var patterns = provider.getLogic().getPatternInv();
+        for (int i = 0; i < patterns.size(); i++) {
+            patterns.setItemDirect(i, ItemStack.EMPTY);
+        }
+        patterns.addItems(TestNetwork.processingPattern(
+                new GenericStack[] { new GenericStack(TestNetwork.COBBLE, 1), new GenericStack(TestNetwork.GRAVEL, 1) },
+                new GenericStack[] { new GenericStack(TestNetwork.STONE, 1) }));
+        patterns.addItems(TestNetwork.processingPattern(new GenericStack[] { new GenericStack(sand, 1) },
+                new GenericStack[] { new GenericStack(TestNetwork.COBBLE, 1) }));
+        patterns.addItems(TestNetwork.processingPattern(new GenericStack[] { new GenericStack(dirt, 1) },
+                new GenericStack[] { new GenericStack(TestNetwork.GRAVEL, 1) }));
+        net.blockingMode(true);
+        GridTracker tracker = new GridTracker(10);
+        helper.startSequence()
+                .thenWaitUntil(net::assertReady)
+                .thenExecute(() -> {
+                    net.insert(sand, 4);
+                    net.insert(dirt, 4);
+                })
+                .thenIdle(5)
+                .thenExecute(() -> net.startCalculation(1))
+                .thenWaitUntil(net::assertPlanReady)
+                .thenExecute(net::submit)
+                .thenWaitUntil(until(helper, net, tracker,
+                        j -> j.steps().stream().anyMatch(s -> s.state() == JobState.QUEUED), "a QUEUED step"))
+                .thenExecute(() -> {
+                    JobView job = analyze(net, tracker).jobs().get(0);
+                    StepView cobble = step(helper, job, TestNetwork.COBBLE);
+                    StepView gravel = step(helper, job, TestNetwork.GRAVEL);
+                    StepView running = cobble.active() > 0 ? cobble : gravel;
+                    StepView waiting = running == cobble ? gravel : cobble;
+                    Asserts.isTrue(helper, running.active() > 0, "one ingredient should be at the machine: " + job.steps());
+                    Asserts.isTrue(helper, waiting.state() == JobState.QUEUED && waiting.reason() == BlockReason.QUEUED,
+                            "the other should be queued, was " + waiting.state() + "/" + waiting.reason());
+                    Asserts.isTrue(helper, waiting.detail() != null
+                            && waiting.detail().getString().equals(running.key().getDisplayName().getString()),
+                            "queued step should name the step at the machine: " + waiting.detail());
+                    Asserts.isTrue(helper, job.reason() != BlockReason.PROVIDER_BLOCKING
+                            && job.reason() != BlockReason.QUEUED, "job reason " + job.reason());
+                })
+                .thenSucceed();
+    }
+
+    /**
      * A provider with nothing next to it accepts the pattern but cannot push anywhere (PUSH_REJECTED). Removing the
      * provider entirely must then give NO_PROVIDER.
      */

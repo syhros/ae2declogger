@@ -579,7 +579,7 @@ public class DecloggerScreen extends Screen {
             Component msg = ClientState.summary == null ? Text.translatable("ae2declogger.monitor.loading")
                     : ClientState.JOBS.isEmpty() ? Text.translatable("ae2declogger.monitor.no_jobs")
                             : Text.translatable("ae2declogger.monitor.no_match");
-            g.drawCenteredString(font, msg, left + panelW / 2, listTop + 20, UiUtil.TEXT_DIM);
+            g.drawCenteredWrapped(font, msg, left + panelW / 2, listTop + 20, panelW - 16, UiUtil.TEXT_DIM);
             return null;
         }
 
@@ -771,8 +771,8 @@ public class DecloggerScreen extends Screen {
         int x = left + 6;
         int w = panelW - 16;
         if (history.isEmpty()) {
-            g.drawCenteredString(font, Text.translatable("ae2declogger.history.empty"), left + panelW / 2,
-                    contentTop + 20, UiUtil.TEXT_DIM);
+            g.drawCenteredWrapped(font, Text.translatable("ae2declogger.history.empty"), left + panelW / 2,
+                    contentTop + 20, panelW - 16, UiUtil.TEXT_DIM);
             return null;
         }
         listScroll = clampScroll(listScroll, history.size() * ROW, contentBottom - contentTop);
@@ -830,8 +830,8 @@ public class DecloggerScreen extends Screen {
         int x = left + 6;
         int w = panelW - 16;
         if (stats.isEmpty()) {
-            g.drawCenteredString(font, Text.translatable("ae2declogger.stats.empty"), left + panelW / 2,
-                    contentTop + 20, UiUtil.TEXT_DIM);
+            g.drawCenteredWrapped(font, Text.translatable("ae2declogger.stats.empty"), left + panelW / 2,
+                    contentTop + 20, panelW - 16, UiUtil.TEXT_DIM);
             return null;
         }
         listScroll = clampScroll(listScroll, stats.size() * ROW, contentBottom - contentTop);
@@ -880,8 +880,8 @@ public class DecloggerScreen extends Screen {
         int w = panelW - 16;
         List<PinManager.Pin> pins = PinManager.pins();
         if (pins.isEmpty()) {
-            g.drawCenteredString(font, Text.translatable("ae2declogger.pins.empty"), left + panelW / 2,
-                    contentTop + 20, UiUtil.TEXT_DIM);
+            g.drawCenteredWrapped(font, Text.translatable("ae2declogger.pins.empty"), left + panelW / 2,
+                    contentTop + 20, panelW - 16, UiUtil.TEXT_DIM);
             return null;
         }
         listScroll = clampScroll(listScroll, pins.size() * ROW, contentBottom - contentTop);

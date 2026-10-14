@@ -155,12 +155,9 @@ public final class ClientEvents {
                 return;
             }
             AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) event.getScreen();
-            int x = screen.getGuiLeft() + screen.getXSize() - 18;
-            int y = screen.getGuiTop() - 18;
-            if (y < 2) {
-                x = screen.getGuiLeft() + screen.getXSize() + 2;
-                y = screen.getGuiTop() + 2;
-            }
+            int[] at = TerminalButtonPlacement.place(screen);
+            int x = at[0];
+            int y = at[1];
             IconButton button = new IconButton(x, y, b -> DeclogNetwork.sendToServer(new DeclogNetwork.OpenMonitor(true)));
             Widgets.tooltip(button, Text.translatable("ae2declogger.terminal_button"));
             event.addListener(button);

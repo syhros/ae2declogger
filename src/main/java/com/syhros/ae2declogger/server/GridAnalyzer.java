@@ -297,6 +297,7 @@ public final class GridAnalyzer {
         for (Amounts a : amounts) {
             steps.add(analyzeStep(access, track, a.key(), a.stored(), a.active(), a.pending(), tasks, jobIdle));
         }
+        markQueued(steps, tasks);
 
         List<JobState> stepStates = new ArrayList<>(steps.size());
         for (StepView s : steps) {
@@ -360,6 +361,52 @@ public final class GridAnalyzer {
         return new JobView(track.jobId, cpuName, cpu.getCoProcessors(), cpu.getAvailableStorage(), output.what(),
                 output.amount(), progress, track.startedAtMs, track.lastActivityAtMs, expected, state, reason, detail,
                 primary, steps);
+    }
+
+    /** Reasons that only mean "the machine will not take more right now". */
+    private static boolean machineWontTake(BlockReason r) {
+        return r == BlockReason.PUSH_REJECTED || r == BlockReason.PROVIDERS_BUSY || r == BlockReason.PROVIDER_BLOCKING
+                || r == BlockReason.MACHINE_INPUT_FULL;
+    }
+
+    /**
+     * A blocked step whose machine is busy with another step of the same job is not stuck, it is next in line: two
+     * dusts from the same macerator for one electrum job are made one after the other. Only steps of this job count;
+     * the same machine working for another CPU still means blocked.
+     */
+    private void markQueued(List<StepView> steps, @Nullable Map<IPatternDetails, Long> tasks) {
+        boolean anyCandidate = false;
+        for (StepView s : steps) {
+            anyCandidate |= s.active() <= 0 && s.state() == JobState.BLOCKED && machineWontTake(s.reason())
+                    && !s.machines().isEmpty();
+        }
+        if (!anyCandidate) {
+            return;
+        }
+        Map<GlobalPos, StepView> busyAt = new LinkedHashMap<>();
+        for (StepView s : steps) {
+            if (s.active() > 0) {
+                List<MachineRef> machines = s.machines().isEmpty() ? machinesProducing(s.key(), tasks) : s.machines();
+                for (MachineRef m : machines) {
+                    busyAt.putIfAbsent(GlobalPos.of(m.dimension(), m.pos()), s);
+                }
+            }
+        }
+        for (int i = 0; i < steps.size(); i++) {
+            StepView s = steps.get(i);
+            if (s.active() > 0 || s.state() != JobState.BLOCKED || !machineWontTake(s.reason())) {
+                continue;
+            }
+            for (MachineRef m : s.machines()) {
+                StepView running = busyAt.get(GlobalPos.of(m.dimension(), m.pos()));
+                if (running != null) {
+                    steps.set(i, new StepView(s.key(), s.stored(), s.active(), s.pending(), JobState.QUEUED,
+                            BlockReason.QUEUED, running.key().getDisplayName(), s.sinceMs(), s.recipeMs(),
+                            s.machines()));
+                    break;
+                }
+            }
+        }
     }
 
     private StepView analyzeStep(CpuAccess access, GridTracker.CpuTrack track, AEKey key, long stored, long active,

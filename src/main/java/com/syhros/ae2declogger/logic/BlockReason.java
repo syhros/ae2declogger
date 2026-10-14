@@ -47,7 +47,9 @@ public enum BlockReason {
     CPU_OFFLINE(true, 99),
     /** The ME network does not have enough stored AE to push patterns. */
     NETWORK_POWER(true, 98),
-    UNKNOWN(true, 10);
+    UNKNOWN(true, 10),
+    /** The machine is busy with another step of the same job; this step goes in next (not a problem). */
+    QUEUED(false, 0);
 
     private final boolean problem;
     private final int priority;
