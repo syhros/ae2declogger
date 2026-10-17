@@ -23,7 +23,7 @@ Install the jar on both the client and the server. In single player, the client 
 ## Download and install
 
 1. Get the jar:
-   - **From a release:** the [Releases page](https://github.com/syhros/ae2-debugger/releases), file `ae2declogger-<loader>-<minecraft version>-<version>.jar`, for example `ae2declogger-neoforge-1.21.1-1.4.0.jar`.
+   - **From a release:** the [Releases page](https://github.com/syhros/ae2declogger/releases), file `ae2declogger-<loader>-<minecraft version>-<version>.jar`, for example `ae2declogger-neoforge-1.21.1-1.4.0.jar`.
    - **From a CI build:** open the latest green run under the repository's **Actions** tab, download the `jar-<loader>-<minecraft version>` artifact (a zip), and take the jar out of it.
 2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
 3. On a server, copy the same jar into the server's `mods` folder too.

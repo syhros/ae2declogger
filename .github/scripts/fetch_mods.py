@@ -25,7 +25,7 @@ import zipfile
 
 MC, LOADER, PACK, DEST = sys.argv[1:5]
 API = "https://api.modrinth.com/v2"
-HEADERS = {"User-Agent": "syhros/ae2-debugger CI (github.com/syhros/ae2-debugger)"}
+HEADERS = {"User-Agent": "syhros/ae2declogger CI (github.com/syhros/ae2declogger)"}
 
 PACKS = {
     "ae2": ["ae2"],

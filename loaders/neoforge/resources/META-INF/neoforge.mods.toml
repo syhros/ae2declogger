@@ -1,7 +1,7 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
-issueTrackerURL="https://github.com/syhros/ae2-debugger/issues"
+issueTrackerURL="https://github.com/syhros/ae2declogger/issues"
 
 [[mods]]
 modId="${mod_id}"

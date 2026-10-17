@@ -74,7 +74,7 @@ GregTech CEu Modern is optional on 1.20.1. With it installed, the monitor shows 
 
 Hotkeys can be changed under Options → Controls → Key Binds → AE2 Declogger. Settings are in `config/ae2declogger-common.toml` (detection times, update rate) and `config/ae2declogger-client.toml` (alerts, pins, terminal button, crafting screen overlay).
 
-The full guide, with every config option and every block reason, is in the [README](https://github.com/syhros/ae2-debugger#readme).
+The full guide, with every config option and every block reason, is in the [README](https://github.com/syhros/ae2declogger#readme).
 
 ## Tested with
 
