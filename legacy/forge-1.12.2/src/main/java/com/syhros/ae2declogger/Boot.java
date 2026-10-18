@@ -38,6 +38,7 @@ public final class Boot {
             if (event.phase == TickEvent.Phase.END) {
                 try {
                     DecloggerServer.tick();
+                    com.syhros.ae2declogger.selftest.ServerSelfTest.tick();
                 } catch (RuntimeException | LinkageError e) {
                     Ae2Declogger.LOG.error("AE2 Declogger server tick failed", e);
                 }

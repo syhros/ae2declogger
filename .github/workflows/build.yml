@@ -91,6 +91,15 @@ jobs:
             exit 1
           }
 
+      - name: Server self-test (development server with AE2)
+        run: |
+          mkdir -p run run/server
+          echo "eula=true" > run/eula.txt
+          echo "eula=true" > run/server/eula.txt
+          timeout 1500 ./gradlew --no-daemon runServer -PselfTest 2>&1 | tee selftest.log || true
+          grep -E "AE2 DECLOGGER SERVER SELFTEST" selftest.log || { grep -E "Exception|ERROR|FATAL" selftest.log | head -60; exit 1; }
+          grep -q "AE2 DECLOGGER SERVER SELFTEST PASS" selftest.log
+
       - name: Check the jar
         run: |
           ls -la build/libs

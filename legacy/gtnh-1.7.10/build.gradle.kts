@@ -6,3 +6,11 @@ plugins {
 
 extra["legacyMc"] = "1.7.10"
 apply(from = "../gradle/shared.gradle")
+
+// -PselfTest: the dev server runs the self-test (selftest/ServerSelfTest) and stops when it is done.
+tasks.named<JavaExec>("runServer") {
+    if (project.hasProperty("selfTest")) {
+        systemProperty("ae2declogger.serverSelfTest", "true")
+        systemProperty("ae2declogger.selfTestExit", "true")
+    }
+}
