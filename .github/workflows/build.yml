@@ -122,6 +122,60 @@ jobs:
           path: ${{ env.JAR }}
           if-no-files-found: error
 
+  legacy-client:
+    # The legacy dev clients draw the monitor (each tab) and the machine viewer with made-up data, save screenshots
+    # and quit (selftest/ClientSelfTest). Screenshots are uploaded as an artifact.
+    name: Client self-test (${{ matrix.l.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        l:
+          - { name: forge-1.16.5, setup: '' }
+          - { name: forge-1.12.2, setup: '' }
+          - { name: gtnh-1.7.10, setup: setupCIWorkspace }
+    defaults:
+      run:
+        working-directory: legacy/${{ matrix.l.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: |
+            8
+            21
+            25
+            17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb mesa-utils x11-xserver-utils
+
+      - name: Run the client self-test
+        run: |
+          if [ -n "${{ matrix.l.setup }}" ]; then ./gradlew --no-daemon ${{ matrix.l.setup }}; fi
+          timeout 1800 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew --no-daemon runClient -PclientSelfTest 2>&1 | tee client.log || true
+          grep -E "AE2 DECLOGGER CLIENT SELFTEST" client.log || { grep -E "Exception|ERROR|FATAL" client.log | head -80; exit 1; }
+          grep -q "AE2 DECLOGGER CLIENT SELFTEST PASS" client.log
+          find . -name 'declogger-*.png' | head -20
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-screenshots-${{ matrix.l.name }}
+          path: |
+            legacy/${{ matrix.l.name }}/**/screenshots/declogger-*.png
+            legacy/${{ matrix.l.name }}/client.log
+          if-no-files-found: ignore
+
   build:
     name: Build and game tests (${{ matrix.v.name }})
     needs: plan
