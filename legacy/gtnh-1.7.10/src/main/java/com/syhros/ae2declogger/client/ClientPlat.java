@@ -105,6 +105,11 @@ public final class ClientPlat {
                 mc().displayHeight, mc().getFramebuffer());
     }
 
+    /** No crafting screen overlay on GTNH, so nothing to check. */
+    public static java.util.List<String> overlayMissingNames() {
+        return java.util.Collections.emptyList();
+    }
+
     public static void quit() {
         mc().shutdown();
     }

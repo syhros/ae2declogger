@@ -100,7 +100,9 @@ public final class ClientSelfTest {
                     ClientPlat.closeScreen();
                 }
                 if (ticks == 5) {
-                    done(shots.size() == 5, "drew the monitor (4 tabs) and the machine viewer: " + shots);
+                    java.util.List<String> missing = ClientPlat.overlayMissingNames();
+                    done(shots.size() == 5 && missing.isEmpty(), "drew the monitor (4 tabs) and the machine viewer: "
+                            + shots + (missing.isEmpty() ? "" : "; crafting overlay names missing: " + missing));
                     ClientPlat.quit();
                 }
                 break;

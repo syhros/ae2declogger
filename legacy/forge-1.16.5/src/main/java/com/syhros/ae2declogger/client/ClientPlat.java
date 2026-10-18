@@ -104,6 +104,11 @@ public final class ClientPlat {
                 });
     }
 
+    /** AE2 names the crafting screen overlay reads that this AE2 build lacks. */
+    public static java.util.List<String> overlayMissingNames() {
+        return OverlayCanvas.missingNames();
+    }
+
     public static void quit() {
         mc().stop();
     }

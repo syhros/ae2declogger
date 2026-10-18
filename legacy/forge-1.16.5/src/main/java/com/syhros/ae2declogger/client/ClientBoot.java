@@ -13,6 +13,7 @@ import com.syhros.ae2declogger.net.Messages;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.AbstractGui;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.gui.widget.Widget;
 import net.minecraft.client.gui.widget.button.Button;
@@ -23,6 +24,7 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.util.text.StringTextComponent;
+import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
@@ -31,7 +33,10 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 
-/** 1.16.5 client start-up and events: hotkey, terminal button, pins in the world, HUD line, pin files. */
+/**
+ * 1.16.5 client start-up and events: hotkey, terminal button, crafting screen overlay, pins in the world, HUD line,
+ * pin files.
+ */
 public final class ClientBoot {
 
     private static KeyBinding openKey;
@@ -91,6 +96,40 @@ public final class ClientBoot {
             int[] at = place((ContainerScreen<?>) event.getGui());
             event.addWidget(new Button(at[0], at[1], 16, 16, new StringTextComponent("D"),
                     b -> ClientPlat.send(Messages.openMonitor(true))));
+        }
+
+        @SubscribeEvent
+        public void onGuiOpen(GuiOpenEvent event) {
+            if (OverlayCanvas.isCraftingScreen(event.getGui()) && DeclogConfig.craftingOverlay()) {
+                CraftingOverlay.onOpen(event.getGui());
+            } else {
+                CraftingOverlay.onOtherScreen(event.getGui());
+            }
+        }
+
+        @SubscribeEvent
+        public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
+            Screen gui = event.getGui();
+            if (!CraftingOverlay.watching(gui)) {
+                return;
+            }
+            MatrixStack m = event.getMatrixStack();
+            m.pushPose();
+            m.translate(0, 0, 350);
+            RenderSystem.disableDepthTest();
+            CraftingOverlay.render(new OverlayCanvas(m), gui, OverlayCanvas.cells(gui), event.getMouseX(),
+                    event.getMouseY(), gui.width, gui.height);
+            RenderSystem.enableDepthTest();
+            m.popPose();
+        }
+
+        @SubscribeEvent
+        public void onMouseClicked(GuiScreenEvent.MouseClickedEvent.Pre event) {
+            Screen gui = event.getGui();
+            if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && CraftingOverlay.watching(gui)
+                    && CraftingOverlay.click(gui, OverlayCanvas.cells(gui), event.getMouseX(), event.getMouseY())) {
+                event.setCanceled(true);
+            }
         }
 
         @SubscribeEvent

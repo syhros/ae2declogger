@@ -3,6 +3,7 @@ package com.syhros.ae2declogger.client;
 import java.lang.reflect.Field;
 
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import com.syhros.ae2declogger.Ae2Declogger;
@@ -12,6 +13,7 @@ import com.syhros.ae2declogger.net.Messages;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -20,6 +22,7 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
+import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
@@ -28,7 +31,10 @@ import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-/** 1.12.2 client start-up and events: hotkey, terminal button, pins in the world, HUD line, pin files. */
+/**
+ * 1.12.2 client start-up and events: hotkey, terminal button, crafting screen overlay, pins in the world, HUD line,
+ * pin files.
+ */
 public final class ClientBoot {
 
     private static final int BUTTON_ID = 0x0DEC106;
@@ -98,6 +104,45 @@ public final class ClientBoot {
         public void onButton(GuiScreenEvent.ActionPerformedEvent.Pre event) {
             if (event.getButton().id == BUTTON_ID && isAe2Screen(event.getGui())) {
                 ClientPlat.send(Messages.openMonitor(true));
+                event.setCanceled(true);
+            }
+        }
+
+        /** AE2's crafting status screen opened, or something else replaced it. */
+        @SubscribeEvent
+        public void onGuiOpen(GuiOpenEvent event) {
+            if (OverlayCanvas.isCraftingScreen(event.getGui()) && DeclogConfig.craftingOverlay()) {
+                CraftingOverlay.onOpen(event.getGui());
+            } else {
+                CraftingOverlay.onOtherScreen(event.getGui());
+            }
+        }
+
+        @SubscribeEvent
+        public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
+            GuiScreen gui = event.getGui();
+            if (!CraftingOverlay.watching(gui)) {
+                return;
+            }
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(0, 0, 350);
+            GlStateManager.disableDepth();
+            CraftingOverlay.render(new OverlayCanvas(), gui, OverlayCanvas.cells(gui), event.getMouseX(),
+                    event.getMouseY(), gui.width, gui.height);
+            GlStateManager.enableDepth();
+            GlStateManager.popMatrix();
+        }
+
+        @SubscribeEvent
+        public void onMouse(GuiScreenEvent.MouseInputEvent.Pre event) {
+            GuiScreen gui = event.getGui();
+            if (!CraftingOverlay.watching(gui) || !Mouse.getEventButtonState() || Mouse.getEventButton() != 0) {
+                return;
+            }
+            Minecraft mc = Minecraft.getMinecraft();
+            int mx = Mouse.getEventX() * gui.width / mc.displayWidth;
+            int my = gui.height - Mouse.getEventY() * gui.height / mc.displayHeight - 1;
+            if (CraftingOverlay.click(gui, OverlayCanvas.cells(gui), mx, my)) {
                 event.setCanceled(true);
             }
         }

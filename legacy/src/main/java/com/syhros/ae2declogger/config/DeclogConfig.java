@@ -82,6 +82,9 @@ public final class DeclogConfig {
     private static final Setting ALERTS_SOUND = b("alertsSound", "Alerts: play a bell sound.", true);
     private static final Setting TERMINAL_BUTTON = b("terminalButton",
             "Add a Declogger button to AE2 terminal and crafting status screens.", true);
+    private static final Setting CRAFTING_OVERLAY = b("craftingOverlay",
+            "Mark stuck entries in AE2's crafting status screen and show the Inspect popup when an entry is clicked "
+                    + "(1.16.5 and 1.12.2).", true);
     private static final Setting SHOW_ONLY_PROBLEMS = b("showOnlyProblems",
             "Start the monitor with the 'problems only' filter switched on.", false);
     private static final Setting PINS_IN_WORLD = b("pinsInWorld",
@@ -240,6 +243,10 @@ public final class DeclogConfig {
 
     public static boolean terminalButton() {
         return boolOf(TERMINAL_BUTTON);
+    }
+
+    public static boolean craftingOverlay() {
+        return boolOf(CRAFTING_OVERLAY);
     }
 
     public static boolean showOnlyProblems() {

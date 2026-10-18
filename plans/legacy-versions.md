@@ -51,19 +51,20 @@ All legacy code is plain Java 8. (Decided in Phase 1, 2026-10-18: instead of a b
 7. **Machine status.** GT5u on GTNH (Phase 3 of the GTNH plan), then the legacy versions of the to-implement integrations.
 8. **Release.** Add the three jars to the release table and README.
 
-## Status (2026-10-18)
+## Status (2026-10-18, end of day)
 
-- Phase 1 done: commit c1f9fd1 on `legacy-versions`, draft PR syhros/ae2declogger#8. All three builds compile locally (`./gradlew compileJava` in each `legacy/<build>`, JAVA_HOME = JDK 17).
-- Findings from javap of the three AE2 jars, for Phase 2:
-  - `CraftingCPUCluster` has the same private fields in all three: `tasks` (Map<ICraftingPatternDetails, TaskProgress>, `TaskProgress.value` long), `waitingFor`, `lastTime`, `elapsedTime`, `myLastLink`, `finalOutput`, `startItemCount`, `remainingItemCount`.
-  - It has the same public methods too: `getListOfItem(IItemList, CraftingItemList)`, `isBusy`, `isActive`, `isDestroyed`, `getCoProcessors`, `getAvailableStorage`, `getElapsedTime`.
-  - `getName()` returns `ITextComponent` on 1.16.5 and `String` on 1.12.2 and 1.7.10. `getFinalOutput()` exists on 1.12.2 and 1.7.10 only; 1.16.5 needs the `finalOutput` field.
-  - GTNH 695 also has `getScheduledReason(IAEItemStack)` and `getProviders(IAEItemStack)`.
-  - All three are item-only (`IAEItemStack`), so a legacy key can wrap an item stack everywhere.
-  - `CraftingGridCache`: private `craftingCPUClusters` (Set) and `craftingMethods`, plus public `getMediums(pattern)` and `getCpus()`.
-  - `ICraftingPatternDetails` outputs are a `List` on 1.16.5 (`getOutputs`) and arrays on 1.12.2 and 1.7.10 (`getCondensedOutputs`).
-- Planned data model: `LKey` (item stack, size-free identity), `LText` (translation key plus args), `LPos` (dimension string plus x, y, z), netty `ByteBuf` messages.
-- Next: port `data/` (JobView, StepView, MachineRef, GridSummary, MachineSnapshot, HistoryEntry), then `GridAnalyzer` (read through once), `CpuAccess`, `ProviderIndex` and `GridTracker`.
+All eight phases are implemented on branch `legacy-versions` (draft PR syhros/ae2declogger#8):
+
+- Phases 1-5: the three builds, the shared data (`LKey`, `LText`, `LPos`, views on `net/Buf`), the server analysis (`GridAnalyzer`, `CpuAccess`, `Ae` for the version differences, `GridTracker`, `HistoryData`), one channel message per direction (`net/Messages`), and the client (monitor and machine viewer written once against `client/ui/Canvas`, pins, HUD line, alerts, terminal button, K hotkey).
+- Phase 6: `selftest/ServerSelfTest` (dev server, `-PselfTest`) passes locally on 1.12.2 and 1.16.5; `selftest/ClientSelfTest` (dev client, `-PclientSelfTest`) draws every screen and saves screenshots. Both run in CI for all three (GTNH only in CI).
+- Phase 7: GT5u machine status on GTNH (`compat/Machines`, reflection only), checked against GT5u 5.09.51.482 in a second CI run.
+- Phase 8: release table, release notes, README; `mod_version` 1.6.0.
+
+Not done, for later:
+- The crafting status screen overlay on GTNH (done on 1.16.5 and 1.12.2: shared `client/CraftingOverlay`, per-version `client/OverlayCanvas` reading AE2's table layout by reflection).
+- The "Stop navigating" and "Show/hide pins" hotkeys, alert toasts.
+- Machine integrations on 1.16.5 and 1.12.2 (Mekanism 10, IE, Create 0.3; GTCEu 1.12) and a GT machine placed by a test on GTNH.
+- Testing against AE2 rv6 (non-Extended-Life 1.12.2 packs) and GTNH 2.7 / 2.9.
 
 ## Verification per phase
 - Every build compiles. CI is green for the build, the logic tests and that phase's self-test.

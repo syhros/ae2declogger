@@ -36,11 +36,11 @@ Install the jar on both the client and the server. In single player, the client 
 
 These use AE2's older design (AE2 8, AE2 Extended Life and GTNH's AE2 Unofficial), where ME Interfaces hold the patterns. The Declogger works the same way there, with these differences:
 
-- **Same:** the monitor (Jobs, History, Stats, Pins), the machine viewer, the Declogger button on AE2 terminals and crafting status screens, the **K** hotkey, alerts per network (chat line and bell), Go To and pins with the HUD line, History saved with the world, and the CSV export.
+- **Same:** the monitor (Jobs, History, Stats, Pins), the machine viewer, the frames and Inspect popup in AE2's crafting status screen (1.16.5 and 1.12.2), the Declogger button on AE2 terminals and crafting status screens, the **K** hotkey, alerts per network (chat line and bell), Go To and pins with the HUD line, History saved with the world, and the CSV export.
 - **Pattern holders are ME Interfaces.** The reasons read "pattern provider" for the interface: busy, offline, locked (AE2 Extended Life and GTNH), and blocking mode waiting for the machine to empty.
 - **GT: New Horizons:** GregTech 5 machines report their status: switched off, not enough energy, output full, multiblock not formed, maintenance, the last recipe check ("No recipe", "Output full"...), GregTech's shutdown reason, recipe progress and EU. Input buses, input hatches and ME crafting input buffers point at their multiblock controller. Where the Declogger's own check finds only a general reason, it uses the reason GTNH's AE2 recorded for the push.
 - **1.16.5 and 1.12.2:** machines are read through their inventory and energy (FE): full inventory and empty energy buffer. There are no machine integrations yet.
-- **Not on these versions:** the frames and Inspect popup in AE2's crafting status screen, the "Stop navigating" and "Show/hide locator pins" hotkeys, and pop-up toasts for alerts.
+- **Not on these versions:** the "Stop navigating" and "Show/hide locator pins" hotkeys, and pop-up toasts for alerts. GTNH 1.7.10 also has no frames or Inspect popup in AE2's crafting status screen; use the Declogger button there instead.
 - **Settings** are in `config/ae2declogger.properties`: the same options as the two TOML files below, with the same defaults and ranges.
 
 ## Using it
