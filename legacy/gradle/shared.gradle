@@ -31,12 +31,37 @@ def preprocessResources = tasks.register('preprocessResources', PreprocessTask) 
     output = layout.buildDirectory.dir('preprocessed/resources')
     vars.putAll(preprocessVars)
 }
+// Translations: the modern en_us.json, as is for 1.16.5 and converted to the old .lang format for 1.12.2 (en_us.lang)
+// and 1.7.10 (en_US.lang).
+def langSource = new File(repoRoot, 'src/main/resources/assets/ae2declogger/lang/en_us.json')
+def langOut = layout.buildDirectory.dir('generated-lang')
+def generateLang = tasks.register('generateLang') {
+    def mc = legacyMc as String
+    def outDir = langOut
+    inputs.file(langSource)
+    inputs.property('mc', mc)
+    outputs.dir(outDir)
+    doLast {
+        def dir = outDir.get().dir('assets/ae2declogger/lang').asFile
+        dir.deleteDir()
+        dir.mkdirs()
+        if (mc.startsWith('1.16')) {
+            new File(dir, 'en_us.json').setText(langSource.getText('UTF-8'), 'UTF-8')
+        } else {
+            def entries = new groovy.json.JsonSlurper().parse(langSource, 'UTF-8') as Map
+            def lines = entries.collect { k, v -> "${k}=${v.toString().replace('\n', ' ')}" }
+            new File(dir, mc == '1.7.10' ? 'en_US.lang' : 'en_us.lang').setText(lines.join('\n') + '\n', 'UTF-8')
+        }
+    }
+}
+
 sourceSets {
     main {
         java.srcDirs = []
         java.srcDir(preprocessJava.flatMap { it.output })
         resources.srcDirs = []
         resources.srcDir(preprocessResources.flatMap { it.output })
+        resources.srcDir(files(langOut).builtBy(generateLang))
     }
 }
 

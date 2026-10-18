@@ -3,19 +3,21 @@ package com.syhros.ae2declogger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.syhros.ae2declogger.logic.Thresholds;
-
 //#if MC >= 1.16
 import net.minecraftforge.fml.common.Mod;
 //#elseif MC >= 1.12
 //$$ import net.minecraftforge.fml.common.Mod;
-//$$ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+//$$ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+//$$ import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 //#else
 //$$ import cpw.mods.fml.common.Mod;
-//$$ import cpw.mods.fml.common.event.FMLInitializationEvent;
+//$$ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+//$$ import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 //#endif
 
-/** AE2 Declogger for the legacy versions (1.16.5, 1.12.2, GTNH 1.7.10). */
+/**
+ * AE2 Declogger for the legacy versions (1.16.5, 1.12.2, GTNH 1.7.10). Start-up is in each version's {@code Boot}.
+ */
 //#if MC >= 1.16
 @Mod(Ae2Declogger.MOD_ID)
 //#elseif MC >= 1.12
@@ -30,16 +32,17 @@ public final class Ae2Declogger {
 
     //#if MC >= 1.16
     public Ae2Declogger() {
-        ready();
+        Boot.construct();
     }
     //#else
     //$$ @Mod.EventHandler
-    //$$ public void init(FMLInitializationEvent event) {
-    //$$     ready();
+    //$$ public void preInit(FMLPreInitializationEvent event) {
+    //$$     Boot.preInit(event.getModConfigurationDirectory());
+    //$$ }
+    //$$
+    //$$ @Mod.EventHandler
+    //$$ public void serverStopped(FMLServerStoppedEvent event) {
+    //$$     Boot.serverStopped();
     //$$ }
     //#endif
-
-    private static void ready() {
-        LOG.info("AE2 Declogger ready (stall limit {} s)", Thresholds.DEFAULT.stallMs() / 1000);
-    }
 }
