@@ -49,6 +49,139 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :logic-tests:test $GRADLE_ARGS
 
+  legacy:
+    # 1.16.5, 1.12.2 and GTNH 1.7.10 are separate Gradle builds under legacy/ (ForgeGradle 6, RetroFuturaGradle and
+    # GTNH's convention plugin don't mix with the root build). See legacy/gradle/shared.gradle.
+    name: Build (${{ matrix.l.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        l:
+          - { name: forge-1.16.5, label: forge-1.16.5, mc: 1.16.5, setup: '', args: '' }
+          - { name: forge-1.12.2, label: forge-1.12.2, mc: 1.12.2, setup: '', args: '' }
+          - { name: gtnh-1.7.10, label: gtnh-1.7.10, mc: 1.7.10, setup: setupCIWorkspace, args: '' }
+          # The same jar with GregTech 5 in the dev server: the machine reader's names are checked against it.
+          - { name: gtnh-1.7.10, label: gtnh-1.7.10-gregtech, mc: 1.7.10, setup: setupCIWorkspace, args: -PdevGregTech=true }
+    defaults:
+      run:
+        working-directory: legacy/${{ matrix.l.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: |
+            8
+            21
+            25
+            17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Use the mod version from gradle.properties
+        run: echo "VERSION=$(grep '^mod_version=' ../../gradle.properties | cut -d= -f2)" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          if [ -n "${{ matrix.l.setup }}" ]; then ./gradlew --no-daemon ${{ matrix.l.args }} ${{ matrix.l.setup }}; fi
+          ./gradlew --no-daemon ${{ matrix.l.args }} build 2>&1 | tee build.log || {
+            echo "===== compiler errors ====="
+            grep -E "error:|FAILED|What went wrong|Could not|Exception" -A 3 build.log | grep -v "^\s*at " | head -400
+            exit 1
+          }
+
+      - name: Server self-test (development server with AE2)
+        run: |
+          mkdir -p run run/server
+          echo "eula=true" > run/eula.txt
+          echo "eula=true" > run/server/eula.txt
+          timeout 1500 ./gradlew --no-daemon ${{ matrix.l.args }} runServer -PselfTest 2>&1 | tee selftest.log || true
+          grep -E "AE2 DECLOGGER SERVER SELFTEST" selftest.log || { grep -E "Exception|ERROR|FATAL" selftest.log | head -60; exit 1; }
+          grep -q "AE2 DECLOGGER SERVER SELFTEST PASS" selftest.log
+
+      - name: Check the jar
+        run: |
+          ls -la build/libs
+          JAR=$(ls build/libs/*.jar | grep -vE -- '-(dev|sources|api)\.jar$' | head -1)
+          case "$JAR" in *"-${VERSION}.jar") ;; *) echo "::error::jar $JAR is not named for version ${VERSION}"; exit 1;; esac
+          test -n "$JAR"
+          echo "JAR=legacy/${{ matrix.l.name }}/$JAR" >> "$GITHUB_ENV"
+          unzip -l "$JAR"
+          unzip -l "$JAR" | grep -q 'com/syhros/ae2declogger/logic/Thresholds.class'
+          unzip -l "$JAR" | grep -q 'com/syhros/ae2declogger/Ae2Declogger.class'
+          # Java 8 bytecode (major version 52) for every class
+          mkdir -p /tmp/jarcheck && (cd /tmp/jarcheck && unzip -o -q "$GITHUB_WORKSPACE/legacy/${{ matrix.l.name }}/$JAR")
+          BAD=$(find /tmp/jarcheck -name '*.class' -exec sh -c 'v=$(od -An -j6 -N2 -tu1 "$1" | awk "{print \$1*256+\$2}"); [ "$v" -gt 52 ] && echo "$1"' _ {} \; | head)
+          if [ -n "$BAD" ]; then echo "::error::classes newer than Java 8: $BAD"; exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        # One jar per version (the GregTech run builds the same jar).
+        if: matrix.l.args == ''
+        with:
+          name: jar-${{ matrix.l.label }}
+          path: ${{ env.JAR }}
+          if-no-files-found: error
+
+  legacy-client:
+    # The legacy dev clients draw the monitor (each tab) and the machine viewer with made-up data, save screenshots
+    # and quit (selftest/ClientSelfTest). Screenshots are uploaded as an artifact.
+    name: Client self-test (${{ matrix.l.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        l:
+          - { name: forge-1.16.5, setup: '' }
+          - { name: forge-1.12.2, setup: '' }
+          - { name: gtnh-1.7.10, setup: setupCIWorkspace }
+    defaults:
+      run:
+        working-directory: legacy/${{ matrix.l.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: |
+            8
+            21
+            25
+            17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb mesa-utils x11-xserver-utils
+
+      - name: Run the client self-test
+        run: |
+          if [ -n "${{ matrix.l.setup }}" ]; then ./gradlew --no-daemon ${{ matrix.l.setup }}; fi
+          timeout 1800 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew --no-daemon runClient -PclientSelfTest 2>&1 | tee client.log || true
+          grep -E "AE2 DECLOGGER CLIENT SELFTEST" client.log || { grep -E "Exception|ERROR|FATAL" client.log | head -80; exit 1; }
+          grep -q "AE2 DECLOGGER CLIENT SELFTEST PASS" client.log
+          find . -name 'declogger-*.png' | head -20
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-screenshots-${{ matrix.l.name }}
+          path: |
+            legacy/${{ matrix.l.name }}/**/screenshots/declogger-*.png
+            legacy/${{ matrix.l.name }}/client.log
+          if-no-files-found: ignore
+
   build:
     name: Build and game tests (${{ matrix.v.name }})
     needs: plan
@@ -371,7 +504,7 @@ jobs:
     name: Publish release
     # Runs for a pushed v* tag, or from Actions > Run workflow with "release" ticked.
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
-    needs: [unit, build, smoke, client-selftest, advanced-ae]
+    needs: [unit, build, smoke, client-selftest, advanced-ae, legacy, legacy-client]
     runs-on: ubuntu-latest
     permissions:
       contents: write

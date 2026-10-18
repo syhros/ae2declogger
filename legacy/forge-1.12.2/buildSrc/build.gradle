@@ -1,0 +1,18 @@
+// Compiles the root build's preprocessor (one source for every build in the repo).
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation gradleApi()
+}
+
+sourceSets.main.java.srcDirs = ['../../../buildSrc/src/main/java']
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}

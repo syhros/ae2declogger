@@ -1,0 +1,13 @@
+[{
+  "modid": "${modId}",
+  "name": "${modName}",
+  "description": "Real-time autocrafting diagnostics for AE2. Spot bottlenecks, view machine status and track down blocked crafting jobs without leaving your terminal. Read-only: it never moves items.",
+  "version": "${modVersion}",
+  "mcversion": "${minecraftVersion}",
+  "url": "https://github.com/syhros/ae2declogger",
+  "authorList": ["syhros"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": ["appliedenergistics2"]
+}]

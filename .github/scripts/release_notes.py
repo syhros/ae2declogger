@@ -10,7 +10,7 @@ import sys
 
 version, folder = sys.argv[1], sys.argv[2]
 rows = []
-names = {"forge": "Forge", "neoforge": "NeoForge"}
+names = {"forge": "Forge", "neoforge": "NeoForge", "gtnh": "Forge (GT: New Horizons)"}
 
 
 def mc_key(mc):
@@ -18,7 +18,7 @@ def mc_key(mc):
 
 
 for jar in os.listdir(folder):
-    m = re.fullmatch(r"ae2declogger-(forge|neoforge)-([\d.]+)-" + re.escape(version) + r"\.jar", jar)
+    m = re.fullmatch(r"ae2declogger-(forge|neoforge|gtnh)-([\d.]+)-" + re.escape(version) + r"\.jar", jar)
     if m:
         rows.append((mc_key(m.group(2)), f"| {m.group(2)} | {names[m.group(1)]} | `{jar}` |"))
 table = "| Minecraft | Loader | File |\n|---|---|---|\n" + "\n".join(r for _, r in sorted(rows))

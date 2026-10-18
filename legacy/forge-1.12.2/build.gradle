@@ -1,0 +1,60 @@
+// AE2 Declogger for Minecraft 1.12.2 (Forge 14.23.5, AE2 Extended Life). RetroFuturaGradle, MCP stable_39, Java 8.
+// Shared sources and the preprocessor: ../gradle/shared.gradle.
+plugins {
+    id 'java'
+    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.6'
+}
+
+ext.legacyMc = minecraft_version
+apply from: '../gradle/shared.gradle'
+
+version = modVersion
+group = 'com.syhros.ae2declogger'
+base { archivesName = "ae2declogger-forge-${minecraft_version}" }
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+        // Azul covers the most platforms for Java 8 toolchains
+        vendor = JvmVendorSpec.AZUL
+    }
+}
+
+minecraft {
+    mcVersion = '1.12.2'
+    mcpMappingChannel = 'stable'
+    mcpMappingVersion = '39'
+    username = 'Developer'
+}
+
+repositories {
+    maven {
+        name = 'CurseMaven (AE2 Extended Life)'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+}
+
+dependencies {
+    implementation rfg.deobf("curse.maven:ae2-extended-life-570458:${ae2uel_file}")
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('mcmod.info') { expand 'version': project.version }
+}
+
+// -PselfTest: the dev server runs the self-test (selftest/ServerSelfTest) and stops when it is done.
+tasks.named('runServer').configure {
+    if (project.hasProperty('selfTest')) {
+        systemProperty 'ae2declogger.serverSelfTest', 'true'
+        systemProperty 'ae2declogger.selfTestExit', 'true'
+    }
+}
+
+// -PclientSelfTest: the dev client draws every screen with made-up data, saves screenshots and quits.
+tasks.named('runClient').configure {
+    if (project.hasProperty('clientSelfTest')) {
+        systemProperty 'ae2declogger.clientSelfTest', 'true'
+    }
+}

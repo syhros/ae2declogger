@@ -78,10 +78,16 @@ public enum BlockReason {
      * Softer machine states such as "waiting" or "no matching recipe" can resolve by themselves.
      */
     public boolean isHardMachineFault() {
-        return switch (this) {
-            case MACHINE_NO_POWER, MACHINE_DISABLED, MACHINE_NOT_FORMED, MACHINE_MAINTENANCE, MACHINE_OUTPUT_FULL -> true;
-            default -> false;
-        };
+        switch (this) {
+            case MACHINE_NO_POWER:
+            case MACHINE_DISABLED:
+            case MACHINE_NOT_FORMED:
+            case MACHINE_MAINTENANCE:
+            case MACHINE_OUTPUT_FULL:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public String translationKey() {
