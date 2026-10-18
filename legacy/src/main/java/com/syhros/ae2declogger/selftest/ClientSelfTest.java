@@ -9,6 +9,7 @@ import com.syhros.ae2declogger.Ae2Declogger;
 import com.syhros.ae2declogger.client.ClientPlat;
 import com.syhros.ae2declogger.client.ClientState;
 import com.syhros.ae2declogger.client.DecloggerScreen;
+import com.syhros.ae2declogger.client.Lang;
 import com.syhros.ae2declogger.client.MachineViewerScreen;
 import com.syhros.ae2declogger.client.PinManager;
 import com.syhros.ae2declogger.client.ui.UiScreen;
@@ -101,8 +102,13 @@ public final class ClientSelfTest {
                 }
                 if (ticks == 5) {
                     java.util.List<String> missing = ClientPlat.overlayMissingNames();
-                    done(shots.size() == 5 && missing.isEmpty(), "drew the monitor (4 tabs) and the machine viewer: "
-                            + shots + (missing.isEmpty() ? "" : "; crafting overlay names missing: " + missing));
+                    // An untranslated key means the language file did not load (1.12.2 without pack.mcmeta).
+                    String title = Lang.t("ae2declogger.monitor.title");
+                    boolean translated = !title.equals("ae2declogger.monitor.title");
+                    done(shots.size() == 5 && missing.isEmpty() && translated,
+                            "drew the monitor (4 tabs) and the machine viewer: " + shots
+                                    + (translated ? "" : "; texts are not translated (" + title + ")")
+                                    + (missing.isEmpty() ? "" : "; crafting overlay names missing: " + missing));
                     ClientPlat.quit();
                 }
                 break;
