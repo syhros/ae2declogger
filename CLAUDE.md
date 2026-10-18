@@ -95,7 +95,7 @@ Keep ``CONTEXT.md`` under 20 lines total. Do NOT summarize the full conversation
 
 ## Project notes: AE2 Declogger
 
-- One codebase, five builds: Forge 1.18.2 (AE2 11), Forge 1.19.2 (AE2 12), Forge 1.20.1 (AE2 15, optional GTCEu 7.5.3), NeoForge 1.21.1 (AE2 19), NeoForge 26.1.2 (AE2 26.1 beta, Java 25). Mod id `ae2declogger`, package `com.syhros.ae2declogger`.
+- One codebase, eight builds. Five modern ones: Forge 1.18.2 (AE2 11), Forge 1.19.2 (AE2 12), Forge 1.20.1 (AE2 15, optional GTCEu 7.5.3), NeoForge 1.21.1 (AE2 19), NeoForge 26.1.2 (AE2 26.1 beta, Java 25). Three legacy ones under `legacy/` (see below). Mod id `ae2declogger`, package `com.syhros.ae2declogger`.
 - Layout: `src/main/java` is shared and written so its active branch is Forge 1.20.1; `loaders/<forge|neoforge>/{java,resources}` and `versions/<loader>-<mc>/src/main/{java,resources}` replace whole files. Each `versions/<name>` has `build.gradle` + `version.properties`; shared build logic is `gradle/mod/{common,forge,neoforge}.gradle`. List new versions in `settings.gradle` (CI reads `versions/` via `.github/scripts/versions_matrix.py`).
 - Preprocessor (`buildSrc/.../PreprocessTask.java`, .java/.json/.toml): `//#if MC >= 1.20.5 && NEOFORGE`, `//#elseif`, `//#else`, `//#endif`; active lines written `//$$ ` get uncommented. Prefer the version helpers over new `//#if` blocks: `Mc`, `Text`, `Nbt`, `network/Bufs`, `server/Caps`, `client/screen/Gfx`, `client/screen/Widgets`.
 - Build one version: `./gradlew :neoforge-1.21.1:build`, `:runGameTestServer`, `:runSelfTestServer`, `:runSelfTestClient`. Set JAVA_HOME to a JDK 17; Gradle finds 21 and 25 as toolchains.
