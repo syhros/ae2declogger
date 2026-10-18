@@ -1,0 +1,73 @@
+PASS
+self-test started
+step main menu after 50 ticks
+menu screen: AccessibilityOnboardingScreen
+step in world after 1 ticks
+step jobs running after 13 ticks
+ok   server setup: 
+step open AE2 crafting CPU screen after 1 ticks
+step CPU screen matched to the stone job after 2 ticks
+ok   the screen's CPU is matched to the stone job
+step stuck stone entry is framed after 1 ticks
+step click the stone entry after 1 ticks
+ok   clicking the stone entry selects it
+shot 01-ae2-crafting-screen-marked
+step Inspect popup shown after 1 ticks
+shot 02-ae2-inspect-popup
+step press Inspect after 1 ticks
+ok   Inspect button clicked
+step monitor opened on the stone step after 1 ticks
+ok   Inspect selected the stone job
+ok   Inspect selected the stone step
+step monitor from Inspect shot after 1 ticks
+shot 03-monitor-from-inspect
+step close monitor after 1 ticks
+step open monitor after 1 ticks
+step monitor shows jobs after 1 ticks
+ok   stone job listed
+ok   glass job listed
+ok   stone job is STALLED (was STALLED)
+ok   stone job reason OUTPUT_NOT_RETURNING (was OUTPUT_NOT_RETURNING)
+ok   stone job points at chest A
+ok   glass job is BLOCKED (was BLOCKED)
+ok   glass job reason PROVIDER_BLOCKING (was PROVIDER_BLOCKING)
+ok   summary shows 2 CPUs
+shot 04-monitor-stalled-job
+step select blocked job after 1 ticks
+step screenshot blocked job after 1 ticks
+step open viewer after 1 ticks
+shot 05-monitor-blocked-job
+step viewer shows chest after 1 ticks
+ok   viewer opened chest A
+ok   viewer shows 4 cobblestone flagged as pattern input
+shot 06-machine-viewer
+step back to monitor after 1 ticks
+step monitor again after 1 ticks
+ok   Back returned to the monitor
+step finish stone job after 1 ticks
+step history updated after 1 ticks
+ok   history has the completed stone job
+ok   finished job left the job list
+step history tab after 1 ticks
+shot 07-history
+step stats tab after 1 ticks
+step stats shot after 1 ticks
+shot 08-stats
+step go to blocked machine after 1 ticks
+step Go To outline shown, monitor closed after 1 ticks
+ok   Go To outlines chest B
+ok   Go To shows the way to chest B
+ok   Go To does not save a pin
+step reopen monitor after 1 ticks
+shot 09-world-goto-outline-and-hud
+step pin blocked machine after 1 ticks
+ok   Pin saves chest B
+ok   pins are red
+step pins tab after 1 ticks
+step pins shot after 1 ticks
+shot 10-pins
+step close after 1 ticks
+step unsubscribed after 1 ticks
+ok   pins kept after closing
+ok   glass job still known client-side
+ok   glass step pending 2, active 0
