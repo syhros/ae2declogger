@@ -115,7 +115,7 @@ public final class Formatting {
 
     /** Makes a string safe to use as a file name on Windows, macOS and Linux. */
     public static String safeFileName(String raw) {
-        if (raw == null || raw.isBlank()) {
+        if (raw == null || raw.trim().isEmpty()) {
             return "unknown";
         }
         String cleaned = raw.trim().replaceAll("[^A-Za-z0-9._-]+", "_");

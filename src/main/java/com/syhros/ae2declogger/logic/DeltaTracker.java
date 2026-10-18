@@ -15,9 +15,46 @@ public final class DeltaTracker<K, V> {
 
     private final Map<K, V> lastSent = new HashMap<>();
 
-    public record Delta<K, V>(Map<K, V> changed, List<K> removed) {
+    // Classes rather than records: logic/ also compiles for Java 8 (the 1.7.10, 1.12.2 and 1.16.5 builds).
+    public static final class Delta<K, V> {
+        private final Map<K, V> changed;
+        private final List<K> removed;
+
+        public Delta(Map<K, V> changed, List<K> removed) {
+            this.changed = changed;
+            this.removed = removed;
+        }
+
+        public Map<K, V> changed() {
+            return changed;
+        }
+
+        public List<K> removed() {
+            return removed;
+        }
+
         public boolean isEmpty() {
             return changed.isEmpty() && removed.isEmpty();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof Delta)) {
+                return false;
+            }
+            Delta<?, ?> o = (Delta<?, ?>) other;
+            return java.util.Objects.equals(changed, o.changed)
+                    && java.util.Objects.equals(removed, o.removed);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(changed, removed);
+        }
+
+        @Override
+        public String toString() {
+            return "Delta[changed=" + changed + ", removed=" + removed + "]";
         }
     }
 

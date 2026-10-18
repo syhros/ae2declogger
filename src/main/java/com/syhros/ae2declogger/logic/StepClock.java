@@ -23,7 +23,57 @@ import java.util.function.ToLongFunction;
 public final class StepClock<P, K> {
 
     /** A finished step: {@code amount} items of {@code key} made in {@code durationMs}. */
-    public record Done<K>(K key, long amount, long durationMs, long finishedAtMs) {
+    // Classes rather than records: logic/ also compiles for Java 8 (the 1.7.10, 1.12.2 and 1.16.5 builds).
+    public static final class Done<K> {
+        private final K key;
+        private final long amount;
+        private final long durationMs;
+        private final long finishedAtMs;
+
+        public Done(K key, long amount, long durationMs, long finishedAtMs) {
+            this.key = key;
+            this.amount = amount;
+            this.durationMs = durationMs;
+            this.finishedAtMs = finishedAtMs;
+        }
+
+        public K key() {
+            return key;
+        }
+
+        public long amount() {
+            return amount;
+        }
+
+        public long durationMs() {
+            return durationMs;
+        }
+
+        public long finishedAtMs() {
+            return finishedAtMs;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof Done)) {
+                return false;
+            }
+            Done<?> o = (Done<?>) other;
+            return java.util.Objects.equals(key, o.key)
+                    && amount == o.amount
+                    && durationMs == o.durationMs
+                    && finishedAtMs == o.finishedAtMs;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(key, amount, durationMs, finishedAtMs);
+        }
+
+        @Override
+        public String toString() {
+            return "Done[key=" + key + ", amount=" + amount + ", durationMs=" + durationMs + ", finishedAtMs=" + finishedAtMs + "]";
+        }
     }
 
     private static final class Step<K> {

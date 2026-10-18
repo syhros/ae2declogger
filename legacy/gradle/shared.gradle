@@ -1,0 +1,45 @@
+// Shared by the three legacy builds (forge-1.16.5, forge-1.12.2, gtnh-1.7.10). Each is its own Gradle build, because
+// ForgeGradle 6, RetroFuturaGradle and the GTNH convention plugin don't mix with the root build's ModDevGradle.
+//
+// Sources are built from, in order (a later root replaces a file of an earlier one):
+//   ../../src/main/java   only com/syhros/ae2declogger/logic/** (Minecraft-free, shared with the modern builds)
+//   ../src/main/java      the shared legacy tree, with //#if MC blocks for the three versions
+//   src/main/java         whole-file overrides for this version
+// and resources from ../src/main/resources then src/main/resources. The preprocessor is the root build's
+// (buildSrc/src/main/java/PreprocessTask.java, compiled by each legacy build's own buildSrc).
+//
+// Each build sets ext.legacyMc (1.16.5, 1.12.2 or 1.7.10) before applying this script.
+
+def repoRoot = file('../..')
+def rootProps = new Properties()
+new File(repoRoot, 'gradle.properties').withInputStream { rootProps.load(it) }
+ext.modVersion = System.getenv('VERSION') ?: rootProps.getProperty('mod_version')
+
+def syncLogic = tasks.register('syncLogic', Sync) {
+    from(new File(repoRoot, 'src/main/java')) { include 'com/syhros/ae2declogger/logic/**' }
+    into layout.buildDirectory.dir('logic-src')
+}
+def preprocessVars = [MC: legacyMc as String, LOADER: 'forge']
+def preprocessJava = tasks.register('preprocessJava', PreprocessTask) {
+    dependsOn syncLogic
+    sources.from(layout.buildDirectory.dir('logic-src'), file('../src/main/java'), file('src/main/java'))
+    output = layout.buildDirectory.dir('preprocessed/java')
+    vars.putAll(preprocessVars)
+}
+def preprocessResources = tasks.register('preprocessResources', PreprocessTask) {
+    sources.from(file('../src/main/resources'), file('src/main/resources'))
+    output = layout.buildDirectory.dir('preprocessed/resources')
+    vars.putAll(preprocessVars)
+}
+sourceSets {
+    main {
+        java.srcDirs = []
+        java.srcDir(preprocessJava.flatMap { it.output })
+        resources.srcDirs = []
+        resources.srcDir(preprocessResources.flatMap { it.output })
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

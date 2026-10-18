@@ -1,0 +1,61 @@
+// AE2 Declogger for Minecraft 1.16.5 (Forge 36, AE2 8). ForgeGradle 6 with Mojang's official mappings, Java 8.
+// Shared sources and the preprocessor: ../gradle/shared.gradle.
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
+}
+
+ext.legacyMc = minecraft_version
+apply from: '../gradle/shared.gradle'
+
+version = modVersion
+group = 'com.syhros.ae2declogger'
+base { archivesName = "ae2declogger-forge-${minecraft_version}" }
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(8)
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods { ae2declogger { source sourceSets.main } }
+        }
+        client {}
+        server { args '--nogui' }
+    }
+}
+
+repositories {
+    maven {
+        name = 'ModMaven (AE2)'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'appeng' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    // Compiled against AE2 itself: the crafting CPU and interface internals are read by reflection, but the public
+    // API (grids, stacks, crafting) is used directly.
+    implementation fg.deobf("appeng:appliedenergistics2:${ae2_version}")
+}
+
+processResources {
+    def props = [mod_version: project.version, minecraft_version: minecraft_version]
+    inputs.properties props
+    filesMatching('META-INF/mods.toml') { expand props }
+}
+
+jar {
+    manifest.attributes(
+            'Specification-Title': 'ae2declogger',
+            'Specification-Vendor': 'syhros',
+            'Implementation-Title': 'AE2 Declogger',
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'syhros')
+    finalizedBy 'reobfJar'
+}

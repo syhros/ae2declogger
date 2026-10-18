@@ -1,0 +1,15 @@
+// Compiled against GTNH's AE2 fork (AE2 Unofficial) and GregTech 5 Unofficial, the versions in the GTNH 2.8.4 pack.
+// GregTech is optional at runtime: its machines are read by reflection when it is installed.
+// -PdevGregTech=true also loads GregTech in the dev client and server.
+dependencies {
+    def ae2 = project.findProperty("ae2uVersion") ?: "rv3-beta-695-GTNH"
+    def gt = project.findProperty("gt5uVersion") ?: "5.09.51.482"
+    // Not transitive: only AE2U's own classes are compiled against (and Windows Defender blocks GTNHExtLib locally).
+    compileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:${ae2}:dev") { transitive = false }
+    compileOnly("com.github.GTNewHorizons:GT5-Unofficial:${gt}:dev") { transitive = false }
+    if (project.findProperty("devGregTech") == "true") {
+        runtimeOnlyNonPublishable("com.github.GTNewHorizons:GT5-Unofficial:${gt}:dev")
+    } else {
+        runtimeOnlyNonPublishable("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:${ae2}:dev")
+    }
+}
