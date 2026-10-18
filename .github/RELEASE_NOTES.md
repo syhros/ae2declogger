@@ -11,8 +11,17 @@ Pick the jar for your Minecraft version below and put it in your `mods` folder. 
 | 1.20.1 | Forge 47.1.3 or newer | 15.x | All the Mods 9, Sky Greg |
 | 1.21.1 | NeoForge 21.1 or newer | 19.x | All the Mods 10 |
 | 26.1.2 | NeoForge 26.1.2 or newer | 26.1.x | All the Mods 11 |
+| 1.16.5 | Forge 36.2 or newer | 8.x | All the Mods 6 |
+| 1.12.2 | Forge 14.23.5 | AE2 Extended Life | GregTech CEu packs, Enigmatica 2 |
+| 1.7.10 | Forge 10.13.4 | GTNH's AE2 Unofficial | GT: New Horizons 2.8 |
 
 GregTech CEu Modern is optional on 1.20.1. With it installed, the monitor shows GT machine status, recipe progress, power and error messages.
+
+## What's new in 1.6
+
+- **Older versions:** Forge 1.16.5 (AE2 8, All the Mods 6), Forge 1.12.2 (AE2 Extended Life) and GT: New Horizons 1.7.10. They have the monitor with Jobs, History, Stats and Pins, the machine viewer, the terminal button, the K hotkey, alerts, Go To and pins.
+- **GT: New Horizons:** GregTech 5 machines report why they are not working (switched off, not enough energy, output full, multiblock not formed, maintenance, the last recipe check, the shutdown reason), and input buses and ME crafting input buffers point at their multiblock.
+- Not on the older versions yet: the frames and Inspect popup in AE2's crafting status screen. Their settings are in `config/ae2declogger.properties`. The README has the details.
 
 ## What's new in 1.5.1
 

@@ -83,6 +83,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Use the mod version from gradle.properties
+        run: echo "VERSION=$(grep '^mod_version=' ../../gradle.properties | cut -d= -f2)" >> "$GITHUB_ENV"
+
       - name: Build
         run: |
           set -o pipefail
@@ -106,6 +109,7 @@ jobs:
         run: |
           ls -la build/libs
           JAR=$(ls build/libs/*.jar | grep -vE -- '-(dev|sources|api)\.jar$' | head -1)
+          case "$JAR" in *"-${VERSION}.jar") ;; *) echo "::error::jar $JAR is not named for version ${VERSION}"; exit 1;; esac
           test -n "$JAR"
           echo "JAR=legacy/${{ matrix.l.name }}/$JAR" >> "$GITHUB_ENV"
           unzip -l "$JAR"
@@ -117,6 +121,8 @@ jobs:
           if [ -n "$BAD" ]; then echo "::error::classes newer than Java 8: $BAD"; exit 1; fi
 
       - uses: actions/upload-artifact@v4
+        # One jar per version (the GregTech run builds the same jar).
+        if: matrix.l.args == ''
         with:
           name: jar-${{ matrix.l.label }}
           path: ${{ env.JAR }}
@@ -498,7 +504,7 @@ jobs:
     name: Publish release
     # Runs for a pushed v* tag, or from Actions > Run workflow with "release" ticked.
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
-    needs: [unit, build, smoke, client-selftest, advanced-ae]
+    needs: [unit, build, smoke, client-selftest, advanced-ae, legacy, legacy-client]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -15,8 +15,11 @@ Built for [Sky Greg](https://www.curseforge.com/minecraft/modpacks/sky-greg) (Gr
 | 1.20.1 | Forge 47.1.3 or newer (built against 47.3.0) | 15.x (built against 15.4.10) | All the Mods 9, Sky Greg |
 | 1.21.1 | NeoForge 21.1 or newer (built against 21.1.256) | 19.x (built against 19.2.18) | All the Mods 10 |
 | 26.1.2 | NeoForge 26.1.2 or newer (built against 26.1.2.114) | 26.1.x (built against 26.1.13-beta) | All the Mods 11 |
+| 1.16.5 | Forge 36.2 or newer (built against 36.2.39) | 8.x (built against 8.4.7) | All the Mods 6 |
+| 1.12.2 | Forge 14.23.5 | AE2 Extended Life (built against 0.56.7) | GregTech CEu packs, Enigmatica 2 |
+| 1.7.10 | Forge 10.13.4 (GT: New Horizons) | AE2 Unofficial, GTNH's AE2 (built against rv3-beta-695) | GT: New Horizons 2.8 |
 
-GregTech CEu Modern is optional on 1.20.1 (built against 7.5.3, the version in Sky Greg). Other versions show GT machines like any other block.
+GregTech CEu Modern is optional on 1.20.1 (built against 7.5.3, the version in Sky Greg). On GT: New Horizons, GregTech 5 machines are read too (see [Older versions](#older-versions-1165-1122-and-gtnh-1710)). Other versions show GT machines like any other block.
 
 Install the jar on both the client and the server. In single player, the client is enough.
 
@@ -28,6 +31,17 @@ Install the jar on both the client and the server. In single player, the client 
 2. Copy it into the `mods` folder of your instance. For Sky Greg in the CurseForge app: right-click the profile, **Open Folder**, then `mods`.
 3. On a server, copy the same jar into the server's `mods` folder too.
 4. Start the game. There is nothing to craft: the Declogger lives inside AE2's own screens.
+
+## Older versions: 1.16.5, 1.12.2 and GTNH 1.7.10
+
+These use AE2's older design (AE2 8, AE2 Extended Life and GTNH's AE2 Unofficial), where ME Interfaces hold the patterns. The Declogger works the same way there, with these differences:
+
+- **Same:** the monitor (Jobs, History, Stats, Pins), the machine viewer, the Declogger button on AE2 terminals and crafting status screens, the **K** hotkey, alerts per network (chat line and bell), Go To and pins with the HUD line, History saved with the world, and the CSV export.
+- **Pattern holders are ME Interfaces.** The reasons read "pattern provider" for the interface: busy, offline, locked (AE2 Extended Life and GTNH), and blocking mode waiting for the machine to empty.
+- **GT: New Horizons:** GregTech 5 machines report their status: switched off, not enough energy, output full, multiblock not formed, maintenance, the last recipe check ("No recipe", "Output full"...), GregTech's shutdown reason, recipe progress and EU. Input buses, input hatches and ME crafting input buffers point at their multiblock controller. Where the Declogger's own check finds only a general reason, it uses the reason GTNH's AE2 recorded for the push.
+- **1.16.5 and 1.12.2:** machines are read through their inventory and energy (FE): full inventory and empty energy buffer. There are no machine integrations yet.
+- **Not on these versions:** the frames and Inspect popup in AE2's crafting status screen, the "Stop navigating" and "Show/hide locator pins" hotkeys, and pop-up toasts for alerts.
+- **Settings** are in `config/ae2declogger.properties`: the same options as the two TOML files below, with the same defaults and ranges.
 
 ## Using it
 
@@ -226,6 +240,16 @@ The code is shared. `src/main/java` holds it, `loaders/<forge|neoforge>` replace
 
 The detection logic has its own Minecraft-free unit tests: `./gradlew :logic-tests:test`.
 
+The older versions are separate Gradle builds under `legacy/` (ForgeGradle 6 for 1.16.5, RetroFuturaGradle for 1.12.2, GTNH's build plugin for 1.7.10), sharing `legacy/src` and the root build's `logic/`:
+
+```
+cd legacy/forge-1.16.5 && ./gradlew build               # same in forge-1.12.2 and gtnh-1.7.10
+./gradlew runServer -PselfTest                           # runs a crafting job through a network on a dev server
+./gradlew runClient -PclientSelfTest                     # draws every screen and saves screenshots (needs a display)
+```
+
+GTNH needs `./gradlew setupCIWorkspace` once first, and `-PdevGregTech=true` adds GregTech 5 to its dev runs. The jar is `legacy/<name>/build/libs/ae2declogger-<loader>-<minecraft version>-<version>.jar`. `legacy/gradle/shared.gradle` explains the layout.
+
 To publish a release, set `mod_version` in `gradle.properties`, then either push a tag `v<version>` or open **Actions → Build and test → Run workflow**, pick the branch and tick **release**. The jar is attached to the GitHub release only after every test job passes.
 
 ## Tests
@@ -249,6 +273,11 @@ Every test below runs on every Minecraft version unless it says otherwise.
 - **Server smoke test**: boots a real dedicated server with the release jar, with AE2 alone, with AE2 and its popular add-ons, and on 1.20.1 with AE2 + GregTech CEu Modern 7.5.3.
 - **Machine integrations on a real server**: with the tech mods above installed (each where it exists for that version), every class and member name each integration reads must exist. One unpowered machine per mod is then placed and must be read by that mod's integration. Where the answer is certain, the reason must be right: a Create machine with no rotation, a basin with nothing above it, an iron furnace with ore and no fuel, an unpowered Mekanism machine.
 - **GregTech check on a real server** (1.20.1): with AE2 and GregTech CEu Modern 7.5.3 installed, a pattern provider feeds an unpowered LV Electric Furnace; the job must show Blocked with "Machine has no power", and the viewer data must include the LV tier, EU storage and the furnace's input/output slots.
+
+- **Older versions** (1.16.5, 1.12.2, GTNH 1.7.10), on a development server and client:
+  - the same server self-test: a two-step job through an interface into a chest must be listed, stall with "Result not coming back" pointing at the chest, show in the machine viewer, then finish and land in History (with its step) from both a test tracker and the background pass; every AE2 field name read by reflection must exist;
+  - GTNH runs it a second time with GregTech 5 installed, and every GregTech name the machine reader uses must exist;
+  - a client self-test draws the monitor (each tab) and the machine viewer with made-up data and saves screenshots.
 
 All of these run in GitHub Actions on every pull request.
 
