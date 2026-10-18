@@ -62,6 +62,7 @@ public final class ClientBoot {
                 return;
             }
             Minecraft mc = Minecraft.getMinecraft();
+            com.syhros.ae2declogger.selftest.ClientSelfTest.tick();
             String world = ClientPlat.worldKey();
             if (world == null ? loadedWorld != null : !world.equals(loadedWorld)) {
                 PinManager.unload();

@@ -51,3 +51,10 @@ tasks.named('runServer').configure {
         systemProperty 'ae2declogger.selfTestExit', 'true'
     }
 }
+
+// -PclientSelfTest: the dev client draws every screen with made-up data, saves screenshots and quits.
+tasks.named('runClient').configure {
+    if (project.hasProperty('clientSelfTest')) {
+        systemProperty 'ae2declogger.clientSelfTest', 'true'
+    }
+}

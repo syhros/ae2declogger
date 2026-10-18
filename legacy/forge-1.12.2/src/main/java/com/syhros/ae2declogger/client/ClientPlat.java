@@ -27,7 +27,9 @@ public final class ClientPlat {
     }
 
     public static void send(byte[] payload) {
-        Channel.sendToServer(payload);
+        if (mc().getConnection() != null) {
+            Channel.sendToServer(payload);
+        }
     }
 
     public static void openScreen(UiScreen screen) {
@@ -86,5 +88,26 @@ public final class ClientPlat {
 
     public static float playerYaw() {
         return mc().player == null ? 0 : mc().player.rotationYaw;
+    }
+
+    // ---------------------------------------------------------------- client self-test
+
+    public static boolean onTitleScreen() {
+        return mc().currentScreen instanceof net.minecraft.client.gui.GuiMainMenu;
+    }
+
+    /** A vanilla item by name ("stone"). */
+    public static com.syhros.ae2declogger.data.LKey item(String name) {
+        return com.syhros.ae2declogger.data.LKey.of(new net.minecraft.item.ItemStack(
+                net.minecraft.item.Item.getByNameOrId("minecraft:" + name)));
+    }
+
+    public static void screenshot(String name) {
+        net.minecraft.util.ScreenShotHelper.saveScreenshot(mc().gameDir, name, mc().displayWidth, mc().displayHeight,
+                mc().getFramebuffer());
+    }
+
+    public static void quit() {
+        mc().shutdown();
     }
 }
