@@ -203,6 +203,15 @@ public final class ServerSelfTest {
                     last = busy ? "job still running" : "letting the background pass catch up";
                     return;
                 }
+                // Every name read by reflection exists in this AE2 (and GregTech, on GTNH) version.
+                for (String name : com.syhros.ae2declogger.server.Ae.names()) {
+                    check(!name.startsWith("missing:"), "AE2 " + name);
+                }
+                for (String name : com.syhros.ae2declogger.compat.Machines.names()) {
+                    check(!name.startsWith("missing:"), "machine reader " + name);
+                }
+                Ae2Declogger.LOG.info("Server self-test: reflected names {} / {}", com.syhros.ae2declogger.server.Ae.names(),
+                        com.syhros.ae2declogger.compat.Machines.names());
                 checkHistory("test tracker", TRACKER.historySince(-1));
                 checkHistory("background pass", DecloggerServer.trackerForTests(grid).historySince(-1));
                 done(checks.isEmpty(), checks.isEmpty() ? "two-step job followed, stalled, finished and recorded"

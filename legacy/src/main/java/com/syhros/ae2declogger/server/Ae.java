@@ -541,7 +541,7 @@ public final class Ae {
     }
 
     /** Names this file reads by reflection; missing ones are listed as "missing:<name>". */
-    static List<String> names() {
+    public static List<String> names() {
         List<String> out = new ArrayList<>(CpuAccess.names());
         out.add(CLUSTERS != null ? "craftingCPUClusters" : "missing:craftingCPUClusters");
         out.add(METHODS != null ? "craftingMethods" : "missing:craftingMethods");

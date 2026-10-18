@@ -52,16 +52,18 @@ jobs:
   legacy:
     # 1.16.5, 1.12.2 and GTNH 1.7.10 are separate Gradle builds under legacy/ (ForgeGradle 6, RetroFuturaGradle and
     # GTNH's convention plugin don't mix with the root build). See legacy/gradle/shared.gradle.
-    name: Build (${{ matrix.l.name }})
+    name: Build (${{ matrix.l.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         l:
-          - { name: forge-1.16.5, mc: 1.16.5, setup: '' }
-          - { name: forge-1.12.2, mc: 1.12.2, setup: '' }
-          - { name: gtnh-1.7.10, mc: 1.7.10, setup: setupCIWorkspace }
+          - { name: forge-1.16.5, label: forge-1.16.5, mc: 1.16.5, setup: '', args: '' }
+          - { name: forge-1.12.2, label: forge-1.12.2, mc: 1.12.2, setup: '', args: '' }
+          - { name: gtnh-1.7.10, label: gtnh-1.7.10, mc: 1.7.10, setup: setupCIWorkspace, args: '' }
+          # The same jar with GregTech 5 in the dev server: the machine reader's names are checked against it.
+          - { name: gtnh-1.7.10, label: gtnh-1.7.10-gregtech, mc: 1.7.10, setup: setupCIWorkspace, args: -PdevGregTech=true }
     defaults:
       run:
         working-directory: legacy/${{ matrix.l.name }}
@@ -84,8 +86,8 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          if [ -n "${{ matrix.l.setup }}" ]; then ./gradlew --no-daemon ${{ matrix.l.setup }}; fi
-          ./gradlew --no-daemon build 2>&1 | tee build.log || {
+          if [ -n "${{ matrix.l.setup }}" ]; then ./gradlew --no-daemon ${{ matrix.l.args }} ${{ matrix.l.setup }}; fi
+          ./gradlew --no-daemon ${{ matrix.l.args }} build 2>&1 | tee build.log || {
             echo "===== compiler errors ====="
             grep -E "error:|FAILED|What went wrong|Could not|Exception" -A 3 build.log | grep -v "^\s*at " | head -400
             exit 1
@@ -96,7 +98,7 @@ jobs:
           mkdir -p run run/server
           echo "eula=true" > run/eula.txt
           echo "eula=true" > run/server/eula.txt
-          timeout 1500 ./gradlew --no-daemon runServer -PselfTest 2>&1 | tee selftest.log || true
+          timeout 1500 ./gradlew --no-daemon ${{ matrix.l.args }} runServer -PselfTest 2>&1 | tee selftest.log || true
           grep -E "AE2 DECLOGGER SERVER SELFTEST" selftest.log || { grep -E "Exception|ERROR|FATAL" selftest.log | head -60; exit 1; }
           grep -q "AE2 DECLOGGER SERVER SELFTEST PASS" selftest.log
 
@@ -116,7 +118,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: jar-${{ matrix.l.name }}
+          name: jar-${{ matrix.l.label }}
           path: ${{ env.JAR }}
           if-no-files-found: error
 
